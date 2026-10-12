@@ -1,0 +1,12 @@
+# Secrets — real SMTP credentials, never commit
+api/mail_config.php
+
+# Uploaded files
+uploads/proofs/
+uploads/disclosures/
+
+# One-time admin seeding script (prints a plaintext password)
+create_admin.php
+
+# Temporary SMTP test script
+test_mail.php
