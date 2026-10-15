@@ -53,17 +53,18 @@ function isAllowedAdminIp(): bool
 
 function unavailablePageMarkup(string $titleId = 'unavailable-title'): string
 {
-    $scriptPath = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php'));
-    $scriptDirectory = rtrim(dirname($scriptPath), '/.');
-    $homePath = ($scriptDirectory !== '' ? $scriptDirectory : '') . '/index.php';
-    $logoPath = ($scriptDirectory !== '' ? $scriptDirectory : '') . '/Barangay San Jose, Biringan City.png';
+    $appUrl = portalConfig()['app_url'];
+    $appUrlIsValid = isAllowedPortalUrl($appUrl);
+    $appPath = $appUrlIsValid ? rtrim((string) parse_url($appUrl, PHP_URL_PATH), '/') : '';
+    $homePath = $appPath . '/index.php';
+    $logoPath = $appPath . '/Barangay San Jose, Biringan City.png';
     $originalPath = (string) ($_SERVER['REDIRECT_URL'] ?? $_SERVER['REQUEST_URI'] ?? '/');
     $originalQuery = (string) ($_SERVER['REDIRECT_QUERY_STRING'] ?? '');
     $attemptedAddress = trim($originalPath . ($originalQuery !== '' && !str_contains($originalPath, '?') ? '?' . $originalQuery : ''));
     $attemptedAddress = preg_replace('/[\x00-\x1F\x7F]/u', '', $attemptedAddress) ?? '/';
     $attemptedAddress = preg_replace('/([?&](?:token|secret|password|key)=)[^&#]*/i', '$1[redacted]', $attemptedAddress) ?? $attemptedAddress;
     $attemptedAddress = substr($attemptedAddress, 0, 500);
-    $publicHome = 'https://barangaysanjose.site/index.php#landing';
+    $publicHome = ($appUrlIsValid ? rtrim($appUrl, '/') : '') . '/index.php#landing';
     $escapedHome = htmlspecialchars($publicHome, ENT_QUOTES, 'UTF-8');
     $escapedAddress = htmlspecialchars($attemptedAddress, ENT_QUOTES, 'UTF-8');
     $reportHref = 'mailto:deleonjuliusakeem@gmail.com?subject=Report%20a%20broken%20link&body=' . rawurlencode('Broken link: ' . $attemptedAddress);
