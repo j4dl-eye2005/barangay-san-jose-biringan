@@ -12,14 +12,43 @@ function isAllowedAdminIp(): bool
 {
     static $allowedIps = null;
     if ($allowedIps === null) {
-        $allowlistFile = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'private_storage' . DIRECTORY_SEPARATOR . 'admin_ip_allowlist.php';
+        $privateStorage = portalConfig()['private_storage'];
+        $allowlistFile = rtrim($privateStorage, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'admin_ip_allowlist.php';
         $configuredIps = is_file($allowlistFile) && is_readable($allowlistFile) ? require $allowlistFile : [];
-        $allowedIps = is_array($configuredIps)
-            ? array_values(array_filter(array_map(static fn($ip): string => trim((string) $ip), $configuredIps), static fn(string $ip): bool => filter_var($ip, FILTER_VALIDATE_IP) !== false))
-            : [];
+        $allowedIps = [];
+        if (is_array($configuredIps)) {
+            foreach ($configuredIps as $entry) {
+                if (!is_string($entry)) continue;
+                $value = trim($entry);
+                if ($value === '') continue;
+
+                $packedIp = @inet_pton($value);
+                if ($packedIp !== false) {
+                    $allowedIps[] = bin2hex($packedIp);
+                    continue;
+                }
+
+                // Resolve configured DDNS names at request time; never trust a hostname supplied by a request.
+                $hostname = strtolower(rtrim($value, '.'));
+                if (strlen($hostname) > 253
+                    || filter_var($hostname, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false
+                    || !function_exists('dns_get_record')) {
+                    continue;
+                }
+                $records = @dns_get_record($hostname, DNS_A | DNS_AAAA);
+                if (!is_array($records)) continue;
+                foreach ($records as $record) {
+                    $recordIp = $record['ip'] ?? $record['ipv6'] ?? '';
+                    $recordPackedIp = is_string($recordIp) ? @inet_pton($recordIp) : false;
+                    if ($recordPackedIp !== false) $allowedIps[] = bin2hex($recordPackedIp);
+                }
+            }
+        }
+        $allowedIps = array_values(array_unique($allowedIps));
     }
     $remoteIp = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
-    return $remoteIp !== '' && in_array($remoteIp, $allowedIps, true);
+    $packedRemoteIp = $remoteIp !== '' ? @inet_pton($remoteIp) : false;
+    return $packedRemoteIp !== false && in_array(bin2hex($packedRemoteIp), $allowedIps, true);
 }
 
 function unavailablePageMarkup(string $titleId = 'unavailable-title'): string
