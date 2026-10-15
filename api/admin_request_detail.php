@@ -2,11 +2,7 @@
 require_once 'db.php';
 header('Content-Type: application/json');
 
-if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'Admin') {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'message' => 'Administrator access required']);
-    exit;
-}
+requireAdminAccess();
 
 $requestId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 if (!$requestId) {
@@ -15,7 +11,8 @@ if (!$requestId) {
     exit;
 }
 
-$stmt = $pdo->prepare("SELECT dr.request_id, dr.tracking_code, dr.purpose, dr.current_status, dr.rejection_reason, dr.created_at,
+$paymentStatusColumn = $pdo->query("SHOW COLUMNS FROM document_request LIKE 'payment_status'")->fetch() ? 'dr.payment_status' : "'Unpaid' AS payment_status";
+$stmt = $pdo->prepare("SELECT dr.request_id, dr.tracking_code, dr.purpose, dr.current_status, " . $paymentStatusColumn . ", dr.rejection_reason, dr.created_at,
         dt.name AS document_type, r.resident_id, r.first_name, r.middle_name, r.last_name, r.email, r.phone_number, r.address
     FROM document_request dr
     JOIN document_type dt ON dt.document_type_id = dr.document_type_id
@@ -28,6 +25,9 @@ if (!$request) {
     echo json_encode(['success' => false, 'message' => 'Request not found']);
     exit;
 }
+
+$viewAudit = $pdo->prepare("INSERT INTO audit_log (user_id, action, details) VALUES (?, 'request_viewed', ?)");
+$viewAudit->execute([$_SESSION['user_id'], 'Request ID ' . $requestId]);
 
 $history = $pdo->prepare("SELECT rsl.status, rsl.notes, rsl.created_at, rsl.updated_by_user_id,
         CASE WHEN u.user_id IS NULL THEN NULL ELSE CONCAT_WS(' ', u.first_name, u.middle_name, u.last_name) END AS admin_name

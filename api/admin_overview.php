@@ -2,11 +2,7 @@
 require_once 'db.php';
 header('Content-Type: application/json');
 
-if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'Admin') {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'message' => 'Administrator access required']);
-    exit;
-}
+requireAdminAccess();
 
 $needsActionRequests = (int) $pdo->query("SELECT COUNT(*) FROM document_request WHERE current_status = 'Approved'")->fetchColumn();
 $pendingResidents = (int) $pdo->query('SELECT COUNT(*) FROM resident WHERE is_active = 0')->fetchColumn();

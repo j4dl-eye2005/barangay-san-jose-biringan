@@ -1,0 +1,7 @@
+<div id="admin-residents-panel" class="admin-panel" role="tabpanel" aria-labelledby="tab-residents" hidden>
+                        <div class="panel-header"><div><p class="eyebrow">Account verification</p><h2>Pending residents</h2><p>Review residency details before granting portal access.</p></div></div>
+                        <div class="card full-width-card table-card admin-table-scroll resident-admin-table-wrap"><table class="admin-table resident-admin-table"><caption class="visually-hidden">Residents awaiting approval</caption><thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Address</th><th scope="col">Proof</th><th scope="col">Registered</th><th scope="col">Actions</th></tr></thead><tbody id="admin-resident-list"></tbody></table></div>
+                        <div id="pending-residents-mobile-list" class="pending-residents-mobile-list" aria-live="polite"></div>
+                        <nav class="activity-pagination resident-pagination" aria-label="Pending resident pages"><span id="resident-page-status">Page 1</span><div><button class="btn-outline" type="button" id="resident-prev" data-action-click="changePendingResidentPage(-1)" disabled>Previous</button><button class="btn-outline" type="button" id="resident-next" data-action-click="changePendingResidentPage(1)" disabled>Next</button></div></nav>
+                    </div>
+                    

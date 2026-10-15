@@ -1,0 +1,88 @@
+/* Guest-facing public header */
+.navbar { position: sticky; top: 0; border-bottom: 1px solid var(--color-border); }
+.brand-link { text-decoration: none; }
+.guest-user-view .logo-text strong { font-size: var(--text-16); }
+.guest-user-view .nav-menu { display: flex; align-items: center; justify-content: flex-end; gap: 24px; font-size: 15px; }
+.guest-user-view .nav-links, .guest-user-view .nav-auth-actions { display: contents; margin: 0; padding: 0; border: 0; }
+.guest-user-view .nav-links > li { display: contents; }
+.guest-user-view .nav-links button, .guest-user-view .nav-login-button { position: relative; display: inline-flex; align-items: center; justify-content: center; height: 40px; min-height: 40px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--color-text); font-family: var(--font-sans); font-size: 15px; font-weight: 600; line-height: 1; text-decoration: none; cursor: pointer; }
+.guest-user-view .nav-links button:hover, .guest-user-view .nav-login-button:hover { border-color: transparent; background: transparent; color: var(--color-accent); }
+.guest-user-view .nav-links button[aria-current="page"] { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: var(--color-accent); font-weight: 800; }
+.guest-user-view .nav-links button[aria-current="page"]::after { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; background: var(--color-accent); content: ""; }
+.nav-auth-actions { display: flex; align-items: center; }
+/* Hide the hamburger-only register button on desktop */
+.nav-register-menu-btn { display: none; }
+.nav-login-button { cursor: pointer; }
+.nav-register-button { display: inline-flex; align-items: center; justify-content: center; height: 36px; min-height: 36px; padding: 0 18px; border: 0; border-radius: var(--radius-control); background: var(--color-accent); color: var(--color-surface); font-family: var(--font-sans); font-weight: 600; line-height: 1; }
+#nav-register-cta { display: none; }
+@media (min-width: 768px) {
+    #nav-register-cta { display: none !important; }
+}
+.guest-user-view .nav-links button, .guest-user-view .nav-login-button, .guest-user-view .nav-register-button, .guest-user-view .nav-register-button * { font-size: 13px !important; }
+.guest-user-view .nav-register-button { font-weight: 600; }
+.nav-login-button:focus-visible, .nav-register-button:focus-visible, .nav-toggle:focus-visible, .nav-links button:focus-visible, .brand-link:focus-visible { outline: 3px solid var(--color-accent-border); outline-offset: 3px; }
+
+@media (max-width: 767px) {
+    .nav-toggle { display: inline-flex; }
+    /* Hide Home only in admin view on mobile */
+    .admin-user-view .nav-home-item { display: none !important; }
+    /* Hide user name everywhere on mobile */
+    #welcome-user { display: none !important; }
+    .dashboard-welcome { display: none; }
+    .nav-menu { display: none; position: fixed; top: var(--topbar-height); left: 0; right: 0; z-index: 1100; width: 100%; max-height: calc(100vh - var(--topbar-height)); align-items: stretch; padding: var(--space-3) var(--space-3-5) var(--space-4); overflow-y: auto; overscroll-behavior: contain; border-bottom: 1px solid var(--color-border); background: var(--color-surface); box-shadow: 0 14px 30px rgba(28, 25, 23, .14); }
+    .nav-menu.open { display: block; }
+    .nav-backdrop { display: none; position: fixed; inset: var(--topbar-height) 0 0; z-index: 1050; background: rgba(28, 25, 23, .45); }
+    .nav-backdrop.open { display: block; }
+    .guest-user-view .nav-menu { display: none; gap: 0; }
+    .guest-user-view .nav-menu.open { display: flex; flex-direction: column; align-items: stretch; gap: 24px; }
+    .nav-links { align-items: stretch; flex-direction: column; gap: var(--space-1); }
+    .nav-links button { width: 100%; min-height: 40px; text-align: left; font-size: 15px; }
+    .guest-user-view .nav-links { align-items: stretch; }
+    .guest-user-view .nav-links button { justify-content: flex-start; }
+    .nav-auth-actions { display: flex; flex-direction: column; gap: 0; margin: var(--space-2) 0 0; padding: var(--space-3) 0 0; border-top: 1px solid var(--color-separator); border-left: 0; }
+    /* Register and Log in — identical style matching nav link items */
+    .nav-register-menu-btn {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        width: 100%;
+        min-height: 44px;
+        height: auto;
+        padding: 10px 12px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--color-ink);
+        font-family: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1.25;
+        text-align: left;
+        cursor: pointer;
+        transition: background-color .14s ease, color .14s ease;
+    }
+    .nav-register-menu-btn:hover { background: var(--color-panel); color: var(--color-accent-hover); }
+    /* Log in — identical style to Register and nav links */
+    .nav-login-button {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        width: 100%;
+        min-height: 44px;
+        height: auto;
+        padding: 10px 12px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--color-ink);
+        font-family: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1.25;
+        text-align: left;
+        cursor: pointer;
+        transition: background-color .14s ease, color .14s ease;
+    }
+    .nav-login-button:hover { background: var(--color-panel); color: var(--color-accent-hover); }
+}
+

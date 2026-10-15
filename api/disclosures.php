@@ -4,8 +4,10 @@ header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $stmt = $pdo->query("
-        SELECT d.*, c.category_name, 
-               da.file_path, da.file_name
+        SELECT d.disclosure_id, d.category_id, d.published_by_user_id, d.title, d.content,
+               d.is_archived, d.timestamp_posted, c.category_name,
+               da.attachment_id, da.file_name,
+               CASE WHEN da.attachment_id IS NULL THEN NULL ELSE CONCAT('api/public_attachment.php?id=', da.attachment_id) END AS file_path
         FROM disclosure d
         JOIN disclosure_category c ON d.category_id = c.category_id
         LEFT JOIN disclosure_attachment da ON d.disclosure_id = da.disclosure_id
@@ -16,20 +18,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 } 
 
 elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'Admin') {
-        http_response_code(403);
-        echo json_encode(['success'=>false, 'message'=>'Administrator access required']);
-        exit;
-    }
+    requireAdminAccess();
 
     try {
-        $title = trim($_POST['title'] ?? '');
-        $content = trim($_POST['content'] ?? '');
-        $categoryId = (int) ($_POST['categoryId'] ?? 1);
+        $title = trim(is_string($_POST['title'] ?? null) ? $_POST['title'] : '');
+        $content = trim(is_string($_POST['content'] ?? null) ? $_POST['content'] : '');
+        $categoryId = filter_var($_POST['categoryId'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         $file = $_FILES['file'] ?? null;
 
-        if (!$title || !$content || !in_array($categoryId, [1, 2, 3, 4], true)) {
-            echo json_encode(['success' => false, 'message' => 'Title, description, and a valid category are required']);
+        $titleLength = function_exists('mb_strlen') ? mb_strlen($title, 'UTF-8') : strlen($title);
+        $contentLength = function_exists('mb_strlen') ? mb_strlen($content, 'UTF-8') : strlen($content);
+        if (!$title || !$content || $titleLength > 120 || $contentLength > 2000 || !in_array($categoryId, [1, 2, 3, 4], true)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Choose a category and enter a title (up to 120 characters) and description (up to 2,000 characters)']);
             exit;
         }
 
@@ -40,17 +41,14 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
-            $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-            $allowedExtensions = ['pdf', 'docx', 'jpg', 'jpeg', 'png'];
-            if (!in_array($extension, $allowedExtensions, true)) {
+            $extension = validateUpload($file, ['pdf' => true, 'docx' => true, 'jpg' => true, 'jpeg' => true, 'png' => true], 5 * 1024 * 1024);
+            if ($extension === null) {
+                http_response_code(400);
                 echo json_encode(['success' => false, 'message' => 'Unsupported attachment file type']);
                 exit;
             }
 
-            $uploadDirectory = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'disclosures';
-            if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory, 0755, true)) {
-                throw new RuntimeException('Unable to create attachment directory');
-            }
+            $uploadDirectory = privateStorageDirectory('disclosures');
 
             $storedName = bin2hex(random_bytes(16)) . '.' . $extension;
             $storedPath = $uploadDirectory . DIRECTORY_SEPARATOR . $storedName;
@@ -58,9 +56,10 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('Unable to save attachment');
             }
 
+            $originalName = preg_replace('/[^A-Za-z0-9._ -]/', '_', basename(str_replace('\\', '/', (string) ($file['name'] ?? ''))));
             $attachment = [
-                'name' => basename($file['name']),
-                'path' => 'uploads/disclosures/' . $storedName,
+                'name' => substr((string) $originalName, 0, 255) ?: 'document.' . $extension,
+                'path' => 'disclosures/' . $storedName,
                 'type' => $extension,
                 'storedPath' => $storedPath
             ];
@@ -82,6 +81,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->commit();
         echo json_encode(['success' => true]);
     } catch (Throwable $e) {
+        error_log('Disclosure create failed: ' . $e->getMessage());
         if ($pdo->inTransaction()) $pdo->rollBack();
         if (!empty($attachment['storedPath']) && is_file($attachment['storedPath'])) unlink($attachment['storedPath']);
         http_response_code(500);
@@ -90,21 +90,22 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-    if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'Admin') {
-        http_response_code(403);
-        echo json_encode(['success'=>false, 'message'=>'Administrator access required']);
-        exit;
-    }
-    $data = json_decode(file_get_contents('php://input'), true) ?? [];
+    requireAdminAccess();
+    $data = jsonBody(12000);
     $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
-    $title = trim($data['title'] ?? '');
-    $content = trim($data['content'] ?? '');
+    $title = trim(is_string($data['title'] ?? null) ? $data['title'] : '');
+    $content = trim(is_string($data['content'] ?? null) ? $data['content'] : '');
     $categoryId = filter_var($data['categoryId'] ?? null, FILTER_VALIDATE_INT);
-    if (!$id || !$title || !$content || !in_array($categoryId, [1, 2, 3, 4], true)) {
+    $titleLength = function_exists('mb_strlen') ? mb_strlen($title, 'UTF-8') : strlen($title);
+    $contentLength = function_exists('mb_strlen') ? mb_strlen($content, 'UTF-8') : strlen($content);
+    if (!$id || !$title || !$content || $titleLength > 120 || $contentLength > 2000 || !in_array($categoryId, [1, 2, 3, 4], true)) {
         http_response_code(400);
-        echo json_encode(['success'=>false, 'message'=>'Title, description, and a valid category are required']);
+        echo json_encode(['success'=>false, 'message'=>'Choose a category and enter a title (up to 120 characters) and description (up to 2,000 characters)']);
         exit;
     }
+    $beforeStmt = $pdo->prepare('SELECT title, content FROM disclosure WHERE disclosure_id = ? AND is_archived = FALSE');
+    $beforeStmt->execute([$id]);
+    $before = $beforeStmt->fetch();
     $stmt = $pdo->prepare('UPDATE disclosure SET category_id = ?, title = ?, content = ? WHERE disclosure_id = ? AND is_archived = FALSE');
     $stmt->execute([$categoryId, $title, $content, $id]);
     if ($stmt->rowCount() === 0) {
@@ -117,17 +118,13 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         }
     }
     $audit = $pdo->prepare('INSERT INTO audit_log (user_id, action, details) VALUES (?, ?, ?)');
-    $audit->execute([$_SESSION['user_id'], 'disclosure_edited', "Disclosure #$id: $title"]);
+    $audit->execute([$_SESSION['user_id'], 'disclosure_edited', json_encode(['disclosure_id' => $id, 'title' => $title, 'before' => $before, 'after' => ['title' => $title, 'content' => $content]], JSON_UNESCAPED_UNICODE)]);
     echo json_encode(['success'=>true]);
 }
 
 elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-    if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'Admin') {
-        http_response_code(403);
-        echo json_encode(['success'=>false, 'message'=>'Administrator access required']);
-        exit;
-    }
-    $data = json_decode(file_get_contents('php://input'), true) ?? [];
+    requireAdminAccess();
+    $data = jsonBody(8192);
     $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
     if (!$id) {
         http_response_code(400);

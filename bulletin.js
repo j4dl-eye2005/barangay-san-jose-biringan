@@ -44,7 +44,7 @@ function renderPosts(items, categoryId) {
         ]);
 
         const safeFilePath = (typeof item.file_path === 'string'
-            && /^uploads\/[\w./-]+$/.test(item.file_path))
+            && /^api\/public_attachment\.php\?id=\d+$/.test(item.file_path))
             ? item.file_path
             : null;
 
@@ -69,7 +69,7 @@ async function loadCategory() {
     const categoryId = Number(new URLSearchParams(window.location.search).get('category'));
     const category = categories[categoryId];
     if (!category) {
-        window.location.href = 'index.html#bulletin';
+        window.location.href = 'index.php#bulletin';
         return;
     }
 

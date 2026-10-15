@@ -1,5 +1,7 @@
 # Secrets — real SMTP credentials, never commit
 api/mail_config.php
+api/global/
+api/local/
 
 # Uploaded files
 uploads/proofs/
@@ -10,3 +12,9 @@ create_admin.php
 
 # Temporary SMTP test script
 test_mail.php
+
+# Runtime secrets and private uploads
+.env
+.env.*
+!*.example
+../barangay_portal_private/
