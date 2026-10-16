@@ -43,16 +43,39 @@ if ($website !== '') {
 
     // Each login context can authenticate only the matching account type.
     if ($context === 'admin') {
-        $stmt = $pdo->prepare("SELECT user_id, first_name, last_name, email, password_hash, role FROM user WHERE email = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT user_id, first_name, last_name, email, password_hash, role, admin_mfa_secret_enc, admin_mfa_enabled_at FROM user WHERE email = ? LIMIT 1");
         $stmt->execute([$email]);
         $user = $stmt->fetch();
 
         if ($user && $user['role'] === 'Admin' && password_verify($password, $user['password_hash'])) {
+            try {
+                adminMfaEncryptionKey();
+            } catch (Throwable $e) {
+                error_log('Admin MFA encryption is unavailable.');
+                http_response_code(503);
+                echo json_encode(['success' => false, 'message' => 'Admin sign-in is temporarily unavailable.']);
+                exit;
+            }
+            $adminEntryAuthorizedAt = (int) ($_SESSION['admin_entry_authorized_at'] ?? 0);
             session_regenerate_id(true);
-            $_SESSION = ['user_id' => $user['user_id'], 'role' => 'Admin', 'fullName' => $user['first_name'] . ' ' . $user['last_name'], '_created_at' => time(), '_last_activity' => time()];
-            $audit = $pdo->prepare('INSERT INTO audit_log (user_id, action, details) VALUES (?, ?, ?)');
-            $audit->execute([$user['user_id'], 'admin_login', 'Admin signed in']);
-            echo json_encode(['success' => true, 'id' => $user['user_id'], 'name' => $_SESSION['fullName'], 'role' => 'Admin']);
+            $_SESSION = [
+                'pending_admin_mfa_user_id' => (int) $user['user_id'],
+                'pending_admin_mfa_expires_at' => time() + 300,
+                'admin_entry_authorized' => true,
+                'admin_entry_authorized_at' => $adminEntryAuthorizedAt,
+                '_created_at' => time(),
+                '_last_activity' => time(),
+            ];
+            if (empty($user['admin_mfa_enabled_at']) || empty($user['admin_mfa_secret_enc'])) {
+                $_SESSION['pending_admin_mfa_setup_secret'] = generateAdminMfaSecret();
+                echo json_encode([
+                    'mfaSetupRequired' => true,
+                    'message' => 'Set up an authenticator app to finish admin sign-in.',
+                    'secret' => $_SESSION['pending_admin_mfa_setup_secret'],
+                ]);
+            } else {
+                echo json_encode(['mfaRequired' => true, 'message' => 'Enter the current code from your authenticator app.']);
+            }
             exit;
         }
         password_verify($password, '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.');

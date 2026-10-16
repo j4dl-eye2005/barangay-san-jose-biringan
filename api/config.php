@@ -68,6 +68,8 @@ function portalConfig(): array
         'from_name'       => $env('MAIL_FROM_NAME') ?: 'Barangay San Jose',
         'recaptcha_site_key' => $env('RECAPTCHA_SITE_KEY'),
         'recaptcha_secret' => $env('RECAPTCHA_SECRET_KEY'),
+        'admin_entry_key' => $env('ADMIN_ENTRY_KEY'),
+        'admin_mfa_encryption_key' => $env('ADMIN_MFA_ENCRYPTION_KEY'),
         'app_url' => rtrim($appUrl, '/'),
         // Keep default uploads outside the Apache document root (htdocs).
         'private_storage' => rtrim($privateStorage, DIRECTORY_SEPARATOR),

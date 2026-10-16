@@ -7,48 +7,121 @@ function appIsHttps(): bool
     return isset($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off' && $_SERVER['HTTPS'] !== '';
 }
 
-/** Return true only when the request came directly from an approved admin IP. */
+/** Admin route access is granted by visiting the configured secret entry URL. */
+function hasAdminEntryAuthorization(): bool
+{
+    $authorizedAt = (int) ($_SESSION['admin_entry_authorized_at'] ?? 0);
+    if (empty($_SESSION['admin_entry_authorized']) || $authorizedAt < 1 || (time() - $authorizedAt) > 12 * 60 * 60) {
+        unset($_SESSION['admin_entry_authorized'], $_SESSION['admin_entry_authorized_at']);
+        return false;
+    }
+    return true;
+}
+
+/** Validate the unguessable entry key and establish a session gate. */
+function authorizeAdminEntry(string $providedKey): bool
+{
+    $expectedKey = portalConfig()['admin_entry_key'];
+    if (strlen($expectedKey) < 32 || strlen($expectedKey) > 128 || strlen($providedKey) !== strlen($expectedKey)) return false;
+    if (!hash_equals($expectedKey, $providedKey)) return false;
+    session_regenerate_id(true);
+    $_SESSION['admin_entry_authorized'] = true;
+    $_SESSION['admin_entry_authorized_at'] = time();
+    return true;
+}
+
+/** Preserve existing call sites while replacing network-IP checks with the secret-route session gate. */
 function isAllowedAdminIp(): bool
 {
-    static $allowedIps = null;
-    if ($allowedIps === null) {
-        $privateStorage = portalConfig()['private_storage'];
-        $allowlistFile = rtrim($privateStorage, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'admin_ip_allowlist.php';
-        $configuredIps = is_file($allowlistFile) && is_readable($allowlistFile) ? require $allowlistFile : [];
-        $allowedIps = [];
-        if (is_array($configuredIps)) {
-            foreach ($configuredIps as $entry) {
-                if (!is_string($entry)) continue;
-                $value = trim($entry);
-                if ($value === '') continue;
+    return hasAdminEntryAuthorization();
+}
 
-                $packedIp = @inet_pton($value);
-                if ($packedIp !== false) {
-                    $allowedIps[] = bin2hex($packedIp);
-                    continue;
-                }
-
-                // Resolve configured DDNS names at request time; never trust a hostname supplied by a request.
-                $hostname = strtolower(rtrim($value, '.'));
-                if (strlen($hostname) > 253
-                    || filter_var($hostname, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false
-                    || !function_exists('dns_get_record')) {
-                    continue;
-                }
-                $records = @dns_get_record($hostname, DNS_A | DNS_AAAA);
-                if (!is_array($records)) continue;
-                foreach ($records as $record) {
-                    $recordIp = $record['ip'] ?? $record['ipv6'] ?? '';
-                    $recordPackedIp = is_string($recordIp) ? @inet_pton($recordIp) : false;
-                    if ($recordPackedIp !== false) $allowedIps[] = bin2hex($recordPackedIp);
-                }
-            }
-        }
-        $allowedIps = array_values(array_unique($allowedIps));
+function adminMfaEncryptionKey(): string
+{
+    $key = portalConfig()['admin_mfa_encryption_key'];
+    if (!preg_match('/^[a-f0-9]{64}$/i', $key)) {
+        throw new RuntimeException('Admin MFA encryption key is not configured.');
     }
-    $remoteIp = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
-    $packedRemoteIp = $remoteIp !== '' ? @inet_pton($remoteIp) : false;
-    return $packedRemoteIp !== false && in_array(bin2hex($packedRemoteIp), $allowedIps, true);
+    return hex2bin($key);
+}
+
+function generateAdminMfaSecret(): string
+{
+    $bytes = random_bytes(20);
+    $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    $buffer = 0;
+    $bits = 0;
+    $encoded = '';
+    for ($i = 0, $length = strlen($bytes); $i < $length; $i++) {
+        $buffer = ($buffer << 8) | ord($bytes[$i]);
+        $bits += 8;
+        while ($bits >= 5) {
+            $bits -= 5;
+            $encoded .= $alphabet[($buffer >> $bits) & 31];
+        }
+        $buffer &= (1 << $bits) - 1;
+    }
+    if ($bits > 0) $encoded .= $alphabet[($buffer << (5 - $bits)) & 31];
+    return $encoded;
+}
+
+function adminMfaSecretBytes(string $secret): string|false
+{
+    $secret = strtoupper(preg_replace('/[\s=-]+/', '', $secret) ?? '');
+    if ($secret === '' || preg_match('/[^A-Z2-7]/', $secret)) return false;
+    $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    $buffer = 0;
+    $bits = 0;
+    $decoded = '';
+    for ($i = 0, $length = strlen($secret); $i < $length; $i++) {
+        $value = strpos($alphabet, $secret[$i]);
+        if ($value === false) return false;
+        $buffer = ($buffer << 5) | $value;
+        $bits += 5;
+        if ($bits >= 8) {
+            $bits -= 8;
+            $decoded .= chr(($buffer >> $bits) & 255);
+        }
+        $buffer &= (1 << $bits) - 1;
+    }
+    return $decoded;
+}
+
+function encryptAdminMfaSecret(string $secret): string
+{
+    $iv = random_bytes(12);
+    $tag = '';
+    $ciphertext = openssl_encrypt($secret, 'aes-256-gcm', adminMfaEncryptionKey(), OPENSSL_RAW_DATA, $iv, $tag);
+    if (!is_string($ciphertext) || strlen($tag) !== 16) throw new RuntimeException('Could not protect admin MFA secret.');
+    return base64_encode($iv . $tag . $ciphertext);
+}
+
+function decryptAdminMfaSecret(string $encoded): string
+{
+    $raw = base64_decode($encoded, true);
+    if (!is_string($raw) || strlen($raw) < 29) throw new RuntimeException('Stored admin MFA secret is invalid.');
+    $secret = openssl_decrypt(substr($raw, 28), 'aes-256-gcm', adminMfaEncryptionKey(), OPENSSL_RAW_DATA, substr($raw, 0, 12), substr($raw, 12, 16));
+    if (!is_string($secret)) throw new RuntimeException('Could not read stored admin MFA secret.');
+    return $secret;
+}
+
+/** Return the accepted 30-second counter and reject previously used codes. */
+function verifyAdminTotp(string $secret, string $code, ?int $lastCounter = null): ?int
+{
+    if (!preg_match('/^\d{6}$/', $code)) return null;
+    $key = adminMfaSecretBytes($secret);
+    if (!is_string($key)) return null;
+    $currentCounter = intdiv(time(), 30);
+    for ($counter = $currentCounter - 1; $counter <= $currentCounter + 1; $counter++) {
+        if ($counter < 0 || ($lastCounter !== null && $counter <= $lastCounter)) continue;
+        $binaryCounter = pack('N2', ($counter >> 32) & 0xffffffff, $counter & 0xffffffff);
+        $hash = hash_hmac('sha1', $binaryCounter, $key, true);
+        $offset = ord($hash[19]) & 0x0f;
+        $value = unpack('N', substr($hash, $offset, 4))[1] & 0x7fffffff;
+        $expected = str_pad((string) ($value % 1000000), 6, '0', STR_PAD_LEFT);
+        if (hash_equals($expected, $code)) return $counter;
+    }
+    return null;
 }
 
 function unavailablePageMarkup(string $titleId = 'unavailable-title'): string
@@ -126,11 +199,11 @@ function denyAdminIpAccess(?bool $asJson = null): void
     exit;
 }
 
-/** Enforce the IP rule and then the normal authenticated-admin requirement. */
+/** Enforce the secret entry gate and then the normal authenticated-admin requirement. */
 function requireAdminAccess(): void
 {
     if (!isAllowedAdminIp()) denyAdminIpAccess(true);
-    if (isset($_SESSION['user_id']) && ($_SESSION['role'] ?? '') === 'Admin') return;
+    if (isset($_SESSION['user_id']) && ($_SESSION['role'] ?? '') === 'Admin' && !empty($_SESSION['admin_mfa_verified_at'])) return;
 
     if (function_exists('logPermissionFailure')) logPermissionFailure();
     http_response_code(403);
@@ -167,10 +240,8 @@ function startAppSession(): void
     ]);
     session_start();
 
-    // Admin sessions are usable only from the allowlisted public IP. Clear an
-    // existing session that arrives from any other address before the request
-    // reaches shared pages or admin-protected API endpoints.
-    if (($_SESSION['role'] ?? '') === 'Admin' && !isAllowedAdminIp()) {
+    // Admin sessions require a recent visit to the configured secret entry URL.
+    if (($_SESSION['role'] ?? '') === 'Admin' && (!isAllowedAdminIp() || empty($_SESSION['admin_mfa_verified_at']))) {
         $GLOBALS['adminIpDeniedThisRequest'] = true;
         $_SESSION = [];
         session_regenerate_id(true);

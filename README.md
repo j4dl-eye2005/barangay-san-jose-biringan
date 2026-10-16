@@ -22,7 +22,9 @@ A PHP and MySQL web portal for resident account registration, document requests,
 
 Admin accounts use the separate administrator login and the `user` database table; resident credentials cannot be used there. To create an administrator, generate a password hash with PHP:
 
-Admin access is also restricted by IP. Add each permitted address to `private_storage/admin_ip_allowlist.php` as a quoted entry, separated by commas. That directory is blocked from direct web access, but PHP reads the allowlist on each request.
+Admin sign-in is available only after visiting the unguessable path configured by `ADMIN_ENTRY_KEY`. Keep that path private and share it only with administrators. The path is an additional barrier; every administrator must still use an Admin account and complete authenticator-app MFA. MFA seeds are encrypted at rest using `ADMIN_MFA_ENCRYPTION_KEY`, which must remain stable and secret.
+
+For an existing database, apply `admin_mfa_migration.sql` once before deploying the MFA-enabled PHP files. On the first sign-in, each administrator must enroll an authenticator app using the displayed setup key and confirm a current 6-digit code. If an administrator loses their authenticator, a database administrator must reset that account's MFA columns before it can be enrolled again.
 
 ```sh
 php -r "echo password_hash('Choose-a-strong-password', PASSWORD_DEFAULT), PHP_EOL;"

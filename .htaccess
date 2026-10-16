@@ -1,4 +1,5 @@
 Options -Indexes
+DirectoryIndex index.php index.html
 ErrorDocument 404 /index.php?error=404
 
 <IfModule mod_rewrite.c>
@@ -49,8 +50,8 @@ ErrorDocument 404 /index.php?error=404
     RewriteRule ^(?:private|private_storage|storage)/ - [F,L,NC]
     RewriteRule ^\.agents(?:/|$) - [F,L,NC]
 
-    # Serve the portal's shared full-screen error for non-existent URLs.
+    # Route unknown paths through PHP; only the configured secret path opens admin login.
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^ index.php?error=404 [L]
+    RewriteRule ^(.+?)/?$ index.php?private_admin_entry=$1 [L,QSA]
 </IfModule>

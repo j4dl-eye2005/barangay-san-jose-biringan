@@ -5,7 +5,7 @@ header('Content-Type: application/json');
 requireAdminAccess();
 
 $needsActionRequests = (int) $pdo->query("SELECT COUNT(*) FROM document_request WHERE current_status = 'Approved'")->fetchColumn();
-$pendingResidents = (int) $pdo->query('SELECT COUNT(*) FROM resident WHERE is_active = 0')->fetchColumn();
+$pendingResidents = (int) $pdo->query('SELECT COUNT(*) FROM resident WHERE is_active = 0 AND email_verified_at IS NOT NULL')->fetchColumn();
 $readyForPickup = (int) $pdo->query("SELECT COUNT(*) FROM document_request WHERE current_status = 'Ready for Pickup'")->fetchColumn();
 $completedThisWeek = (int) $pdo->query("SELECT COUNT(*) FROM request_status_log WHERE status = 'Completed' AND YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)")->fetchColumn();
 $newResidentsThisWeek = (int) $pdo->query("SELECT COUNT(*) FROM resident WHERE YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)")->fetchColumn();

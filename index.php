@@ -5,6 +5,14 @@ startAppSession();
 if (!empty($GLOBALS['adminIpDeniedThisRequest'])) {
     renderUnavailablePage();
 }
+$secretAdminEntry = $_GET['private_admin_entry'] ?? null;
+if ($secretAdminEntry !== null) {
+    if (!is_string($secretAdminEntry) || !authorizeAdminEntry($secretAdminEntry)) {
+        renderUnavailablePage();
+    }
+    header('Location: index.php#admin-login', true, 303);
+    exit;
+}
 $adminIpAllowed = isAllowedAdminIp();
 if (isset($_GET['error']) && $_GET['error'] === '404') renderUnavailablePage();
 if (array_key_exists('verify', $_GET) && (!is_string($_GET['verify']) || !preg_match('/^[a-f0-9]{64}$/i', $_GET['verify']))) {
@@ -59,7 +67,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <link rel="stylesheet" href="css/base.css?v=20261015-performance-queue">
     <link rel="stylesheet" href="css/home.css?v=20261015-performance-queue">
     <link rel="stylesheet" href="css/components.css?v=20261015-performance-queue">
-    <link rel="stylesheet" href="css/auth.css?v=20261015-performance-queue">
+    <link rel="stylesheet" href="css/auth.css?v=20261016-camera-upload">
     <link rel="stylesheet" href="css/admin.css?v=20261015-performance-queue">
     <link rel="stylesheet" href="css/public.css?v=20261015-performance-queue">
     <link rel="stylesheet" href="css/admin-tables.css?v=20261015-performance-queue">
@@ -286,12 +294,24 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         <p class="eyebrow">Administrator access</p>
                         <h1 id="admin-login-title">Admin log in</h1>
                         <p class="form-subtitle">Authorized barangay staff only.</p>
+                        <p class="login-error hidden" id="admin-login-error" role="alert" aria-live="polite"></p>
                         <form id="admin-login-form" data-action-submit="handleAdminLogin(event)">
                             <div class="visually-hidden" aria-hidden="true"><label for="admin-login-website">Leave this field empty</label><input id="admin-login-website" name="website" tabindex="-1" autocomplete="off"></div>
                             <div class="input-group"><label for="admin-login-email">Email address</label><input type="email" id="admin-login-email" maxlength="190" autocomplete="username" placeholder="admin@example.com" required></div>
                             <div class="input-group"><label for="admin-login-password">Password</label><div class="password-field"><input type="password" id="admin-login-password" maxlength="256" autocomplete="current-password" required><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false" data-action-click="togglePassword('admin-login-password', this)"><i class="fas fa-eye" aria-hidden="true"></i></button></div></div>
                             <button type="submit" class="btn-solid full-width mt-3">Log in</button>
                         </form>
+                        <div id="admin-mfa-step" class="hidden" aria-live="polite">
+                            <h2 id="admin-mfa-title">Verify your identity</h2>
+                            <p class="form-subtitle" id="admin-mfa-instructions">Enter the current 6-digit code from your authenticator app.</p>
+                            <div id="admin-mfa-secret-wrap" class="hidden"><p>In your authenticator app, add an account manually using this key. Choose a time-based code (TOTP), 6 digits:</p><p><code id="admin-mfa-secret"></code></p><p>Keep this key private. It will only be shown during setup.</p></div>
+                            <form id="admin-mfa-form" data-action-submit="handleAdminMfaSubmit(event)">
+                                <div class="input-group"><label for="admin-mfa-code">Authenticator code</label><input type="text" id="admin-mfa-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required></div>
+                                <p class="login-error hidden" id="admin-mfa-error" role="alert" aria-live="polite"></p>
+                                <button type="submit" class="btn-solid full-width mt-3" id="admin-mfa-submit">Verify code</button>
+                            </form>
+                            <button type="button" class="text-button mt-3" data-action-click="cancelAdminMfa()">Cancel and return to admin sign-in</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -414,6 +434,10 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                                     <p class="reg-dropzone-label">Drag &amp; drop here, or <span class="reg-dropzone-browse">browse</span></p>
                                     <p class="reg-dropzone-hint">PDF, DOCX, JPG, or PNG · max 5 MB</p>
                                     <input type="file" id="register-proof" name="proof" accept=".pdf,.docx,.jpg,.jpeg,.png" required class="reg-dropzone-input">
+                                </div>
+                                <div class="reg-camera-row">
+                                    <button type="button" class="reg-file-action reg-camera-action" id="register-camera-button"><i class="fas fa-camera" aria-hidden="true"></i> Take a photo with your camera</button>
+                                    <input type="file" id="register-camera" accept="image/*" capture="environment" hidden aria-label="Take a photo of proof of residency">
                                 </div>
                                 <div class="reg-dropzone-preview hidden" id="reg-dropzone-preview">
                                     <span class="reg-file-icon"><i class="fas fa-file-lines" aria-hidden="true"></i></span>
@@ -800,7 +824,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <?php require __DIR__ . '/includes/shared/site-footer.php'; ?>
 
     <?php require __DIR__ . '/includes/shared/dialogs.php'; ?>    <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true">Message</div>
-    <script src="script.js?v=20261015-pagination" defer></script>
+    <script src="script.js?v=20261016-camera-upload" defer></script>
 </body>
 </html>
 

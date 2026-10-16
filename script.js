@@ -97,7 +97,7 @@ const delegatedActionNames = new Set([
     'activateDisclosureCategory', 'changePickupCalendarMonth', 'checkAuthAndRedirect',
     'clearActivityFilters', 'clearDisclosureFile', 'closeAdminRequestDetail', 'closeMobileMenu',
     'closeBulletinDeleteDialog', 'closeModal', 'confirmBulletinDelete', 'exportActivityCsv',
-    'focusContactInfo', 'handleActivityFilterChange', 'handleAdminLogin',
+    'focusContactInfo', 'handleActivityFilterChange', 'handleAdminLogin', 'handleAdminMfaSubmit', 'cancelAdminMfa',
     'handleDisclosureCardKeydown', 'handleLogin', 'handlePickupDateKeydown',
     'handlePostDisclosure', 'handleRegister', 'handleRequest', 'filterAdminRequests', 'loadAdminActivity', 'logout',
     'openDashboard', 'openDisclosureCategory', 'openDisclosureComposer', 'openForgotPassword',
@@ -1315,6 +1315,53 @@ function handleAdminLogin(e) {
     performLogin(email, password, 'admin');
 }
 
+async function handleAdminMfaSubmit(event) {
+    event.preventDefault();
+    const input = document.getElementById('admin-mfa-code');
+    const error = document.getElementById('admin-mfa-error');
+    const button = document.getElementById('admin-mfa-submit');
+    if (error) { error.textContent = ''; error.classList.add('hidden'); }
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    try {
+        const response = await fetch('api/verify_admin_mfa.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: input?.value.trim() || '' })
+        });
+        const data = await response.json();
+        if (data.pageUnavailable) { showSection('page-unavailable'); return; }
+        if (!response.ok || !data.success) throw new Error(data.message || 'We could not verify that code.');
+        currentUser = { id: data.id, name: data.name, role: 'Admin' };
+        document.getElementById('admin-login-form')?.classList.remove('hidden');
+        document.getElementById('admin-mfa-step')?.classList.add('hidden');
+        document.getElementById('admin-login-password').value = '';
+        if (input) input.value = '';
+        updateNavBar();
+        showSection('admin-dashboard');
+    } catch (requestError) {
+        if (error) {
+            error.textContent = requestError.message || 'Unable to verify the code. Try again.';
+            error.classList.remove('hidden');
+        }
+        input?.select();
+    } finally {
+        button.disabled = false;
+        button.removeAttribute('aria-busy');
+    }
+}
+
+async function cancelAdminMfa() {
+    try { await fetch('api/logout.php', { method: 'POST' }); } catch (_) { /* pending MFA expires automatically */ }
+    document.getElementById('admin-mfa-step')?.classList.add('hidden');
+    document.getElementById('admin-mfa-secret-wrap')?.classList.add('hidden');
+    document.getElementById('admin-mfa-secret').textContent = '';
+    document.getElementById('admin-mfa-form')?.reset();
+    document.getElementById('admin-mfa-error')?.classList.add('hidden');
+    document.getElementById('admin-login-form')?.classList.remove('hidden');
+    document.getElementById('admin-login-password')?.focus();
+}
+
 function openForgotPassword(context = 'resident') {
     passwordResetToken = '';
     passwordResetContext = context === 'admin' ? 'admin' : 'resident';
@@ -1445,7 +1492,8 @@ async function performLogin(email, password, context) {
         return;
     }
 
-    const loginError = context === 'resident' ? document.getElementById('login-error') : null;
+    const loginError = document.getElementById(context === 'resident' ? 'login-error' : 'admin-login-error');
+    if (loginError) { loginError.textContent = ''; loginError.classList.add('hidden'); }
     const submitButton = context === 'resident' ? document.getElementById('login-submit') : null;
     if (submitButton) {
         submitButton.disabled = true;
@@ -1474,6 +1522,21 @@ async function performLogin(email, password, context) {
             return;
         }
         if (!res.ok && !data.message) throw new Error(`Login request failed with HTTP ${res.status}`);
+        if (context === 'admin' && (data.mfaRequired || data.mfaSetupRequired)) {
+            document.getElementById('admin-login-form')?.classList.add('hidden');
+            document.getElementById('admin-mfa-step')?.classList.remove('hidden');
+            const setup = Boolean(data.mfaSetupRequired);
+            document.getElementById('admin-mfa-title').textContent = setup ? 'Set up your authenticator' : 'Verify your identity';
+            document.getElementById('admin-mfa-instructions').textContent = setup
+                ? 'Add an account manually in your authenticator app, then enter its current 6-digit code below.'
+                : 'Enter the current 6-digit code from your authenticator app.';
+            document.getElementById('admin-mfa-secret-wrap')?.classList.toggle('hidden', !setup);
+            document.getElementById('admin-mfa-secret').textContent = setup ? String(data.secret || '') : '';
+            document.getElementById('admin-mfa-code').value = '';
+            document.getElementById('admin-mfa-error')?.classList.add('hidden');
+            document.getElementById('admin-mfa-code')?.focus();
+            return;
+        }
         if (data.success) {
             const expectedRole = context === 'admin' ? 'Admin' : 'Resident';
             if (data.role !== expectedRole) {
@@ -1488,6 +1551,9 @@ async function performLogin(email, password, context) {
                 loginError.textContent = data.message === 'Account Pending Verification'
                     ? "Your account is still under review. We'll notify you once it's approved."
                     : (data.message || 'Incorrect email or password.');
+                loginError.classList.remove('hidden');
+            } else if (loginError) {
+                loginError.textContent = data.message || 'Incorrect email or password.';
                 loginError.classList.remove('hidden');
             } else {
                 showToast(data.message || 'Login failed.', 'error');
@@ -1696,9 +1762,23 @@ function openRegisterPolicy(sectionId) {
 function regInitDropzone() {
     const zone = document.getElementById('reg-dropzone');
     const input = document.getElementById('register-proof');
+    const cameraInput = document.getElementById('register-camera');
+    const cameraButton = document.getElementById('register-camera-button');
     if (!zone || !input) return;
 
     input.addEventListener('change', () => regShowPreview(input.files?.[0]));
+    cameraButton?.addEventListener('click', () => cameraInput?.click());
+    cameraInput?.addEventListener('change', async () => {
+        const photo = cameraInput.files?.[0];
+        if (!photo) return;
+        const proofFile = await prepareRegistrationPhoto(photo);
+        cameraInput.value = '';
+        if (!proofFile) return;
+        const transfer = new DataTransfer();
+        transfer.items.add(proofFile);
+        input.files = transfer.files;
+        regShowPreview(proofFile);
+    });
 
     zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
     zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
@@ -1713,6 +1793,46 @@ function regInitDropzone() {
             regShowPreview(file);
         }
     });
+}
+
+async function prepareRegistrationPhoto(photo) {
+    const maxBytes = 5 * 1024 * 1024;
+    if (!photo.type.startsWith('image/')) {
+        showToast('The camera did not return an image. Please try again.', 'error');
+        return null;
+    }
+
+    // Resize/compress camera photos to a supported JPEG so common phone
+    // camera files fit the same 5 MB limit as uploaded proof documents.
+    if (typeof createImageBitmap === 'function') {
+        let bitmap;
+        try {
+            bitmap = await createImageBitmap(photo);
+            const scale = Math.min(1, 1920 / Math.max(bitmap.width, bitmap.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+            canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+            const context = canvas.getContext('2d');
+            if (!context) throw new Error('Photo processing is unavailable.');
+            context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+            for (const quality of [0.84, 0.72, 0.60]) {
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+                if (blob && blob.size <= maxBytes) {
+                    return new File([blob], 'residency-proof.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+                }
+            }
+        } catch (error) {
+            // Fall through to accepting an already-supported, small image.
+        } finally {
+            bitmap?.close();
+        }
+    }
+
+    const extension = photo.name.split('.').pop()?.toLowerCase();
+    if (photo.size <= maxBytes && ['jpg', 'jpeg', 'png'].includes(extension)) return photo;
+    showToast('Could not prepare that photo. Please take another photo or choose a JPG or PNG under 5 MB.', 'error');
+    return null;
 }
 
 function regShowPreview(file) {
@@ -1731,9 +1851,11 @@ function regShowPreview(file) {
 
 function regClearFile() {
     const input = document.getElementById('register-proof');
+    const cameraInput = document.getElementById('register-camera');
     const zone = document.getElementById('reg-dropzone');
     const preview = document.getElementById('reg-dropzone-preview');
     if (input) input.value = '';
+    if (cameraInput) cameraInput.value = '';
     if (zone) zone.classList.remove('hidden');
     if (preview) preview.classList.add('hidden');
 }

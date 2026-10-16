@@ -120,7 +120,7 @@ try {
     ], 'Verify email', $verificationUrl, 'This link expires in 24 hours.');
     $mailError = null;
     $mailQueued = queuePortalEmail($pdo, $email, 'Verify your Barangay San Jose account', $plainMessage, $htmlMessage, $mailError);
-    if (!$mailQueued && !sendPortalEmail($email, 'Verify your Barangay San Jose account', $plainMessage, $mailError, $htmlMessage)) {
+    if (!$mailQueued) {
         // Keep a credential-redacted diagnostic in the database so shared
         // hosting without accessible PHP error logs can still be diagnosed.
         $mailDiagnostic = (string) ($mailError ?? 'Unknown mail error');
@@ -137,7 +137,7 @@ try {
 
         $pdo->prepare('DELETE FROM resident WHERE resident_id = ?')->execute([$residentId]);
         if (is_file($proofDirectory . DIRECTORY_SEPARATOR . $proofName)) unlink($proofDirectory . DIRECTORY_SEPARATOR . $proofName);
-        error_log('Registration verification email failed: ' . ($mailError ?? 'unknown mail error'));
+        error_log('Registration verification email could not be queued: ' . ($mailError ?? 'unknown queue error'));
         http_response_code(503);
         echo json_encode(['success' => false, 'message' => 'Registration could not be completed right now. Please try again later.']);
         exit;

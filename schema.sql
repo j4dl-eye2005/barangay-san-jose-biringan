@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS user (
     email         VARCHAR(190) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     role          VARCHAR(50)  NOT NULL DEFAULT 'Admin',
+    admin_mfa_secret_enc TEXT DEFAULT NULL,
+    admin_mfa_enabled_at DATETIME DEFAULT NULL,
+    admin_mfa_last_counter BIGINT DEFAULT NULL,
     created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
