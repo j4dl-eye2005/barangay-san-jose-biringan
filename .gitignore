@@ -1,0 +1,23 @@
+# Secrets — real SMTP credentials, never commit
+api/mail_config.php
+api/global/
+api/local/
+
+# DATABASE CREDENTIALS — never commit
+api/db.php
+
+# Uploaded files
+uploads/proofs/
+uploads/disclosures/
+
+# One-time admin seeding script (prints a plaintext password)
+create_admin.php
+
+# Temporary SMTP test script
+test_mail.php
+
+# Runtime secrets and private uploads
+.env
+.env.*
+!*.example
+../barangay_portal_private/

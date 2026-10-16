@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f5f8f2">
+    <title>SK Bulletin Board | Barangay San Jose</title>
+    <link rel="stylesheet" href="css/base.css?v=20261015-performance-queue">
+    <link rel="stylesheet" href="css/components.css?v=20261015-performance-queue">
+    <link rel="stylesheet" href="css/auth.css?v=20261015-performance-queue">
+    <link rel="stylesheet" href="css/public.css?v=20261015-performance-queue">
+    <link rel="stylesheet" href="css/shared-responsive.css?v=20261015-performance-queue">
+    <link rel="stylesheet" href="css/admin-responsive.css?v=20261015-performance-queue">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <a class="skip-link" href="#category-main">Skip to main content</a>
+    <nav class="navbar" id="main-nav" aria-label="Primary navigation">
+        <div class="nav-inner">
+            <a class="logo-container" href="index.php#bulletin" aria-label="Return to Barangay San Jose public records">
+                <img src="Barangay San Jose, Biringan City.png" alt="Barangay San Jose seal" class="logo">
+                <span class="logo-text"><strong>Barangay San Jose</strong><span>Digital services and public records</span></span>
+            </a>
+            <div class="category-nav"><a class="nav-return" href="index.php#bulletin">Public Records</a></div>
+        </div>
+    </nav>
+
+    <main class="category-page" id="category-main" tabindex="-1">
+        <a class="back-link" href="index.php#bulletin"><i class="fas fa-arrow-left" aria-hidden="true"></i> All public records</a>
+        <div class="dashboard-header category-header">
+            <div><p class="eyebrow">SK public record</p><h1 id="category-title">SK Bulletin Board</h1><p id="category-description">Public documents and community updates</p></div>
+        </div>
+        <section class="category-posts card" aria-labelledby="category-title" aria-busy="true">
+            <p id="category-status" class="empty-state" role="status">Loading posts...</p>
+            <div id="category-list"></div>
+        </section>
+    </main>
+
+    <aside class="site-disclaimer-bar" aria-label="Site disclaimer">
+        <p class="site-disclaimer"><strong>Disclaimer:</strong> This website is created for demonstration and academic purposes only as part of an SIA subject project. It is not a real company, official service, registered business, or commercial website. No claims are made regarding actual business operations, legal standing, or real-world services.</p>
+    </aside>
+
+    <footer class="site-footer" id="site-footer">
+        <div class="site-footer-inner">
+            <nav class="footer-links" aria-label="Policy links">
+                <a href="index.php#privacy-policy">Privacy Policy</a>
+                <a href="index.php#terms">Terms</a>
+                <a href="index.php#moderation">Moderation</a>
+                <a href="index.php#copyright">Copyright</a>
+            </nav>
+            <p class="site-footer-note">&copy; <span id="bulletin-footer-year"></span> Barangay San Jose. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="bulletin.js?v=20261015-performance-queue" defer></script>
+</body>
+</html>
