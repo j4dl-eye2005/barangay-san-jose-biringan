@@ -2,18 +2,137 @@
 require_once __DIR__ . '/api/security.php';
 enforceRequestSafety();
 startAppSession();
-if (!empty($GLOBALS['adminIpDeniedThisRequest'])) {
-    renderUnavailablePage();
+if ((isset($_SESSION['user_id']) || isset($_SESSION['resident_id'])) && !isset($_POST['admin_entry_submit'])) {
+    // Validate account auth_version before rendering an authenticated shell.
+    require_once __DIR__ . '/api/db.php';
 }
-$secretAdminEntry = $_GET['private_admin_entry'] ?? null;
-if ($secretAdminEntry !== null) {
-    if (!is_string($secretAdminEntry) || !authorizeAdminEntry($secretAdminEntry)) {
-        renderUnavailablePage();
+if (isset($_POST['admin_entry_submit'])) {
+    $providedKey = is_string($_POST['admin_entry_key'] ?? null) ? $_POST['admin_entry_key'] : '';
+    // Verify a valid key before opening MySQL; the entry gate should not
+    // reject valid credentials just because the database is temporarily down.
+    if (authorizeAdminEntry($providedKey)) {
+        header('Location: index.php#admin-login', true, 303);
+        exit;
     }
-    header('Location: index.php#admin-login', true, 303);
+    require_once __DIR__ . '/api/db.php';
+    if (!rateLimit($pdo, 'admin-entry-key', 5, 900)) denyAdminEntryAccess(false);
+    http_response_code(401);
+    $adminAccessError = true;
+}
+if (isset($_GET['admin_access_form'])) {
+    if (!empty($_SESSION['admin_entry_authorized']) && hasAdminEntryAuthorization()) {
+        header('Location: index.php#admin-login', true, 303);
+        exit;
+    }
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: no-store, private');
+    header('Referrer-Policy: no-referrer');
+    $csrf = htmlspecialchars(csrfToken(), ENT_QUOTES, 'UTF-8');
+    $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php'));
+    $appBasePath = rtrim(dirname($scriptName), '/.');
+    $appBasePath = $appBasePath === '' ? '' : $appBasePath;
+    $formAction = htmlspecialchars($appBasePath . '/index.php?admin_access_form=1', ENT_QUOTES, 'UTF-8');
+    $logoUrl = htmlspecialchars($appBasePath . '/Barangay%20San%20Jose%2C%20Biringan%20City.png', ENT_QUOTES, 'UTF-8');
+    $faviconUrl = htmlspecialchars($appBasePath . '/favicon.png?v=20261016-favicon-mint', ENT_QUOTES, 'UTF-8');
+    $baseCssUrl = htmlspecialchars($appBasePath . '/css/base.css?v=20261021-sticky-header-shadow-v1', ENT_QUOTES, 'UTF-8');
+    $homeCssUrl = htmlspecialchars($appBasePath . '/css/home.css?v=20261015-performance-queue', ENT_QUOTES, 'UTF-8');
+    $componentsCssUrl = htmlspecialchars($appBasePath . '/css/components.css?v=20261016-admin-mfa-step', ENT_QUOTES, 'UTF-8');
+    $publicCssUrl = htmlspecialchars($appBasePath . '/css/public.css?v=20261016-sticky-menu-stable', ENT_QUOTES, 'UTF-8');
+    $responsiveCssUrl = htmlspecialchars($appBasePath . '/css/shared-responsive.css?v=20261021-resident-tabs-segmented-v1', ENT_QUOTES, 'UTF-8');
+    $cssUrl = htmlspecialchars($appBasePath . '/css/admin-access.css?v=20261019-compact-shared-header', ENT_QUOTES, 'UTF-8');
+    $portalCssUrl = htmlspecialchars($appBasePath . '/css/portal-public.css?v=20261021-admin-shared-header-v1', ENT_QUOTES, 'UTF-8');
+    $jsUrl = htmlspecialchars($appBasePath . '/admin-access.js?v=20261021-shared-mobile-shell-v1', ENT_QUOTES, 'UTF-8');
+    $adminInitialSection = null;
+    ob_start();
+    require __DIR__ . '/includes/shared/site-header.php';
+    $siteHeaderMarkup = ob_get_clean();
+    $suppressSiteDisclaimer = true;
+    ob_start();
+    require __DIR__ . '/includes/shared/site-footer.php';
+    $siteFooterMarkup = ob_get_clean();
+    $errorHidden = !empty($adminAccessError) ? '' : ' hidden';
+    $errorInvalid = !empty($adminAccessError) ? ' aria-invalid="true"' : '';
+    $year = date('Y');
+    $document = <<<'HTML'
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <meta name="theme-color" content="#f1f6ec">
+    <title>Administrator access | Barangay San Jose Digital Portal</title>
+    <link rel="icon" type="image/png" href="__FAVICON_URL__">
+    <link rel="stylesheet" href="__BASE_CSS_URL__" media="(max-width: 767px)">
+    <link rel="stylesheet" href="__HOME_CSS_URL__" media="(max-width: 767px)">
+    <link rel="stylesheet" href="__COMPONENTS_CSS_URL__" media="(max-width: 767px)">
+    <link rel="stylesheet" href="__PUBLIC_CSS_URL__" media="(max-width: 767px)">
+    <link rel="stylesheet" href="__RESPONSIVE_CSS_URL__" media="(max-width: 767px)">
+    <link rel="stylesheet" href="__CSS_URL__">
+    <link rel="stylesheet" href="__PORTAL_CSS_URL__" media="(max-width: 767px)">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="(max-width: 767px)">
+    <script src="__JS_URL__" defer></script>
+</head>
+<body class="admin-access-page guest-user-view public-portal-view">
+    __HEADER_MARKUP__
+    <div class="access-layout">
+        <main class="split-screen access-stage">
+            <aside class="left-panel" aria-hidden="true">
+                <div class="panel-content">
+                    <img src="__LOGO_URL__" alt="" class="panel-logo">
+                    <span class="badge">Restricted access</span>
+                    <h1>Authorized personnel only.</h1>
+                    <p>Secure access for barangay administration.</p>
+                    <div class="panel-footer">Barangay San Jose · __YEAR__</div>
+                </div>
+            </aside>
+
+            <section class="right-panel" aria-labelledby="access-heading">
+                <a class="back-button" href="__PUBLIC_URL__"><span aria-hidden="true">←</span> Back to home</a>
+                <div class="form-wrapper">
+                    <p class="eyebrow">Restricted area</p>
+                    <h1 id="access-heading">Administrator access</h1>
+                    <p class="form-subtitle">Enter your private access key to continue to administrator sign-in.</p>
+
+                    <form id="admin-access-form" method="post" action="__FORM_ACTION__">
+                        <input type="hidden" name="admin_entry_submit" value="1">
+                        <input type="hidden" name="csrf_token" value="__CSRF__">
+                        <div class="input-group">
+                            <label for="admin-entry-key">Private access key</label>
+                            <div class="password-field">
+                                <input id="admin-entry-key" name="admin_entry_key" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Enter your access key" required aria-describedby="admin-entry-error"__ERROR_INVALID__>
+                                <button class="password-toggle" type="button" id="access-key-toggle" aria-label="Show access key" aria-pressed="false">
+                                    <svg class="eye-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" stroke="currentColor" stroke-width="1.7"></path><circle cx="12" cy="12" r="2.7" stroke="currentColor" stroke-width="1.7"></circle></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <p id="admin-entry-error" class="login-error" role="alert" aria-live="polite"__ERROR_HIDDEN__>Invalid access key.</p>
+                        <button id="admin-access-submit" class="btn-solid full-width mt-3 access-submit" type="submit" disabled>
+                            <span class="submit-label">Continue</span>
+                            <span class="submit-spinner" aria-hidden="true"></span>
+                        </button>
+                        <p class="switch-form">Need help? <a class="text-button" href="__CONTACT_URL__">Contact the barangay office</a></p>
+                    </form>
+                </div>
+            </section>
+        </main>
+    </div>
+    __FOOTER_MARKUP__
+</body>
+</html>
+HTML;
+    $document = str_replace(
+        ['__BASE_CSS_URL__', '__HOME_CSS_URL__', '__COMPONENTS_CSS_URL__', '__PUBLIC_CSS_URL__', '__RESPONSIVE_CSS_URL__', '__CSS_URL__', '__PORTAL_CSS_URL__', '__JS_URL__', '__LOGO_URL__', '__FAVICON_URL__', '__FORM_ACTION__', '__CSRF__', '__ERROR_INVALID__', '__ERROR_HIDDEN__', '__PUBLIC_URL__', '__CONTACT_URL__', '__YEAR__', '__HEADER_MARKUP__', '__FOOTER_MARKUP__'],
+        [$baseCssUrl, $homeCssUrl, $componentsCssUrl, $publicCssUrl, $responsiveCssUrl, $cssUrl, $portalCssUrl, $jsUrl, $logoUrl, $faviconUrl, $formAction, $csrf, $errorInvalid, $errorHidden, htmlspecialchars($appBasePath . '/index.php#landing', ENT_QUOTES, 'UTF-8'), htmlspecialchars($appBasePath . '/index.php#contact-info', ENT_QUOTES, 'UTF-8'), $year, $siteHeaderMarkup, $siteFooterMarkup],
+        $document
+    );
+    echo $document;
     exit;
 }
-$adminIpAllowed = isAllowedAdminIp();
+if (!empty($GLOBALS['adminEntryDeniedThisRequest'])) {
+    renderUnavailablePage();
+}
+$adminEntryAuthorized = hasAdminEntryAuthorization();
 if (isset($_GET['error']) && $_GET['error'] === '404') renderUnavailablePage();
 if (array_key_exists('verify', $_GET) && (!is_string($_GET['verify']) || !preg_match('/^[a-f0-9]{64}$/i', $_GET['verify']))) {
     renderUnavailablePage();
@@ -31,11 +150,13 @@ if (isset($_GET['verify']) && preg_match('/^[a-f0-9]{64}$/i', $_GET['verify'])) 
 }
 $resetToken = '';
 $resetContext = 'resident';
+$resetReturnToProfile = false;
 if (isset($_GET['reset']) && preg_match('/^[a-f0-9]{64}$/i', $_GET['reset'])) {
     $resetToken = strtolower($_GET['reset']);
     $resetContext = isset($_GET['context']) && $_GET['context'] === 'admin' ? 'admin' : 'resident';
+    $resetReturnToProfile = isset($_GET['return']) && $_GET['return'] === 'profile';
 }
-if ($resetContext === 'admin' && !$adminIpAllowed) {
+if ($resetContext === 'admin' && !$adminEntryAuthorized) {
     renderUnavailablePage();
 }
 $adminInitialSection = $adminInitialSection ?? null;
@@ -53,8 +174,10 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#f5f8f2">
+    <meta name="csrf-token" content="<?= htmlspecialchars(csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
     <meta name="recaptcha-site-key" content="<?= htmlspecialchars($recaptchaSiteKey, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="recaptcha-local-bypass" content="<?= $localCaptchaBypass ? 'true' : 'false' ?>">
+    <link rel="icon" type="image/png" href="favicon.png?v=20261016-favicon-mint">
     <?php if (!$localCaptchaBypass): ?><script src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&amp;render=explicit" defer></script><?php endif; ?>
     <?php if ($verifyToken !== ''): ?>
     <meta name="email-verify-token" content="<?= htmlspecialchars($verifyToken, ENT_QUOTES, 'UTF-8') ?>">
@@ -62,21 +185,24 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <?php if ($resetToken !== ''): ?>
     <meta name="password-reset-token" content="<?= htmlspecialchars($resetToken, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="password-reset-context" content="<?= htmlspecialchars($resetContext, ENT_QUOTES, 'UTF-8') ?>">
+    <meta name="password-reset-return-to-profile" content="<?= $resetReturnToProfile ? 'true' : 'false' ?>">
     <?php endif; ?>
     <title>Barangay San Jose Digital Portal</title>
-    <link rel="stylesheet" href="css/base.css?v=20261015-performance-queue">
-    <link rel="stylesheet" href="css/home.css?v=20261015-performance-queue">
-    <link rel="stylesheet" href="css/components.css?v=20261015-performance-queue">
-    <link rel="stylesheet" href="css/auth.css?v=20261016-camera-upload">
-    <link rel="stylesheet" href="css/admin.css?v=20261015-performance-queue">
-    <link rel="stylesheet" href="css/public.css?v=20261015-performance-queue">
-    <link rel="stylesheet" href="css/admin-tables.css?v=20261015-performance-queue">
-    <link rel="stylesheet" href="css/shared-responsive.css?v=20261015-performance-queue">
-    <link rel="stylesheet" href="css/admin-responsive.css?v=20261015-performance-queue">
+    <link rel="stylesheet" href="css/base.css?v=20261021-sticky-header-shadow-v1">
+    <link rel="stylesheet" href="css/home.css?v=20261019-portal-hero">
+    <link rel="stylesheet" href="css/components.css?v=20261017-direct-password-change">
+    <link rel="stylesheet" href="css/auth.css?v=20261018-admin-profile-workspace">
+    <link rel="stylesheet" href="css/admin.css?v=20261018-sitewide-consistency">
+    <link rel="stylesheet" href="css/public.css?v=20261016-sticky-menu-stable">
+    <link rel="stylesheet" href="css/admin-tables.css?v=20261018-sitewide-consistency">
+    <link rel="stylesheet" href="css/shared-responsive.css?v=20261021-resident-tabs-segmented-v1">
+    <link rel="stylesheet" href="css/admin-responsive.css?v=20261018-staff-mfa-six-box-layout">
+    <link rel="stylesheet" href="css/unavailable.css?v=20261021-404-header-container-v2">
+    <link rel="stylesheet" href="css/portal-public.css?v=20261021-admin-shared-header-v1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body data-initial-admin-section="<?= htmlspecialchars((string) $adminInitialSection, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>" data-entry-route="<?= $verifyToken !== '' ? 'verification' : ($resetToken !== '' ? 'password-reset' : '') ?>" data-admin-ip-allowed="<?= $adminIpAllowed ? '1' : '0' ?>">
-    <script src="route-boot.js?v=20261015-performance-queue"></script>
+<body data-initial-admin-section="<?= htmlspecialchars((string) $adminInitialSection, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>" data-entry-route="<?= $verifyToken !== '' ? 'verification' : ($resetToken !== '' ? 'password-reset' : '') ?>" data-admin-entry-authorized="<?= $adminEntryAuthorized ? '1' : '0' ?>">
+    <script src="route-boot.js?v=20261021-shared-mobile-shell-v1"></script>
     <a class="skip-link" href="#app-container">Skip to main content</a>
 
     <?php require __DIR__ . '/includes/shared/site-header.php'; ?>
@@ -86,105 +212,121 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
 
             <div class="hero">
                 <div class="hero-intro">
-                    <h1 id="landing-title">Get your barangay documents <span class="accent-text">online</span></h1>
-                    <p class="description">Request certificates and clearances, track your application, and read public barangay records — all in one place.</p>
-                    <div class="hero-buttons" id="hero-guest-actions">
-                        <button class="btn-solid" type="button" data-action-click="checkAuthAndRedirect('register')"><i class="fas fa-user-plus" aria-hidden="true"></i> Register as a resident</button>
-                        <button class="btn-outline btn-secondary" type="button" data-action-click="checkAuthAndRedirect('request')"><i class="fas fa-arrow-right-to-bracket" aria-hidden="true"></i> Log in to request</button>
-                    </div>
-                    <p class="hero-privacy" id="hero-guest-helper"><i class="fas fa-lock" aria-hidden="true"></i> <span>Your data is protected under RA&nbsp;10173. <button class="hero-privacy-link" type="button" data-action-click="showSection('privacy-policy')">Read our privacy notice</button></span></p>
-                    <div class="hero-buttons hidden" id="hero-user-actions">                        <button class="btn-solid" type="button" data-action-click="openDashboard()"><i class="fas fa-gauge" aria-hidden="true"></i> Go to my dashboard</button>
-                        <button class="btn-outline btn-secondary" type="button" data-action-click="showSection('bulletin')"><i class="fas fa-bullhorn" aria-hidden="true"></i> View public records</button>
+                    <h1 id="landing-title"><span class="hero-title-line">Welcome to</span> <span class="hero-title-line">Barangay San Jose</span></h1>
+                    <p class="description"><span class="hero-description-line">Request barangay documents, track</span> <span class="hero-description-line">your application, and read public</span> <span class="hero-description-line">records published by the barangay.</span></p>
+                    <form class="hero-search" role="search" data-action-submit="portalSearch(this); return false">
+                        <label class="visually-hidden" for="hero-search-input">Search for documents or public records</label>
+                        <i class="fas fa-search" aria-hidden="true"></i>
+                        <input id="hero-search-input" name="query" type="search" autocomplete="off" placeholder="Search for documents or public records">
+                    </form>
+                    <div class="hero-document-chips" aria-label="Quick document requests">
+                        <button type="button" data-action-click="requestDoc('Barangay Clearance')">Barangay Clearance</button>
+                        <button type="button" data-action-click="requestDoc('Certificate of Residency')">Certificate of Residency</button>
+                        <button type="button" data-action-click="requestDoc('Barangay Business Clearance')">Business Clearance</button>
                     </div>
                 </div>
 
-                <aside class="hero-steps-card" aria-labelledby="hero-steps-title">
-                    <p class="eyebrow">Getting started</p>
-                    <h2 id="hero-steps-title">Request a document in three steps</h2>
-                    <ol class="inline-steps">
-                        <li class="inline-step">
-                            <span class="step-badge">1</span>
-                            <div>
-                                <strong>Create your account</strong>
-                                <p>Register and upload proof of residency for verification.</p>
-                            </div>
-                        </li>
-                        <li class="inline-step">
-                            <span class="step-badge">2</span>
-                            <div>
-                                <strong>Submit a request</strong>
-                                <p>Choose the document you need and tell us the purpose.</p>
-                            </div>
-                        </li>
-                        <li class="inline-step">
-                            <span class="step-badge">3</span>
-                            <div>
-                                <strong>Track and collect</strong>
-                                <p>Follow your request status online and get notified when it's ready.</p>
-                            </div>
-                        </li>
-                    </ol>
+                <aside class="hero-popular-services" aria-labelledby="popular-services-title">
+                    <h2 id="popular-services-title">Popular services</h2>
+                    <div class="popular-services-grid">
+                        <button type="button" data-action-click="checkAuthAndRedirect('request')"><span class="popular-service-icon"><i class="fas fa-file-circle-plus" aria-hidden="true"></i></span><span>Request a document</span></button>
+                        <button type="button" data-action-click="checkAuthAndRedirect('request')"><span class="popular-service-icon"><i class="fas fa-clock-rotate-left" aria-hidden="true"></i></span><span>Track my requests</span></button>
+                        <button type="button" data-action-click="showSection('bulletin')"><span class="popular-service-icon"><i class="fas fa-folder-open" aria-hidden="true"></i></span><span>Public records</span></button>
+                        <button type="button" data-action-click="openDashboard()"><span class="popular-service-icon"><i class="fas fa-user" aria-hidden="true"></i></span><span>My account</span></button>
+                    </div>
+                    <button class="view-all-services" type="button" data-action-click="showHomeAnchor('services')">View all services <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
                 </aside>
+                <p class="hero-privacy"><span>Your data is protected under RA&nbsp;10173. <button class="hero-privacy-link" type="button" data-action-click="showSection('privacy-policy')">Read our privacy notice.</button></span></p>
             </div>
 
-            <section class="how-it-works" aria-labelledby="how-it-works-title">
+            <section class="how-it-works" id="services" aria-labelledby="how-it-works-title">
                 <p class="eyebrow">Documents you can request</p>
                 <h2 id="how-it-works-title">Available at Barangay San Jose</h2>
                 <p class="doc-strip-note">Most documents are ready in 1–3 working days. Pick up at Barangay Hall, Mon–Fri, 8&nbsp;am–5&nbsp;pm.</p>
                 <ol class="steps-strip doc-strip" role="list">
                     <li class="step-item doc-item">
                         <button class="doc-card-btn" type="button" data-action-click="requestDoc('Barangay Clearance')" aria-label="Request Barangay Clearance">
-                            <span class="doc-item-fee">₱50</span>
+                            <span class="doc-item-fee">Fee: ₱50</span>
                             <h3>Barangay Clearance</h3>
                             <p>General-purpose clearance for employment, business, or personal use.</p>
-                            <span class="doc-item-action">Request <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
+                            <span class="doc-item-action">Start request <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
                         </button>
                     </li>
                     <li class="step-item doc-item">
                         <button class="doc-card-btn" type="button" data-action-click="requestDoc('Certificate of Residency')" aria-label="Request Certificate of Residency">
-                            <span class="doc-item-fee">₱50</span>
+                            <span class="doc-item-fee">Fee: ₱50</span>
                             <h3>Certificate of Residency</h3>
                             <p>Confirms you are a registered resident of Barangay San Jose.</p>
-                            <span class="doc-item-action">Request <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
+                            <span class="doc-item-action">Start request <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
                         </button>
                     </li>
                     <li class="step-item doc-item">
                         <button class="doc-card-btn" type="button" data-action-click="requestDoc('Certificate of Indigency')" aria-label="Request Certificate of Indigency">
-                            <span class="doc-item-fee free">Free</span>
+                            <span class="doc-item-fee free">No fee</span>
                             <h3>Certificate of Indigency</h3>
                             <p>For residents who need proof of financial need for government programs.</p>
-                            <span class="doc-item-action">Request <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
+                            <span class="doc-item-action">Start request <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
                         </button>
                     </li>
                     <li class="step-item doc-item">
                         <button class="doc-card-btn" type="button" data-action-click="requestDoc('Barangay Business Clearance')" aria-label="Request Barangay Business Clearance">
-                            <span class="doc-item-fee">₱200</span>
+                            <span class="doc-item-fee">Fee: ₱200</span>
                             <h3>Barangay Business Clearance</h3>
                             <p>Barangay-level clearance required before applying for a city business permit.</p>
-                            <span class="doc-item-action">Request <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
+                            <span class="doc-item-action">Start request <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
                         </button>
                     </li>
                 </ol>
                 <div class="mobile-carousel-dots" id="doc-carousel-dots" role="group" aria-label="Document cards"></div>
+                <div class="document-finder" aria-labelledby="document-finder-title">
+                    <div class="document-finder-intro">
+                        <h3 id="document-finder-title">Not sure which document you need?</h3>
+                        <p>Choose what you need it for to see a suggested match.</p>
+                    </div>
+                    <label class="visually-hidden" for="document-finder-purpose">What do you need the document for?</label>
+                    <select id="document-finder-purpose" data-action-change="updateLandingDocumentFinder(this)">
+                        <option value="">Choose a purpose</option>
+                        <option value="general">Employment, business, or personal use</option>
+                        <option value="residency">Confirm that I live in Barangay San Jose</option>
+                        <option value="indigency">Show financial need for a government program</option>
+                        <option value="business">Apply for a city business permit</option>
+                    </select>
+                    <div class="document-finder-result" id="document-finder-result" role="status" aria-live="polite" hidden>
+                        <div class="document-finder-result-inner" id="document-finder-result-inner"></div>
+                    </div>
+                </div>
+                <div class="portal-service-guide">
+                    <section class="getting-started-section" aria-labelledby="getting-started-title">
+                        <div class="getting-started-card">
+                            <p class="eyebrow">Getting started</p>
+                            <h2 id="getting-started-title">Request a document in three steps</h2>
+                            <ol class="inline-steps">
+                                <li class="inline-step"><span class="step-badge">1</span><div><strong>Create your account</strong><p>Create an account and verify your email.</p></div></li>
+                                <li class="inline-step"><span class="step-badge">2</span><div><strong>Submit a request</strong><p>Choose the document you need and tell us the purpose.</p></div></li>
+                                <li class="inline-step"><span class="step-badge">3</span><div><strong>Track and collect</strong><p>Follow your request status online and get notified when it's ready.</p></div></li>
+                            </ol>
+                        </div>
+                    </section>
 
-                <p class="eyebrow service-strip-label">More from the barangay</p>
-                <nav class="service-strip" aria-label="Quick links to portal services">
-                    <button class="service-card service-card-ghost" type="button" data-action-click="checkAuthAndRedirect('request')">
-                        <span class="service-icon"><i class="fas fa-clock-rotate-left" aria-hidden="true"></i></span>
-                        <span class="service-body"><strong>Track a request</strong><p>Check the status of your application.</p></span>
-                        <i class="fas fa-arrow-right service-arrow" aria-hidden="true"></i>
-                    </button>
-                    <button class="service-card service-card-ghost" type="button" data-action-click="showSection('bulletin')">
-                        <span class="service-icon"><i class="fas fa-folder-open" aria-hidden="true"></i></span>
-                        <span class="service-body"><strong>Public records</strong><p>Sangguniang Kabataan (SK) notices, reports, and minutes.</p></span>
-                        <i class="fas fa-arrow-right service-arrow" aria-hidden="true"></i>
-                    </button>
-                    <button class="service-card service-card-ghost" type="button" data-action-click="focusContactInfo()">
-                        <span class="service-icon"><i class="fas fa-headset" aria-hidden="true"></i></span>
-                        <span class="service-body"><strong>Help &amp; contact</strong><p>Office hours, location, and how to reach us.</p></span>
-                        <i class="fas fa-arrow-right service-arrow" aria-hidden="true"></i>
-                    </button>
-                </nav>
+                    <p class="eyebrow service-strip-label">More from the barangay</p>
+                    <nav class="service-strip" aria-label="Quick links to portal services">
+                        <button class="service-card service-card-ghost" type="button" data-action-click="checkAuthAndRedirect('request')">
+                            <span class="service-icon"><i class="fas fa-clock-rotate-left" aria-hidden="true"></i></span>
+                            <span class="service-body"><strong>Track a request</strong><p>Check the status of your application.</p></span>
+                            <i class="fas fa-arrow-right service-arrow" aria-hidden="true"></i>
+                        </button>
+                        <button class="service-card service-card-ghost" type="button" data-action-click="showSection('bulletin')">
+                            <span class="service-icon"><i class="fas fa-folder-open" aria-hidden="true"></i></span>
+                            <span class="service-body"><strong>Public records</strong><p>Sangguniang Kabataan (SK) notices, reports, and minutes.</p></span>
+                            <i class="fas fa-arrow-right service-arrow" aria-hidden="true"></i>
+                        </button>
+                        <button class="service-card service-card-ghost" type="button" data-action-click="focusContactInfo()">
+                            <span class="service-icon"><i class="fas fa-headset" aria-hidden="true"></i></span>
+                            <span class="service-body"><strong>Help &amp; contact</strong><p>Office hours, location, and how to reach us.</p></span>
+                            <i class="fas fa-arrow-right service-arrow" aria-hidden="true"></i>
+                        </button>
+                    </nav>
+                </div>
             </section>
 
             <div class="landing-sections">
@@ -221,22 +363,115 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
 
         <section id="bulletin" class="section" aria-labelledby="bulletin-title">
             <div class="page-shell">
+                <div class="bulletin-intro-panel">
+                <nav class="bulletin-breadcrumb" aria-label="Breadcrumb">
+                    <button type="button" data-action-click="showSection('landing')">Home</button>
+                    <span aria-hidden="true">/</span>
+                    <span>Public Records</span>
+                    <span aria-hidden="true">/</span>
+                    <span id="bulletin-breadcrumb-current" aria-current="page">SK Public Bulletin Board</span>
+                </nav>
                 <div class="dashboard-header">
                     <div>
-                        <p class="eyebrow">Transparency center</p>
-                        <h1 id="bulletin-title">SK Public Bulletin Board</h1>
-                        <p>Browse official announcements, financial records, projects, and meeting minutes.</p>
+                        <button class="back-link bulletin-category-back" id="bulletin-category-back" type="button" data-action-click="showBulletinOverview()" hidden><i class="fas fa-arrow-left" aria-hidden="true"></i> All public records</button>
+                        <p class="eyebrow" id="bulletin-eyebrow">Transparency center</p>
+                        <div class="bulletin-title-row">
+                            <h1 id="bulletin-title">SK Public Bulletin Board</h1>
+                            <img src="assets/Sangguniang_Kabataan_logo.svg" alt="Sangguniang Kabataan" class="bulletin-sk-logo">
+                        </div>
+                        <p id="bulletin-description">Browse official announcements, financial records, projects, and meeting minutes.</p>
                     </div>
                     <div id="bulletin-admin-action" class="hidden bulletin-admin-action">
                         <button class="btn-solid" type="button" data-action-click="openDisclosureComposer()"><i class="fas fa-paperclip" aria-hidden="true"></i> Add bulletin document</button>
                     </div>
                 </div>
-                <div class="dashboard-grid bulletin-grid">
-                    <article class="card bulletin-card" id="bulletin-card-1" role="link" tabindex="0" aria-label="View Announcements" data-action-click="activateDisclosureCategory(event, 1)" data-action-keydown="handleDisclosureCardKeydown(event, 1)"><button class="category-heading" data-action-click="openDisclosureCategory(1)" type="button"><span><i class="fas fa-bullhorn" aria-hidden="true"></i> Announcements</span><i class="fas fa-arrow-right" aria-hidden="true"></i></button><ul class="bulletin-list" id="list-1"><li><p class="empty-state">No items yet.</p></li></ul></article>
-                    <article class="card bulletin-card" id="bulletin-card-2" role="link" tabindex="0" aria-label="View Financial Reports" data-action-click="activateDisclosureCategory(event, 2)" data-action-keydown="handleDisclosureCardKeydown(event, 2)"><button class="category-heading" data-action-click="openDisclosureCategory(2)" type="button"><span><i class="fas fa-chart-pie" aria-hidden="true"></i> Financial Reports</span><i class="fas fa-arrow-right" aria-hidden="true"></i></button><ul class="bulletin-list" id="list-2"><li><p class="empty-state">No items yet.</p></li></ul></article>
-                    <article class="card bulletin-card" id="bulletin-card-3" role="link" tabindex="0" aria-label="View Projects and Budget" data-action-click="activateDisclosureCategory(event, 3)" data-action-keydown="handleDisclosureCardKeydown(event, 3)"><button class="category-heading" data-action-click="openDisclosureCategory(3)" type="button"><span><i class="fas fa-project-diagram" aria-hidden="true"></i> Projects &amp; Budget</span><i class="fas fa-arrow-right" aria-hidden="true"></i></button><ul class="bulletin-list" id="list-3"><li><p class="empty-state">No items yet.</p></li></ul></article>
-                    <article class="card bulletin-card" id="bulletin-card-4" role="link" tabindex="0" aria-label="View Meeting Minutes" data-action-click="activateDisclosureCategory(event, 4)" data-action-keydown="handleDisclosureCardKeydown(event, 4)"><button class="category-heading" data-action-click="openDisclosureCategory(4)" type="button"><span><i class="fas fa-file-alt" aria-hidden="true"></i> Meeting Minutes</span><i class="fas fa-arrow-right" aria-hidden="true"></i></button><ul class="bulletin-list" id="list-4"><li><p class="empty-state">No items yet.</p></li></ul></article>
+                <div class="public-records-search" id="public-records-search">
+                    <form role="search" data-action-submit="searchPublicRecords(this); return false">
+                        <label class="visually-hidden" for="public-records-search-input">Search public records and document names</label>
+                        <i class="fas fa-search" aria-hidden="true"></i>
+                        <input id="public-records-search-input" name="query" type="search" autocomplete="off" enterkeyhint="search" placeholder="Search public records and document names">
+                        <button class="public-records-search-clear" type="button" aria-label="Clear search" hidden data-action-click="clearPublicRecordsSearchInput()"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+                        <button type="submit" aria-label="Search"><i class="fas fa-magnifying-glass" aria-hidden="true"></i><span>Search</span></button>
+                    </form>
+                    <p id="public-records-search-summary" aria-live="polite"></p>
                 </div>
+                <section class="public-records-search-results" id="public-records-search-results" aria-live="polite" hidden></section>
+
+                <section class="bulletin-latest-section" aria-labelledby="bulletin-latest-title" id="bulletin-latest-section">
+                    <div class="bulletin-section-heading">
+                        <div>
+                            <h2 id="bulletin-latest-title">Latest Announcements</h2>
+                        </div>
+                        <button type="button" class="bulletin-text-link" data-action-click="openDisclosureCategory(1)">All announcements <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+                    </div>
+                    <div class="bulletin-latest-grid" id="bulletin-latest-list" aria-live="polite" aria-busy="true" style="--bulletin-latest-columns: 2">
+                        <article class="bulletin-announcement-card bulletin-announcement-skeleton" aria-hidden="true"><span class="bulletin-announcement-skeleton-bar bulletin-announcement-skeleton-badge"></span><span class="bulletin-announcement-skeleton-bar bulletin-announcement-skeleton-title"></span><span class="bulletin-announcement-skeleton-bar bulletin-announcement-skeleton-date"></span><div class="bulletin-announcement-skeleton-summary"><span class="bulletin-announcement-skeleton-bar"></span><span class="bulletin-announcement-skeleton-bar"></span><span class="bulletin-announcement-skeleton-bar"></span></div><span class="bulletin-announcement-skeleton-bar bulletin-announcement-skeleton-link"></span></article>
+                        <article class="bulletin-announcement-card bulletin-announcement-skeleton" aria-hidden="true"><span class="bulletin-announcement-skeleton-bar bulletin-announcement-skeleton-badge"></span><span class="bulletin-announcement-skeleton-bar bulletin-announcement-skeleton-title"></span><span class="bulletin-announcement-skeleton-bar bulletin-announcement-skeleton-date"></span><div class="bulletin-announcement-skeleton-summary"><span class="bulletin-announcement-skeleton-bar"></span><span class="bulletin-announcement-skeleton-bar"></span><span class="bulletin-announcement-skeleton-bar"></span></div><span class="bulletin-announcement-skeleton-bar bulletin-announcement-skeleton-link"></span></article>
+                    </div>
+                </section>
+                </div>
+
+                <div class="bulletin-overview-content" id="bulletin-overview-content">
+                    <section class="bulletin-archive-section" aria-labelledby="bulletin-archive-title">
+                        <div class="bulletin-section-heading bulletin-archive-heading">
+                            <div>
+                                <p class="eyebrow">Official records</p>
+                                <h2 id="bulletin-archive-title">Browse Public Records</h2>
+                            </div>
+                        </div>
+                        <div class="bulletin-grid" id="bulletin-category-filters" role="group" aria-label="Filter public records by category">
+                            <button class="bulletin-filter-card is-active" type="button" data-bulletin-filter="all" aria-pressed="true" data-action-click="setBulletinFilter('all')">
+                                <span class="bulletin-filter-icon"><i class="fas fa-folder-open" aria-hidden="true"></i></span>
+                                <span class="bulletin-filter-copy"><strong>All Records</strong><small>Browse the full archive</small></span>
+                                <span class="bulletin-filter-count" id="bulletin-count-all">—</span>
+                            </button>
+                            <button class="bulletin-filter-card" type="button" data-bulletin-filter="1" aria-pressed="false" data-action-click="setBulletinFilter(1)">
+                                <span class="bulletin-filter-icon"><i class="fas fa-bullhorn" aria-hidden="true"></i></span>
+                                <span class="bulletin-filter-copy"><strong>Announcements</strong><small data-default-subtitle="Notices and community updates">Notices and community updates</small></span>
+                                <span class="bulletin-filter-count" id="bulletin-count-1">—</span>
+                            </button>
+                            <button class="bulletin-filter-card" type="button" data-bulletin-filter="2" aria-pressed="false" data-action-click="setBulletinFilter(2)">
+                                <span class="bulletin-filter-icon"><i class="fas fa-chart-pie" aria-hidden="true"></i></span>
+                                <span class="bulletin-filter-copy"><strong>Financial Reports</strong><small data-default-subtitle="Published financial records">Published financial records</small></span>
+                                <span class="bulletin-filter-count" id="bulletin-count-2">—</span>
+                            </button>
+                            <button class="bulletin-filter-card" type="button" data-bulletin-filter="3" aria-pressed="false" data-action-click="setBulletinFilter(3)">
+                                <span class="bulletin-filter-icon"><i class="fas fa-project-diagram" aria-hidden="true"></i></span>
+                                <span class="bulletin-filter-copy"><strong>Projects &amp; Budget</strong><small data-default-subtitle="Plans and budget documents">Plans and budget documents</small></span>
+                                <span class="bulletin-filter-count" id="bulletin-count-3">—</span>
+                            </button>
+                            <button class="bulletin-filter-card" type="button" data-bulletin-filter="4" aria-pressed="false" data-action-click="setBulletinFilter(4)">
+                                <span class="bulletin-filter-icon"><i class="fas fa-file-alt" aria-hidden="true"></i></span>
+                                <span class="bulletin-filter-copy"><strong>Meeting Minutes</strong><small data-default-subtitle="Published meeting records">Published meeting records</small></span>
+                                <span class="bulletin-filter-count" id="bulletin-count-4">—</span>
+                            </button>
+                        </div>
+                        <div class="bulletin-filter-dots mobile-carousel-dots" id="bulletin-filter-dots" role="group" aria-label="Choose a public records category">
+                            <button class="mobile-carousel-dot" type="button" data-action-click="setBulletinFilter('all')" data-bulletin-filter-dot="all" aria-label="All Records" aria-current="true"></button>
+                            <button class="mobile-carousel-dot" type="button" data-action-click="setBulletinFilter(1)" data-bulletin-filter-dot="1" aria-label="Announcements"></button>
+                            <button class="mobile-carousel-dot" type="button" data-action-click="setBulletinFilter(2)" data-bulletin-filter-dot="2" aria-label="Financial Reports"></button>
+                            <button class="mobile-carousel-dot" type="button" data-action-click="setBulletinFilter(3)" data-bulletin-filter-dot="3" aria-label="Projects and Budget"></button>
+                            <button class="mobile-carousel-dot" type="button" data-action-click="setBulletinFilter(4)" data-bulletin-filter-dot="4" aria-label="Meeting Minutes"></button>
+                        </div>
+                        <p class="bulletin-filter-subtitle" id="bulletin-filter-subtitle" aria-live="polite">Browse the full archive</p>
+                        <div class="bulletin-archive-list" id="bulletin-archive-list" aria-live="polite" aria-busy="true">
+                            <p class="visually-hidden" role="status">Loading public records…</p>
+                            <?php for ($skeletonRow = 0; $skeletonRow < 3; $skeletonRow++): ?>
+                            <div class="bulletin-record-row bulletin-record-skeleton" aria-hidden="true"><div class="bulletin-record-main"><span class="bulletin-record-skeleton-bar bulletin-record-skeleton-title"></span><span class="bulletin-record-skeleton-bar bulletin-record-skeleton-meta"></span><span class="bulletin-record-skeleton-bar bulletin-record-skeleton-summary"></span><span class="bulletin-record-skeleton-bar bulletin-record-skeleton-summary"></span></div><div class="bulletin-record-actions"><span class="bulletin-record-skeleton-action"></span></div></div>
+                            <?php endfor; ?>
+                        </div>
+                    </section>
+                </div>
+                <section class="bulletin-category-view" id="bulletin-category-view" aria-live="polite" hidden>
+                    <div class="card bulletin-category-posts" id="bulletin-category-posts" aria-busy="true">
+                        <div class="bulletin-category-list" id="bulletin-category-list">
+                            <p class="visually-hidden" role="status">Loading public records…</p>
+                            <?php for ($skeletonRow = 0; $skeletonRow < 3; $skeletonRow++): ?>
+                            <div class="bulletin-record-row bulletin-record-skeleton" aria-hidden="true"><div class="bulletin-record-main"><span class="bulletin-record-skeleton-bar bulletin-record-skeleton-title"></span><span class="bulletin-record-skeleton-bar bulletin-record-skeleton-meta"></span><span class="bulletin-record-skeleton-bar bulletin-record-skeleton-summary"></span><span class="bulletin-record-skeleton-bar bulletin-record-skeleton-summary"></span></div><div class="bulletin-record-actions"><span class="bulletin-record-skeleton-action"></span></div></div>
+                            <?php endfor; ?>
+                        </div>
+                    </div>
+                </section>
             </div>
         </section>
 
@@ -260,7 +495,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         <p class="login-error hidden" id="login-error" role="alert" aria-live="polite"></p>
                         <form id="login-form" data-action-submit="handleLogin(event)">
                             <div class="visually-hidden" aria-hidden="true"><label for="login-website">Leave this field empty</label><input id="login-website" name="website" tabindex="-1" autocomplete="off"></div>
-                            <div class="input-group"><label for="login-email">Email address</label><input type="email" id="login-email" maxlength="190" autocomplete="email" placeholder="you@example.com" required></div>
+                            <div class="input-group"><label for="login-email">Email address</label><input type="email" id="login-email" maxlength="190" autocomplete="email" placeholder="you@example.com" required><span class="reg-field-error" id="login-email-error" role="alert"></span></div>
                             <div class="input-group login-password-group"><label for="login-password">Password</label><div class="password-field"><input type="password" id="login-password" maxlength="256" autocomplete="current-password" required><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false" data-action-click="togglePassword('login-password', this)"><i class="fas fa-eye" aria-hidden="true"></i></button></div><button class="login-forgot-link" type="button" data-action-click="openForgotPassword('resident')">Forgot password?</button></div>
                             <?php if (!$localCaptchaBypass): ?><div class="g-recaptcha recaptcha-widget" data-sitekey="<?= htmlspecialchars($recaptchaSiteKey, ENT_QUOTES, 'UTF-8') ?>" data-size="invisible" id="recaptcha-login"></div><?php endif; ?>
                             <button type="submit" class="btn-solid full-width mt-3" id="login-submit">Log in</button>
@@ -275,8 +510,8 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
             <?= unavailablePageMarkup() ?>
         </section>
 
-        <section id="admin-login" class="section <?= $adminIpAllowed ? 'auth-section' : 'unavailable-section' ?>" aria-labelledby="<?= $adminIpAllowed ? 'admin-login-title' : 'admin-login-unavailable-title' ?>">
-            <?php if (!$adminIpAllowed): ?>
+        <section id="admin-login" class="section <?= $adminEntryAuthorized ? 'auth-section' : 'unavailable-section' ?>" aria-labelledby="<?= $adminEntryAuthorized ? 'admin-login-title' : 'admin-login-unavailable-title' ?>">
+            <?php if (!$adminEntryAuthorized): ?>
             <?= unavailablePageMarkup('admin-login-unavailable-title') ?>
             <?php else: ?>
             <div class="split-screen">
@@ -290,27 +525,32 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     </div>
                 </div>
                 <div class="right-panel">
+                    <button class="back-button" type="button" data-action-click="showSection('landing')"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to home</button>
                     <div class="form-wrapper">
-                        <p class="eyebrow">Administrator access</p>
-                        <h1 id="admin-login-title">Admin log in</h1>
-                        <p class="form-subtitle">Authorized barangay staff only.</p>
-                        <p class="login-error hidden" id="admin-login-error" role="alert" aria-live="polite"></p>
-                        <form id="admin-login-form" data-action-submit="handleAdminLogin(event)">
-                            <div class="visually-hidden" aria-hidden="true"><label for="admin-login-website">Leave this field empty</label><input id="admin-login-website" name="website" tabindex="-1" autocomplete="off"></div>
-                            <div class="input-group"><label for="admin-login-email">Email address</label><input type="email" id="admin-login-email" maxlength="190" autocomplete="username" placeholder="admin@example.com" required></div>
-                            <div class="input-group"><label for="admin-login-password">Password</label><div class="password-field"><input type="password" id="admin-login-password" maxlength="256" autocomplete="current-password" required><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false" data-action-click="togglePassword('admin-login-password', this)"><i class="fas fa-eye" aria-hidden="true"></i></button></div></div>
-                            <button type="submit" class="btn-solid full-width mt-3">Log in</button>
-                        </form>
+                        <p class="eyebrow">Staff login</p>
+                        <div id="admin-login-signin-step">
+                            <h1 id="admin-login-title">Admin login</h1>
+                            <p class="form-subtitle">Authorized barangay staff only.</p>
+                            <p class="login-error hidden" id="admin-login-error" role="alert" aria-live="polite"></p>
+                            <form id="admin-login-form" data-action-submit="handleAdminLogin(event)">
+                                <div class="visually-hidden" aria-hidden="true"><label for="admin-login-website">Leave this field empty</label><input id="admin-login-website" name="website" tabindex="-1" autocomplete="off"></div>
+                                <div class="input-group"><label for="admin-login-email">Email address</label><input type="email" id="admin-login-email" maxlength="190" autocomplete="username" placeholder="admin@example.com" required><span class="reg-field-error" id="admin-login-email-error" role="alert"></span></div>
+                                <div class="input-group"><label for="admin-login-password">Password</label><div class="password-field"><input type="password" id="admin-login-password" maxlength="256" autocomplete="current-password" placeholder="Enter your password" required><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false" data-action-click="togglePassword('admin-login-password', this)"><i class="fas fa-eye" aria-hidden="true"></i></button></div></div>
+                                <button type="submit" class="btn-solid full-width mt-3">Log in</button>
+                            </form>
+                            <p class="switch-form">Need help? <a class="text-button" href="mailto:deleonjuliusakeem@gmail.com">Contact the barangay office</a></p>
+                        </div>
                         <div id="admin-mfa-step" class="hidden" aria-live="polite">
                             <h2 id="admin-mfa-title">Verify your identity</h2>
-                            <p class="form-subtitle" id="admin-mfa-instructions">Enter the current 6-digit code from your authenticator app.</p>
+                            <p class="form-subtitle" id="admin-mfa-instructions">Enter the 6-digit code from your authenticator app.</p>
                             <div id="admin-mfa-secret-wrap" class="hidden"><p>In your authenticator app, add an account manually using this key. Choose a time-based code (TOTP), 6 digits:</p><p><code id="admin-mfa-secret"></code></p><p>Keep this key private. It will only be shown during setup.</p></div>
                             <form id="admin-mfa-form" data-action-submit="handleAdminMfaSubmit(event)">
-                                <div class="input-group"><label for="admin-mfa-code">Authenticator code</label><input type="text" id="admin-mfa-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required></div>
-                                <p class="login-error hidden" id="admin-mfa-error" role="alert" aria-live="polite"></p>
-                                <button type="submit" class="btn-solid full-width mt-3" id="admin-mfa-submit">Verify code</button>
+                                <div class="input-group admin-mfa-code-group"><label id="admin-mfa-code-label">Authenticator code</label><div class="admin-mfa-code-fields" id="admin-mfa-code-fields" role="group" aria-labelledby="admin-mfa-code-label" aria-describedby="admin-mfa-error"><input class="admin-mfa-digit" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="6" aria-label="Digit 1 of 6" data-code-index="0" data-action-input="updateAdminMfaDigits(event)" data-action-keydown="handleAdminMfaDigitKeydown(event)" data-action-paste="handleAdminMfaPaste(event)" required><input class="admin-mfa-digit" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" aria-label="Digit 2 of 6" data-code-index="1" data-action-input="updateAdminMfaDigits(event)" data-action-keydown="handleAdminMfaDigitKeydown(event)" data-action-paste="handleAdminMfaPaste(event)" required><input class="admin-mfa-digit" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" aria-label="Digit 3 of 6" data-code-index="2" data-action-input="updateAdminMfaDigits(event)" data-action-keydown="handleAdminMfaDigitKeydown(event)" data-action-paste="handleAdminMfaPaste(event)" required><input class="admin-mfa-digit" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" aria-label="Digit 4 of 6" data-code-index="3" data-action-input="updateAdminMfaDigits(event)" data-action-keydown="handleAdminMfaDigitKeydown(event)" data-action-paste="handleAdminMfaPaste(event)" required><input class="admin-mfa-digit" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" aria-label="Digit 5 of 6" data-code-index="4" data-action-input="updateAdminMfaDigits(event)" data-action-keydown="handleAdminMfaDigitKeydown(event)" data-action-paste="handleAdminMfaPaste(event)" required><input class="admin-mfa-digit" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" aria-label="Digit 6 of 6" data-code-index="5" data-action-input="updateAdminMfaDigits(event)" data-action-keydown="handleAdminMfaDigitKeydown(event)" data-action-paste="handleAdminMfaPaste(event)" required></div><input type="hidden" id="admin-mfa-code" value=""></div>
+                                <p class="admin-mfa-error hidden" id="admin-mfa-error" role="alert" aria-live="polite"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i><span id="admin-mfa-error-message"></span></p>
+                                <button type="submit" class="btn-solid full-width mt-3" id="admin-mfa-submit" disabled><span class="admin-mfa-submit-label">Verify code</span><span class="admin-mfa-submit-progress hidden"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i> Verifying...</span></button>
                             </form>
-                            <button type="button" class="text-button mt-3" data-action-click="cancelAdminMfa()">Cancel and return to admin sign-in</button>
+                            <button type="button" class="back-button admin-mfa-cancel" data-action-click="cancelAdminMfa()"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to Admin login</button>
+                            <p class="switch-form">Need help? <a class="text-button" href="mailto:deleonjuliusakeem@gmail.com">Contact the barangay office</a></p>
                         </div>
                     </div>
                 </div>
@@ -318,24 +558,24 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
             <?php endif; ?>
         </section>
 
-        <section id="forgot-password" class="section auth-section" aria-labelledby="forgot-password-title">
+        <section id="forgot-password" class="section auth-section<?= $resetReturnToProfile ? ' profile-password-flow' : '' ?>" aria-labelledby="forgot-password-title">
             <div class="split-screen">
                 <div class="left-panel" aria-hidden="true"><div class="panel-content"><img src="Barangay San Jose, Biringan City.png" alt="" class="panel-logo" loading="lazy"><span class="badge">Account security</span><h1>Secure access to your portal account.</h1><p>Use a private reset link to choose a new password.</p><div class="panel-footer">Barangay San Jose</div></div></div>
                 <div class="right-panel"><div class="form-wrapper">
                     <button class="back-button" type="button" data-action-click="returnFromPasswordReset()"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to log in</button>
-                    <p class="eyebrow">Account recovery</p>
+                    <p class="eyebrow" id="password-reset-eyebrow">Account recovery</p>
                     <h1 id="forgot-password-title">Forgot your password?</h1>
                     <p class="form-subtitle" id="password-reset-intro">Enter the email address for your portal account. We’ll send a secure link if it matches an account.</p>
                     <p class="login-error hidden" id="password-reset-error" role="alert" aria-live="polite"></p>
                     <p class="password-reset-success hidden" id="password-reset-success" role="status" aria-live="polite"></p>
                     <form id="forgot-password-form" data-action-submit="requestPasswordReset(event)">
-                        <div class="input-group"><label for="password-reset-email">Email address</label><input type="email" id="password-reset-email" autocomplete="email" placeholder="you@example.com" required></div>
+                        <div class="input-group"><label for="password-reset-email">Email address</label><input type="email" id="password-reset-email" autocomplete="email" placeholder="you@example.com" required><span class="reg-field-error" id="password-reset-email-error" role="alert"></span></div>
                         <input type="hidden" id="password-reset-context" value="resident">
                         <button type="submit" class="btn-solid full-width mt-3" id="password-reset-submit">Send reset link</button>
                     </form>
                     <form id="reset-password-form" class="hidden" data-action-submit="completePasswordReset(event)">
-                        <div class="input-group"><label for="new-password">New password</label><input type="password" id="new-password" autocomplete="new-password" minlength="12" maxlength="256" required></div>
-                        <div class="input-group"><label for="confirm-new-password">Confirm new password</label><input type="password" id="confirm-new-password" autocomplete="new-password" minlength="12" maxlength="256" required></div>
+                        <div class="input-group"><label for="new-password">New password</label><input type="password" id="new-password" autocomplete="new-password" minlength="8" maxlength="256" required aria-describedby="reset-pw-checklist"><ul class="pw-checklist" id="reset-pw-checklist" aria-live="polite"><li id="reset-pwc-length" class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>8+ characters</span></li><li id="reset-pwc-upper" class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Uppercase (A-Z)</span></li><li id="reset-pwc-lower" class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Lowercase (a-z)</span></li><li id="reset-pwc-number" class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Number (0-9)</span></li></ul></div>
+                        <div class="input-group"><label for="confirm-new-password">Confirm new password</label><input type="password" id="confirm-new-password" autocomplete="new-password" minlength="8" maxlength="256" required aria-describedby="reset-pwc-match"><p class="pwc-match-line" id="reset-pwc-match" aria-live="polite"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Passwords match</span></p></div>
                         <button type="submit" class="btn-solid full-width mt-3" id="reset-password-submit">Save new password</button>
                     </form>
                     <p class="switch-form"><button type="button" class="text-button" data-action-click="returnFromPasswordReset()">Return to log in</button></p>
@@ -359,7 +599,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         <button class="back-button" type="button" data-action-click="showSection('landing')"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to home</button>
                         <p class="eyebrow">Resident enrollment</p>
                         <h1 id="register-title">Create your account</h1>
-                        <p class="form-subtitle">Submit your details and proof of residency. A barangay administrator will verify your account before it's activated.<br><span class="reg-required-note">* Required. Middle name, suffix, and phone number are optional.</span></p>
+                        <p class="form-subtitle">Create an account to browse the portal and track your document requests.<br><span class="reg-required-note">* Required. Middle name, suffix, and phone number are optional. Verify your email before submitting a request.</span></p>
 
                         <form id="register-form" data-action-submit="handleRegister(event)" novalidate>
                             <div class="visually-hidden" aria-hidden="true"><label for="register-website">Leave this field empty</label><input id="register-website" name="website" tabindex="-1" autocomplete="off"></div>
@@ -404,7 +644,8 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                                 </div>
                                 <div class="reg-field reg-col-6">
                                     <label for="register-phone">Phone number</label>
-                                    <input type="tel" id="register-phone" name="phone" autocomplete="tel" placeholder="09XX XXX XXXX">
+                                    <input type="tel" id="register-phone" name="phone" autocomplete="tel" placeholder="09XXXXXXXXX" maxlength="13" aria-describedby="register-phone-error">
+                                    <span class="reg-field-error" id="register-phone-error" role="alert"></span>
                                 </div>
                             </div>
 
@@ -420,38 +661,6 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                                 </div>
                             </div>
 
-                            <!-- Proof of residency -->
-                            <div class="reg-section">
-                                <p class="reg-group-label">Proof of residency <span class="req-star" aria-hidden="true">*</span></p>
-                                <div class="reg-proof-chips">
-                                    <span class="reg-chip">Utility bill (last 3 months)</span>
-                                    <span class="reg-chip">Barangay certificate or clearance</span>
-                                    <span class="reg-chip">Government ID with address</span>
-                                    <span class="reg-chip">Lease or rental agreement</span>
-                                </div>
-                                <div class="reg-dropzone" id="reg-dropzone" role="button" tabindex="0" aria-label="Upload proof of residency">
-                                    <i class="fas fa-cloud-arrow-up reg-dropzone-icon" aria-hidden="true"></i>
-                                    <p class="reg-dropzone-label">Drag &amp; drop here, or <span class="reg-dropzone-browse">browse</span></p>
-                                    <p class="reg-dropzone-hint">PDF, DOCX, JPG, or PNG · max 5 MB</p>
-                                    <input type="file" id="register-proof" name="proof" accept=".pdf,.docx,.jpg,.jpeg,.png" required class="reg-dropzone-input">
-                                </div>
-                                <div class="reg-camera-row">
-                                    <button type="button" class="reg-file-action reg-camera-action" id="register-camera-button"><i class="fas fa-camera" aria-hidden="true"></i> Take a photo with your camera</button>
-                                    <input type="file" id="register-camera" accept="image/*" capture="environment" hidden aria-label="Take a photo of proof of residency">
-                                </div>
-                                <div class="reg-dropzone-preview hidden" id="reg-dropzone-preview">
-                                    <span class="reg-file-icon"><i class="fas fa-file-lines" aria-hidden="true"></i></span>
-                                    <div class="reg-file-info">
-                                        <span id="reg-dropzone-filename" class="reg-file-name"></span>
-                                        <span id="reg-dropzone-filesize" class="reg-file-size"></span>
-                                    </div>
-                                    <button type="button" class="reg-file-action" data-action-click="regClearFile()">Remove</button>
-                                    <button type="button" class="reg-file-action reg-file-replace" data-action-click="openFilePicker('register-proof')">Replace</button>
-                                </div>
-                                <p class="reg-proof-privacy"><i class="fas fa-lock" aria-hidden="true"></i> Visible only to barangay administrators for verification.</p>
-                                <span class="reg-field-error" id="reg-proof-error" role="alert"></span>
-                            </div>
-
                             <!-- Account -->
                             <div class="reg-section">
                                 <p class="reg-group-label">Account</p>
@@ -459,7 +668,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                                     <div class="reg-field reg-col-6">
                                         <label for="register-password">Password <span class="req-star" aria-hidden="true">*</span></label>
                                         <div class="password-field reg-pw-field">
-                                            <input type="password" name="password" id="register-password" minlength="12" maxlength="256" autocomplete="new-password" required aria-describedby="register-pw-checklist register-password-error">
+                                            <input type="password" name="password" id="register-password" minlength="8" maxlength="256" autocomplete="new-password" required aria-describedby="register-pw-checklist register-password-error">
                                             <button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false" data-action-click="togglePassword('register-password', this)"><i class="fas fa-eye" aria-hidden="true"></i></button>
                                         </div>
                                         <div class="pw-strength-bar" aria-hidden="true">
@@ -469,7 +678,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                                             <span class="pw-strength-seg" id="pwseg-4"></span>
                                         </div>
                                         <ul class="pw-checklist" id="register-pw-checklist" aria-live="polite">
-                                            <li id="pwc-length"  class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>12+ characters</span></li>
+                                            <li id="pwc-length"  class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>8+ characters</span></li>
                                             <li id="pwc-upper"  class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Uppercase (A-Z)</span></li>
                                             <li id="pwc-lower"  class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Lowercase (a-z)</span></li>
                                             <li id="pwc-number" class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Number (0-9)</span></li>
@@ -479,7 +688,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                                     <div class="reg-field reg-col-6">
                                         <label for="register-confirm-password">Confirm password <span class="req-star" aria-hidden="true">*</span></label>
                                         <div class="password-field reg-pw-field">
-                                            <input type="password" name="confirmPassword" id="register-confirm-password" minlength="12" maxlength="256" autocomplete="new-password" required aria-describedby="pwc-match register-confirm-password-error">
+                                            <input type="password" name="confirmPassword" id="register-confirm-password" minlength="8" maxlength="256" autocomplete="new-password" required aria-describedby="pwc-match register-confirm-password-error">
                                             <button type="button" class="password-toggle" aria-label="Show confirm password" aria-pressed="false" data-action-click="togglePassword('register-confirm-password', this)"><i class="fas fa-eye" aria-hidden="true"></i></button>
                                         </div>
                                         <p class="pwc-match-line" id="pwc-match" aria-live="polite"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Passwords match</span></p>
@@ -507,13 +716,205 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
 
         <section id="resident-dashboard" class="section" aria-labelledby="resident-dashboard-title">
             <div class="page-shell workspace-shell">
+                <aside id="email-verification-banner" class="email-verification-banner" role="status" hidden>
+                    <div class="email-verification-message"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i><span>Check your inbox to verify your email before submitting a request.</span></div>
+                    <button type="button" class="btn-outline" data-action-click="resendResidentVerification()">Resend verification</button>
+                </aside>
                 <div class="dashboard-header">
                     <div><p class="eyebrow">Resident workspace</p><h1 id="resident-dashboard-title">Document requests</h1><div class="resident-request-tabs" role="tablist" aria-label="Document request sections"><button type="button" id="resident-request-tab-new" role="tab" aria-selected="true" aria-controls="resident-request-panel-new" class="active" data-action-click="selectResidentRequestTab('new')">New request</button><button type="button" id="resident-request-tab-list" role="tab" aria-selected="false" aria-controls="resident-request-panel-list" data-action-click="selectResidentRequestTab('list')">My requests</button></div><p class="dashboard-welcome">Welcome back, <strong id="resident-name"></strong>. Submit a request or review its progress.</p></div>
                     <button class="btn-outline" type="button" data-action-click="showSection('bulletin')"><i class="fas fa-bullhorn" aria-hidden="true"></i> View public records</button>
                 </div>
                 <div class="dashboard-grid resident-grid">
-                    <div class="card active" id="resident-request-panel-new" data-request-panel="new" role="tabpanel" aria-labelledby="resident-request-tab-new"><div class="card-heading"><span class="step-label">New request</span><h2>Request a document</h2></div><form id="request-form" class="resident-request-form" data-action-submit="handleRequest(event)"><div class="input-group"><label for="doc-type">Document type <span class="req-star" aria-hidden="true">*</span></label><select id="doc-type" required><option value="" selected disabled>Select a document</option></select></div><div class="input-group"><label for="doc-purpose">Purpose <span class="req-star" aria-hidden="true">*</span></label><textarea id="doc-purpose" placeholder="e.g. Employment, scholarship, business permit" required rows="3"></textarea></div><div id="doc-type-info" class="request-summary" aria-live="polite" hidden></div><button id="request-submit" type="submit" class="btn-solid full-width">Submit request</button></form><div id="request-submit-confirmation" class="request-submit-confirmation" role="status" aria-live="polite" hidden></div></div>
-                    <div class="card" id="resident-request-panel-list" data-request-panel="list" role="tabpanel" aria-labelledby="resident-request-tab-list"><div class="card-heading"><span class="step-label">Request history</span><h2>Track my requests</h2></div><div id="request-list" class="request-list" aria-live="polite"><p class="empty-state">You haven't submitted any document requests yet.</p></div></div>
+                    <div class="card active" id="resident-request-panel-new" data-request-panel="new" role="tabpanel" aria-labelledby="resident-request-tab-new">
+                        <div class="card-heading"><span class="step-label">New request</span><h2>Request a document</h2><p class="form-hint request-required-note">All fields are required.</p></div>
+                        <form id="request-form" class="resident-request-form" enctype="multipart/form-data" novalidate data-action-submit="handleRequest(event)">
+                            <div class="input-group">
+                                <label for="doc-type">Document type</label>
+                                <select id="doc-type" name="documentTypeId" required aria-describedby="request-doc-type-error"><option value="" selected disabled>Select a document</option></select>
+                                <span class="reg-field-error" id="request-doc-type-error" role="alert"></span>
+                                <div id="doc-type-info" class="request-summary" aria-live="polite">
+                                    <div class="request-summary-content">
+                                        <span class="request-summary-label">Request summary</span>
+                                        <p class="request-summary-placeholder">Select a document to view its details.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label for="doc-purpose">Purpose</label>
+                                <select id="doc-purpose" name="purposeCategory" required aria-describedby="request-purpose-error">
+                                    <option value="" selected disabled>Select a purpose</option>
+                                    <option value="Employment">Employment</option><option value="Scholarship">Scholarship</option><option value="Business permit">Business permit</option><option value="School requirement">School requirement</option><option value="Other">Other</option>
+                                </select>
+                                <span class="reg-field-error" id="request-purpose-error" role="alert"></span>
+                                <div class="request-purpose-other" id="request-purpose-other-group" hidden>
+                                    <input type="text" id="doc-purpose-other" maxlength="2000" placeholder="Enter your purpose" aria-label="Other purpose" aria-describedby="request-purpose-other-error">
+                                    <span class="reg-field-error" id="request-purpose-other-error" role="alert"></span>
+                                </div>
+                            </div>
+                            <fieldset class="input-group request-proof-group">
+                                <label for="request-proof-type">Proof of Residency</label>
+                                <select id="request-proof-type" name="proofType" required aria-describedby="request-proof-type-error"><option value="" selected disabled>Select proof type</option><option value="National ID">National ID</option><option value="Certificate of Residency">Certificate of Residency</option></select>
+                                <span class="reg-field-error" id="request-proof-type-error" role="alert"></span>
+                                <button type="button" class="request-upload-area" id="request-proof-picker" aria-describedby="request-proof-guidance request-proof-error" data-action-click="openRequestProofPicker()"><i class="fas fa-camera" aria-hidden="true"></i><span>Choose a file or take a photo</span><small class="request-upload-guidance" id="request-proof-guidance">PDF, JPG, or PNG · maximum 5 MB</small></button>
+                                <input type="file" id="request-proof" name="proof" class="request-proof-input" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/*" capture="environment" aria-hidden="true" tabindex="-1">
+                                <div class="request-proof-preview" id="request-proof-preview" hidden>
+                                    <img id="request-proof-thumbnail" alt="" hidden>
+                                    <div class="request-proof-file-details"><strong id="request-proof-name"></strong><span id="request-proof-size"></span></div>
+                                    <div class="request-proof-actions"><button type="button" data-action-click="removeRequestProof()">Remove</button><button type="button" data-action-click="openRequestProofPicker()">Replace</button></div>
+                                </div>
+                                <span class="reg-field-error request-proof-error" id="request-proof-error" role="alert"></span>
+                                <p class="request-proof-privacy"><i class="fas fa-lock" aria-hidden="true"></i><span>Your ID is only used to verify that you live in the barangay. It is not shown on public records.</span></p>
+                            </fieldset>
+                            <button id="request-submit" type="submit" class="btn-solid full-width" aria-describedby="request-submit-guidance request-verification-note">Submit request</button>
+                            <p id="request-submit-guidance" class="request-submit-guidance">You can track this request on your Dashboard.<span id="request-processing-guidance"></span></p>
+                            <p id="request-verification-note" class="request-verification-note" hidden>Verify your email to submit a request.</p>
+                            <p id="request-submit-error" class="reg-field-error request-submit-error" role="alert" hidden></p>
+                        </form>
+                        <div id="request-submit-confirmation" class="request-submit-confirmation" role="status" aria-live="polite" hidden></div>
+                    </div>
+                    <div class="card" id="resident-request-panel-list" data-request-panel="list" role="tabpanel" aria-labelledby="resident-request-tab-list">
+                        <div class="card-heading"><span class="step-label">Request history</span><h2>Track my requests</h2><div class="request-filter-tabs" role="tablist" aria-label="Filter requests"><button type="button" id="request-filter-active" role="tab" aria-selected="true" aria-controls="request-list" class="active" data-action-click="selectResidentRequestStatusTab('active')">Active</button><button type="button" id="request-filter-completed" role="tab" aria-selected="false" aria-controls="request-list" data-action-click="selectResidentRequestStatusTab('completed')">Completed</button></div></div>
+                        <div id="request-list" class="request-list" aria-live="polite"><div class="request-empty-state"><p>No active requests</p></div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <template id="resident-profile-home-slot"></template>
+        <section id="resident-profile" class="section" aria-labelledby="resident-profile-title">
+            <div class="page-shell workspace-shell resident-profile-page">
+                <div class="resident-profile-heading">
+                    <button class="resident-profile-back" type="button" data-action-click="openDashboard()"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to dashboard</button>
+                    <h1 id="resident-profile-title">My profile</h1>
+                </div>
+                <div class="resident-profile-identity" aria-label="Profile account">
+                    <button type="button" class="resident-profile-avatar" id="resident-profile-avatar" aria-label="Change profile photo" data-action-click="openProfilePhotoPicker()"><span id="resident-profile-initials" aria-hidden="true"></span><img id="resident-profile-photo-image" alt="" hidden><span class="resident-profile-camera" aria-hidden="true"><i class="fas fa-camera"></i></span></button>
+                    <div class="resident-profile-identity-copy">
+                        <small id="resident-profile-account-label" class="admin-profile-account-pill">Barangay San Jose portal account</small>
+                        <strong id="resident-profile-header-name"></strong>
+                        <span id="resident-profile-header-email"></span>
+                        <div class="resident-profile-photo-actions"><input id="resident-profile-photo-input" type="file" accept="image/jpeg,image/png,image/webp" hidden><button type="button" class="profile-text-action" data-action-click="openProfilePhotoPicker()">Change photo</button><button type="button" class="profile-text-action" id="resident-profile-photo-remove" data-action-click="removeProfilePhoto()" hidden>Remove photo</button><span id="resident-profile-photo-error" role="status" aria-live="polite"></span><div id="resident-profile-photo-preview-actions" hidden><button type="button" class="btn-solid" data-action-click="saveProfilePhoto()">Save photo</button><button type="button" class="btn-outline" data-action-click="cancelProfilePhotoPreview()">Cancel</button></div></div>
+                    </div>
+                </div>
+                <div class="resident-profile-columns">
+                    <section class="card resident-profile-card resident-profile-details-card" aria-labelledby="resident-profile-details-title">
+                        <div class="card-heading resident-profile-card-heading"><h2 id="resident-profile-details-title">Your details</h2><span class="resident-record-label"><i class="fas fa-lock" aria-hidden="true"></i> Official record</span></div>
+                        <dl class="resident-profile-details">
+                            <div class="resident-profile-detail-row" id="resident-profile-phone-row"><span class="resident-profile-item-icon"><i class="fas fa-phone" aria-hidden="true"></i></span><div class="resident-profile-detail-copy"><dt>Phone number</dt><dd id="resident-profile-phone"></dd></div></div>
+                        </dl>
+                        <form id="admin-profile-details-form" class="admin-profile-form admin-profile-only" data-action-submit="saveAdminProfileDetails(event)" hidden>
+                            <div class="resident-profile-detail-row admin-profile-edit-row"><span class="resident-profile-item-icon"><i class="fas fa-user-shield" aria-hidden="true"></i></span><div class="resident-profile-detail-copy"><span class="admin-profile-row-label">Account type</span><span class="admin-profile-readonly-value">Administrator<i class="fas fa-lock" aria-hidden="true"></i></span></div></div>
+                            <div class="resident-profile-detail-row admin-profile-edit-row"><span class="resident-profile-item-icon"><i class="fas fa-briefcase" aria-hidden="true"></i></span><div class="resident-profile-detail-copy"><label for="admin-profile-position">Position or office</label><input id="admin-profile-position" maxlength="120" placeholder="e.g. Barangay Secretary" data-action-input="updateAdminProfileDetailsSaveState()"></div></div>
+                            <div class="resident-profile-detail-row admin-profile-edit-row"><span class="resident-profile-item-icon"><i class="fas fa-phone" aria-hidden="true"></i></span><div class="resident-profile-detail-copy"><label for="admin-profile-contact">Contact number</label><input id="admin-profile-contact" maxlength="30" type="tel" placeholder="09XXXXXXXXX" data-action-input="updateAdminProfileDetailsSaveState()"></div></div>
+                            <div class="admin-profile-details-actions"><button type="submit" class="btn-solid" id="admin-profile-details-save" disabled>Save details</button><span class="admin-profile-save-feedback" id="admin-profile-details-saved" role="status" aria-live="polite" hidden><i class="fas fa-circle-check" aria-hidden="true"></i> Details saved</span></div>
+                        </form>
+                        <p class="resident-profile-correction-note" id="resident-profile-correction-note"><i class="fas fa-circle-info" aria-hidden="true"></i><span>To correct your name or phone number, visit the barangay office.</span></p>
+                    </section>
+                    <section class="card resident-profile-card resident-security-card" aria-labelledby="resident-security-title">
+                        <div class="card-heading"><h2 id="resident-security-title">Login and security</h2></div>
+                        <div class="resident-security-rows">
+                            <section class="resident-security-row" aria-labelledby="resident-email-summary-label"><div class="resident-security-summary"><div class="resident-security-leading"><span class="resident-profile-item-icon"><i class="fas fa-envelope" aria-hidden="true"></i></span><div class="resident-security-copy"><h3 id="resident-email-summary-label">Email</h3><p><span class="resident-email-status" id="resident-profile-email-summary-status"></span><button type="button" class="resident-profile-resend hidden" id="resident-profile-resend" data-action-click="resendResidentVerification()">Resend verification</button></p></div></div><button class="btn-outline resident-security-change" type="button" aria-label="Change email" data-action-click="showSection('resident-change-email')">Change email</button></div></section>
+                            <section class="resident-security-row" aria-labelledby="resident-password-summary-label"><div class="resident-security-summary"><div class="resident-security-leading"><span class="resident-profile-item-icon"><i class="fas fa-key" aria-hidden="true"></i></span><div class="resident-security-copy"><h3 id="resident-password-summary-label">Password</h3><p class="resident-password-dots" aria-label="Password set">••••</p><small class="resident-password-last-changed">Last changed: Not available</small></div></div><button class="btn-outline resident-security-change" type="button" aria-label="Change password" data-action-click="showSection('resident-change-password')">Change password</button></div></section>
+                            <section class="resident-security-row admin-profile-mfa-row admin-profile-only" aria-labelledby="admin-profile-mfa-title" hidden>
+                                <div class="resident-security-summary"><div class="resident-security-leading"><span class="resident-profile-item-icon"><i class="fas fa-shield-halved" aria-hidden="true"></i></span><div class="resident-security-copy"><div class="admin-profile-subheading"><h3 id="admin-profile-mfa-title">Two-factor authentication</h3><span class="admin-profile-enabled-badge" id="admin-profile-mfa-enabled-badge" hidden>Enabled</span></div><p id="admin-profile-mfa-status">Loading status…</p></div></div></div>
+                                <div class="admin-profile-actions"><button type="button" class="btn-outline" id="admin-profile-mfa-setup" data-action-click="beginAdminProfileMfa()">Set up authenticator</button><button type="button" class="btn-outline admin-profile-danger-button" id="admin-profile-mfa-reset" data-action-click="beginAdminProfileMfa()" hidden>Reset authenticator</button></div>
+                                <div id="admin-profile-mfa-setup-box" hidden><p id="admin-profile-mfa-secret-hint">Add this key to your authenticator app:</p><code id="admin-profile-mfa-secret"></code><form id="admin-profile-mfa-confirm-form" data-action-submit="confirmAdminProfileMfa(event)"><label>Current 6-digit code<input id="admin-profile-mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required></label><button type="submit" class="btn-solid">Confirm authenticator</button><button type="button" class="btn-outline" data-action-click="cancelAdminProfileMfa()">Cancel</button></form></div>
+                            </section>
+                        </div>
+                    </section>
+                </div>
+                <section class="resident-profile-quick-links" aria-labelledby="resident-profile-quick-links-title">
+                    <h2 id="resident-profile-quick-links-title">Quick links</h2>
+                    <div class="resident-profile-quick-link-grid">
+                        <button type="button" class="resident-profile-quick-link" data-action-click="openResidentProfileQuickLink('request')"><span class="resident-profile-quick-link-icon"><i class="fas fa-file-circle-plus" aria-hidden="true"></i></span><span><strong>Request a document</strong><small>Start a new document request.</small></span><i class="fas fa-arrow-right resident-profile-quick-link-arrow" aria-hidden="true"></i></button>
+                        <button type="button" class="resident-profile-quick-link" data-action-click="openResidentProfileQuickLink('track')"><span class="resident-profile-quick-link-icon"><i class="fas fa-list-check" aria-hidden="true"></i></span><span><strong>Track my requests</strong><small>Review your request status and updates.</small></span><i class="fas fa-arrow-right resident-profile-quick-link-arrow" aria-hidden="true"></i></button>
+                        <button type="button" class="resident-profile-quick-link" data-action-click="openResidentProfileQuickLink('records')"><span class="resident-profile-quick-link-icon"><i class="fas fa-folder-open" aria-hidden="true"></i></span><span><strong>Public records</strong><small>Browse announcements and public records.</small></span><i class="fas fa-arrow-right resident-profile-quick-link-arrow" aria-hidden="true"></i></button>
+                    </div>
+                </section>
+                <section class="card resident-profile-card admin-profile-only" id="admin-profile-permissions-card" hidden aria-labelledby="admin-profile-permissions-title">
+                    <div class="card-heading"><h2 id="admin-profile-permissions-title">Permissions</h2></div>
+                    <ul id="admin-profile-permissions" class="admin-profile-list admin-profile-permissions-list"></ul>
+                </section>
+                <section class="card resident-profile-card admin-profile-only" id="admin-profile-security-card" hidden aria-labelledby="admin-profile-security-title">
+                    <div class="card-heading"><h2 id="admin-profile-security-title">Administrator security</h2></div>
+                    <div class="admin-profile-security-block"><h3>Active sessions</h3><ul id="admin-profile-sessions" class="admin-profile-list admin-profile-session-list"></ul><button type="button" class="btn-outline admin-profile-danger-button" id="admin-profile-revoke-sessions" data-action-click="revokeOtherAdminSessions()" hidden>Log out of all other devices</button></div>
+                    <div class="admin-profile-security-block"><h3>Recent login activity</h3><ul id="admin-profile-signins" class="admin-profile-list admin-profile-activity-list"></ul><a class="admin-profile-view-all" href="admin_activity.php#admin-activity">View all</a></div>
+                </section>
+                <section class="card resident-profile-card admin-profile-only" id="admin-profile-notifications-card" hidden aria-labelledby="admin-profile-notifications-title">
+                    <div class="card-heading"><h2 id="admin-profile-notifications-title">Notifications</h2></div>
+                    <form id="admin-profile-notifications-form" data-action-submit="saveAdminNotificationPreferences(event)">
+                        <label class="admin-profile-toggle-row" for="admin-notify-requests"><span class="admin-profile-toggle-copy"><strong>Email me about new requests</strong><small>Get an email when a resident submits a request.</small></span><input type="checkbox" id="admin-notify-requests" data-action-change="updateAdminNotificationSaveState()"><span class="admin-profile-switch" aria-hidden="true"></span></label>
+                        <label class="admin-profile-toggle-row" for="admin-notify-payments"><span class="admin-profile-toggle-copy"><strong>Email me about payments that need verifying</strong><small>Get an email when a payment needs your review.</small></span><input type="checkbox" id="admin-notify-payments" data-action-change="updateAdminNotificationSaveState()"><span class="admin-profile-switch" aria-hidden="true"></span></label>
+                        <button type="submit" class="btn-outline" id="admin-profile-notifications-save" disabled>Save preferences</button>
+                    </form>
+                </section>
+                <section class="card resident-profile-card admin-profile-only" id="admin-profile-actions-card" hidden aria-labelledby="admin-profile-actions-title"><div class="card-heading"><h2 id="admin-profile-actions-title">My recent actions</h2><a class="admin-profile-view-all" href="admin_activity.php#admin-activity">Full activity log</a></div><ul id="admin-profile-recent-actions" class="admin-profile-list admin-profile-activity-list"></ul></section>
+                <section class="resident-profile-quick-links admin-profile-only" id="admin-profile-quick-links" hidden aria-labelledby="admin-profile-quick-links-title"><h2 id="admin-profile-quick-links-title">Quick links</h2><div class="resident-profile-quick-link-grid"><button type="button" class="resident-profile-quick-link" data-action-click="showSection('admin-dashboard', false, 'requests')"><span class="resident-profile-quick-link-icon"><i class="fas fa-file-lines"></i></span><span><strong>Requests queue</strong><small>Review and update document requests.</small></span><i class="fas fa-arrow-right resident-profile-quick-link-arrow"></i></button><button type="button" class="resident-profile-quick-link" data-action-click="showSection('admin-dashboard', false, 'residents')"><span class="resident-profile-quick-link-icon"><i class="fas fa-users"></i></span><span><strong>Resident accounts</strong><small>Review registered resident accounts.</small></span><i class="fas fa-arrow-right resident-profile-quick-link-arrow"></i></button><button type="button" class="resident-profile-quick-link" data-action-click="showSection('admin-dashboard', false, 'disclosures')"><span class="resident-profile-quick-link-icon"><i class="fas fa-bullhorn"></i></span><span><strong>Post disclosure</strong><small>Publish an official public notice.</small></span><i class="fas fa-arrow-right resident-profile-quick-link-arrow"></i></button></div></section>
+            </div>
+        </section>
+        <section id="resident-change-email" class="section auth-section resident-security-page" aria-labelledby="resident-change-email-title">
+            <div class="split-screen">
+                <div class="left-panel" aria-hidden="true">
+                    <div class="panel-content">
+                        <img src="Barangay San Jose, Biringan City.png" alt="" class="panel-logo" loading="lazy">
+                        <span class="badge">Secure resident services</span>
+                        <h1>Digital Disclosure &amp; Document Request Portal</h1>
+                        <p>Manage your account email and keep your document requests up to date.</p>
+                        <div class="panel-footer">Barangay San Jose · <span id="resident-change-email-year"></span></div>
+                    </div>
+                </div>
+                <div class="right-panel">
+                    <button class="back-button" type="button" data-action-click="showSection('resident-profile')"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to profile</button>
+                    <div class="form-wrapper">
+                        <p class="eyebrow">Login and security</p>
+                        <h1 id="resident-change-email-title">Change email</h1>
+                        <p class="form-subtitle">Enter your new email address and current password.</p>
+                        <form id="resident-email-form" data-action-submit="changeResidentEmail(event)" novalidate>
+                            <div class="input-group"><label for="resident-new-email">New email</label><input type="email" id="resident-new-email" name="email" autocomplete="email" placeholder="Enter your new email address" required aria-describedby="resident-new-email-hint resident-new-email-error"><span class="form-hint" id="resident-new-email-hint">We'll send a verification link to your new email. Your current email stays active until you verify the new one.</span><span class="reg-field-error" id="resident-new-email-error" role="alert"></span></div>
+                            <div class="input-group"><label for="resident-email-password">Your password</label><div class="password-field"><input type="password" id="resident-email-password" name="password" autocomplete="current-password" placeholder="Enter your password" required aria-describedby="resident-email-password-error resident-email-password-hint"><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false" data-action-click="togglePassword('resident-email-password', this)"><i class="fas fa-eye" aria-hidden="true"></i></button></div><span class="form-hint" id="resident-email-password-hint">We ask for your password to confirm it's you.</span><span class="reg-field-error" id="resident-email-password-error" role="alert"></span></div>
+                            <button type="submit" class="btn-solid full-width mt-3" id="resident-email-submit" disabled>Send verification link</button>
+                            <p class="resident-email-feedback" id="resident-email-feedback" role="status" aria-live="polite"></p>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="resident-change-password" class="section auth-section resident-security-page" aria-labelledby="resident-change-password-title">
+            <div class="split-screen">
+                <div class="left-panel" aria-hidden="true">
+                    <div class="panel-content">
+                        <img src="Barangay San Jose, Biringan City.png" alt="" class="panel-logo" loading="lazy">
+                        <span class="badge">Account security</span>
+                        <h1>Secure access to your portal account.</h1>
+                        <p>Choose a new password for your Barangay San Jose account.</p>
+                        <div class="panel-footer">Barangay San Jose · <span id="resident-change-password-year"></span></div>
+                    </div>
+                </div>
+                <div class="right-panel">
+                    <button class="back-button" type="button" data-action-click="showSection('resident-profile')"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to profile</button>
+                    <div class="form-wrapper">
+                        <p class="eyebrow">Login and security</p>
+                        <h1 id="resident-change-password-title">Change password</h1>
+                        <p class="form-subtitle">Create a new password for your Barangay San Jose portal account.</p>
+                        <p class="login-error hidden" id="resident-password-error" role="alert" aria-live="polite"></p>
+                        <p class="password-reset-success hidden" id="resident-password-success" role="status" aria-live="polite"></p>
+                        <form id="resident-password-form" data-action-submit="changeResidentPassword(event)" novalidate>
+                            <div class="input-group">
+                                <label for="resident-new-password">New password</label>
+                                <div class="password-field"><input type="password" id="resident-new-password" name="password" autocomplete="new-password" minlength="8" maxlength="256" required aria-describedby="resident-change-pw-checklist resident-new-password-error"><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false" data-action-click="togglePassword('resident-new-password', this)"><i class="fas fa-eye" aria-hidden="true"></i></button></div>
+                                <ul class="pw-checklist" id="resident-change-pw-checklist" aria-live="polite"><li id="resident-change-pwc-length" class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>8+ characters</span></li><li id="resident-change-pwc-upper" class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Uppercase (A-Z)</span></li><li id="resident-change-pwc-lower" class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Lowercase (a-z)</span></li><li id="resident-change-pwc-number" class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Number (0-9)</span></li></ul>
+                                <span class="reg-field-error" id="resident-new-password-error" role="alert"></span>
+                            </div>
+                            <div class="input-group">
+                                <label for="resident-confirm-new-password">Confirm new password</label>
+                                <div class="password-field"><input type="password" id="resident-confirm-new-password" name="confirmation" autocomplete="new-password" minlength="8" maxlength="256" required aria-describedby="resident-change-pwc-match"><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false" data-action-click="togglePassword('resident-confirm-new-password', this)"><i class="fas fa-eye" aria-hidden="true"></i></button></div>
+                                <p class="pwc-match-line" id="resident-change-pwc-match" aria-live="polite"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Passwords match</span></p>
+                            </div>
+                            <button type="submit" class="btn-solid full-width mt-3" id="resident-password-submit" disabled>Save new password</button>
+                        </form>
+                        <p class="switch-form"><button type="button" class="text-button" data-action-click="showSection('resident-profile')">Back to profile</button></p>
+                    </div>
                 </div>
             </div>
         </section>
@@ -542,44 +943,47 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <header class="policy-header policy-privacy">
                         <p class="eyebrow">Legal</p>
                         <h1 id="privacy-policy-title">Privacy Policy</h1>
-                        <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 3, 2026</span><span class="policy-academic-note">Academic project — no real data collected</span></p></header>
-                    <p class="policy-lead">This portal lets residents create accounts, submit proof of residency, and request barangay documents. We are committed to handling your personal information responsibly and in line with the Data Privacy Act of 2012 (RA 10173).</p>
+                        <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 17, 2026</span></p></header>
+                    <p class="policy-lead">This Privacy Policy explains how the Barangay San Jose Digital Portal collects, uses, stores, and shares personal information when residents create accounts, submit proof of residency, request documents, or contact the portal. We handle personal information under the Philippine Data Privacy Act of 2012 (Republic Act No. 10173) and its applicable rules.</p>
 
                     <h2 id="pp-collect">Information we collect</h2>
-                    <p>We may collect the following when you use the portal:</p>
+                    <p>Depending on the features you use, the portal may collect:</p>
                     <ul>
-                        <li>Account details (name, email, phone number, home address)</li>
-                        <li>Proof-of-residency files you upload (PDF, DOCX, JPG, or PNG)</li>
-                        <li>Document request details — type, purpose, and status</li>
-                        <li>Date and time of registrations and requests</li>
-                        <li>IP address, browser, and device info for security purposes</li>
-                        <li>Server logs and error records</li>
-                        <li>Anything you share when contacting us</li>
+                        <li>Identity and account details, such as your name, email address, phone number, and residential address</li>
+                        <li>Proof-of-residency documents and other files you choose to upload</li>
+                        <li>Document request information, including the document type, stated purpose, tracking number, status, and related processing or payment status</li>
+                        <li>Registration, verification, request, and account activity dates and records</li>
+                        <li>Technical and security information, such as IP address, browser or device details, session information, and server or error logs</li>
+                        <li>Messages and contact details you send to the barangay through the portal or the listed contact email</li>
                     </ul>
+                    <p>Please provide only information needed for your account or request. Do not upload another person's personal information unless you are authorized to do so.</p>
 
                     <h2 id="pp-use">How we use it</h2>
-                    <p>We use this information to operate the portal, verify resident accounts, process document requests, send email notifications, maintain security, and comply with legal requirements.</p>
+                    <p>We use your information to manage and secure your account, confirm your email address and residency, and process document requests. We also use it to send status updates, prevent spam and unauthorized access, maintain the portal, respond to complaints or lawful requests, and meet recordkeeping or legal requirements.</p>
+                    <p>As applicable to the particular processing, the lawful basis may include your consent, a step you request or a service you use, compliance with a legal obligation, protection of vital interests or public order, or a legitimate interest such as portal security, subject to the rights and protections provided by law.</p>
 
                     <h2 id="pp-accounts">Accounts &amp; uploads</h2>
-                    <p>Registration details and uploaded proof-of-residency files are reviewed by barangay administrators. Please only upload documents that are yours and avoid including information not needed for verification.</p>
+                    <p>Residents can create an account and sign in without administrator approval. An unverified account may browse the portal, but a verified email address is required before submitting a document request. For online requests, authorized personnel can access the uploaded National ID or Certificate of Residency needed to review the request. For walk-in requests, staff record the request after checking the resident's identity in person.</p>
+                    <p>Uploaded proof files are used for request processing and stored in the portal's protected storage area. Access is restricted by the portal's technical controls, but no online system can guarantee that information will never be exposed. Do not upload another person's identity document unless authorized to do so.</p>
 
                     <h2 id="pp-retention">Data retention</h2>
-                    <p>We keep account records, files, request history, and logs for as long as needed to operate the portal and meet legal obligations. Fraudulent or inappropriate content may be removed at any time.</p>
+                    <p>Accounts with no verified email and no submitted request are automatically archived after 30 days. Other account, request, and security records are retained only as reasonably needed to administer the service, meet applicable records or legal obligations, resolve disputes, or protect the portal. When information is no longer needed and no lawful reason requires keeping it, it will be securely deleted or de-identified. Expired verification and password-reset tokens are not valid for continued use.</p>
 
                     <h2 id="pp-security">Security</h2>
-                    <p>We take reasonable steps to protect your information. No internet service is completely secure, and we cannot guarantee absolute protection.</p>
+                    <p>The portal uses safeguards intended to protect information, including HTTPS, password hashing, access controls, session protections, request protections, and restricted storage for uploaded documents. Access to information is limited to personnel who need it for their duties. We review and improve safeguards as the portal changes. If a personal data breach meets the legal notification requirements, affected individuals and the National Privacy Commission will be notified as required by law. No website or transmission over the internet is completely secure; please use a unique password and report suspected unauthorized access promptly.</p>
 
                     <h2 id="pp-third">Third-party services</h2>
-                    <p>We may use hosting or email-delivery services to run the portal. These providers may process personal information under their own policies.</p>
+                    <p>The portal relies on a website hosting provider to operate and store its data, Mailtrap for transactional email delivery, and Google reCAPTCHA to help detect automated abuse. When these services are used, relevant technical information, account or request messages, or delivery details may be processed by those providers under their own privacy terms. Information may be processed on systems located outside the Philippines. The portal does not use account or request information to build advertising profiles or sell it for advertising. Contact us if you need information about a particular disclosure or service provider.</p>
 
                     <h2 id="pp-cookies">Cookies</h2>
-                    <p>We may use cookies to keep you signed in and improve performance. You can disable cookies in your browser, but some features may stop working.</p>
+                    <p>The portal uses an essential session cookie to keep you signed in and protect account actions. The login and anti-abuse services may also use cookies or similar technical signals for security. The portal does not currently use optional advertising or analytics cookies. You can block cookies in your browser, but sign-in and other protected features may not work correctly.</p>
 
                     <h2 id="pp-rights">Your rights</h2>
-                    <p>Under RA 10173, you may request access to, correction of, or deletion of your personal data. To remove your account or an uploaded document, contact us below.</p>
+                    <p>Subject to the conditions and exceptions in RA 10173, you may ask to be informed about processing; access or receive a copy of your personal information; correct inaccurate or incomplete information; object to or withdraw consent from certain processing; request erasure or blocking where allowed; request data portability where applicable; and file a complaint with the National Privacy Commission. You may also seek damages where the law provides that right.</p>
+                    <p>To make a privacy request, email us using the contact details below. Tell us which account or request is involved and what action you are seeking. We may ask for information reasonably needed to verify your identity and protect your account. We will assess the request under applicable law and explain if a legal or operational obligation prevents us from completing it.</p>
 
                     <h2 id="pp-changes">Changes</h2>
-                    <p>We may update this policy at any time. Changes will appear on this page with a new date.</p>
+                    <p>We may revise this policy when our services, practices, or legal obligations change. The revised version and its effective or last-updated date will be posted on this page. For material changes, we will provide notice through the portal or by email when reasonably practicable.</p>
 
                     <h2 id="pp-contact">Contact</h2>
                     <div class="policy-contact-card">
@@ -611,6 +1015,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('tc-acceptance')">Acceptance</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('tc-accounts')">Accounts &amp; services</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('tc-responsibilities')">Your responsibilities</button></li>
+                        <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('tc-fees')">Fees and pickup</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('tc-admin')">Admin rights</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('tc-warranties')">No warranties</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('tc-liability')">Liability</button></li>
@@ -625,14 +1030,14 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <header class="policy-header policy-terms">
                         <p class="eyebrow">Legal</p>
                         <h1 id="terms-title">Terms &amp; Conditions</h1>
-                        <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 3, 2026</span><span class="policy-academic-note">Academic project — no real data collected</span></p></header>
+                    <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 17, 2026</span></p></header>
                     <p class="policy-lead">By using this portal, you agree to these Terms and Conditions. Please read them before registering or submitting any request.</p>
 
                     <h2 id="tc-acceptance">Acceptance</h2>
-                    <p>You agree to use this portal only for lawful purposes and in a way that does not harm others or violate these rules.</p>
+                    <p>By creating an account, submitting a request, or using portal features, you agree to these Terms. If you do not agree, do not use the account or request features. These Terms apply together with the Privacy Policy and any instructions shown for a particular service.</p>
 
                     <h2 id="tc-accounts">Accounts &amp; services</h2>
-                    <p>This portal lets residents register accounts, submit proof of residency, and request barangay documents. Access is granted after administrator verification. You are responsible for keeping your login secure and for the accuracy of what you submit.</p>
+                    <p>The portal allows residents to register, submit proof of residency with an online request, track requests, and request available barangay documents. Residents may sign in and browse before verifying their email, but must verify it before submitting an online request. Account creation does not guarantee that a document request will be approved or issued. Provide accurate, current information and keep your password, access key, and authenticator codes confidential. You are responsible for activity performed through your account unless you promptly report suspected unauthorized use.</p>
 
                     <h2 id="tc-responsibilities">Your responsibilities</h2>
                     <p>You agree not to:</p>
@@ -641,30 +1046,34 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         <li>Upload forged or altered proof-of-residency documents</li>
                         <li>Impersonate another person or submit requests on their behalf without authority</li>
                         <li>Use the portal for illegal activity or to harm others</li>
-                        <li>Upload copyrighted material without permission</li>
-                        <li>Share sensitive data about other people without their consent</li>
+                        <li>Upload files containing malware, or attempt to bypass portal security, access controls, or rate limits</li>
+                        <li>Upload or share copyrighted material without permission or another lawful basis</li>
+                        <li>Share another person's sensitive information without authority or a lawful purpose</li>
                     </ul>
 
+                    <h2 id="tc-fees">Fees and pickup</h2>
+                    <p>Any applicable document fee will be shown during the request process or confirmed by the barangay office. Fees may differ by document type and may change. Where the portal indicates payment is due at pickup, payment is collected through the barangay office when the document is claimed; the portal does not promise online payment unless that option is expressly shown.</p>
+
                     <h2 id="tc-admin">Administration rights</h2>
-                    <p>We may review, approve, reject, or remove any registration, request, or upload that violates these terms or appears fraudulent. Accounts that repeatedly misuse the portal may be suspended.</p>
+                    <p>Authorized personnel may review online proof-of-residency files and requests for completeness, eligibility, authenticity, and compliance with these Terms and applicable requirements. Walk-in requests are recorded by staff after an in-person identity check. A request may be declined or returned for more information. Where reasonably practicable, the portal or office will provide the decision or next steps through the contact details on the account. If you believe a decision was made in error, contact the barangay office with your tracking number or account email.</p>
 
                     <h2 id="tc-warranties">No warranties</h2>
-                    <p>This portal is provided "as is." We do not guarantee uninterrupted, secure, or error-free access.</p>
+                    <p>The portal is provided as an online service and may be unavailable, delayed, or changed for maintenance, security, connectivity, or operational reasons. We work to keep information and features useful but do not warrant uninterrupted or error-free access. A portal status or confirmation is not a substitute for a final decision or official document issued by the barangay office.</p>
 
                     <h2 id="tc-liability">Liability</h2>
-                    <p>We are not liable for damages arising from the use of this portal, including issues from user-submitted content, downtime, or security events.</p>
+                    <p>To the extent permitted by Philippine law, the portal operator is not responsible for losses caused by a user's failure to protect account credentials, inaccurate information supplied by a user, third-party services outside the portal's control, or interruptions beyond reasonable control. Nothing in these Terms excludes liability or a remedy that cannot lawfully be excluded, limits rights provided by law, or excuses a party from its legal duties.</p>
 
                     <h2 id="tc-third">Third-party content</h2>
-                    <p>We are not responsible for content submitted by users or for third-party links or services that appear on this portal.</p>
+                    <p>User-submitted content remains the responsibility of the person who submits it. External websites and third-party services are governed by their own terms and privacy notices; we do not control their availability or practices. We may review or remove portal content as described in the Moderation Policy.</p>
 
                     <h2 id="tc-changes">Changes</h2>
-                    <p>We may update, change, or remove features at any time without notice.</p>
+                    <p>We may revise these Terms or change portal features to reflect service or legal changes. The current version and its date will be posted here. We will provide notice of material changes through the portal or by email when reasonably practicable. Changes apply from the posted effective date, subject to any rights that applicable law gives you.</p>
 
                     <h2 id="tc-termination">Termination</h2>
-                    <p>We may suspend or remove access if we believe a user has violated these Terms.</p>
+                    <p>We may restrict, suspend, or close access when reasonably necessary for security, legal compliance, service operation, or a violation of these Terms. Where practicable, we will explain the reason and how to contact us about the decision. Closing access does not remove records that must be retained for a lawful purpose.</p>
 
                     <h2 id="tc-law">Governing law</h2>
-                    <p>These Terms are governed by the laws of the Republic of the Philippines.</p>
+                    <p>These Terms are governed by the laws of the Republic of the Philippines. Any dispute will be handled by the appropriate Philippine authority or court, subject to applicable law.</p>
 
                     <h2 id="tc-contact">Contact</h2>
                     <div class="policy-contact-card">
@@ -698,7 +1107,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('mod-reporting')">Reporting problems</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('mod-removal')">Removal &amp; rejection</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('mod-repeat')">Repeat violations</button></li>
-                        <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('mod-approval')">No guarantee of approval</button></li>
+                        <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('mod-approval')">Decisions and review</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('mod-responsibility')">User responsibility</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('mod-contact')">Contact</button></li>
                     </ol>
@@ -707,7 +1116,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <header class="policy-header policy-moderation">
                         <p class="eyebrow">Legal</p>
                         <h1 id="moderation-title">Moderation Policy</h1>
-                        <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 3, 2026</span><span class="policy-academic-note">Academic project — no real data collected</span></p></header>
+                        <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 17, 2026</span></p></header>
                     <p class="policy-lead">We aim to keep this portal safe and useful for the community. This policy explains how submissions are reviewed and how to report problems.</p>
 
                     <h2 id="mod-prohibited">Prohibited content</h2>
@@ -715,31 +1124,31 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <ul>
                         <li>Threats, harassment, or abusive language</li>
                         <li>Hate speech or discriminatory statements</li>
-                        <li>Defamation or false accusations</li>
-                        <li>Spam or repeated junk submissions</li>
-                        <li>Fraudulent, forged, or falsified documents</li>
-                        <li>Illegal activity or instructions</li>
-                        <li>Personal information about others shared without consent</li>
-                        <li>Copyrighted material without permission</li>
+                        <li>Spam, repeated junk submissions, or attempts to disrupt the service</li>
+                        <li>Fraudulent, forged, altered, or misleading registration details or supporting documents</li>
+                        <li>Threats, harassment, discriminatory abuse, or content that appears unlawful</li>
+                        <li>Instructions or files intended to facilitate illegal activity or compromise the portal</li>
+                        <li>Personal or sensitive information about another person shared without authority or a lawful purpose</li>
+                        <li>Material that infringes copyright or another person's rights</li>
                     </ul>
 
                     <h2 id="mod-review">How we review</h2>
-                    <p>Administrators review registrations, uploaded proof of residency, and document requests when they are submitted. Content may be rejected if it appears harmful, fraudulent, or unsuitable.</p>
+                    <p>Authorized personnel review proof-of-residency files submitted with online document requests. Reviews may consider completeness, eligibility, whether the file supports the stated request, and compliance with applicable requirements. Walk-in identity is checked by staff in person. The portal does not guarantee approval or issuance. We may ask for clarification or a replacement file when more information is needed.</p>
 
                     <h2 id="mod-reporting">Reporting problems</h2>
-                    <p>If you see a problem, email us at <a href="mailto:deleonjuliusakeem@gmail.com">deleonjuliusakeem@gmail.com</a> with a description of the issue and any relevant details.</p>
+                    <p>To report harmful content, suspected fraud, unauthorized disclosure, or a moderation concern, email <a href="mailto:deleonjuliusakeem@gmail.com">deleonjuliusakeem@gmail.com</a>. Include the relevant tracking number or page, describe the concern, and tell us how we can contact you. Do not email passwords, authenticator codes, or unrelated sensitive documents.</p>
 
                     <h2 id="mod-removal">Removal &amp; rejection</h2>
-                    <p>We may remove content or reject requests in response to a valid complaint, legal notice, or administrator decision.</p>
+                    <p>Depending on the issue, we may ask for more information, restrict access to a file, return a request for correction, or reject or remove content that violates this policy or applicable law. We will provide a reason or next step when reasonably practicable, while protecting other people's privacy and the integrity of an investigation.</p>
 
                     <h2 id="mod-repeat">Repeat violations</h2>
-                    <p>Users who repeatedly submit harmful or fraudulent content may have their accounts suspended.</p>
+                    <p>Repeated or serious violations may lead to additional review, temporary restrictions, account suspension, or account closure. The response will take into account the nature and seriousness of the conduct and any applicable legal or safety needs.</p>
 
-                    <h2 id="mod-approval">No guarantee of approval</h2>
-                    <p>We are not required to approve any registration or request. Accounts may be removed at any time, with or without notice.</p>
+                    <h2 id="mod-approval">Decisions and review</h2>
+                    <p>Submitting a registration or request does not guarantee approval, processing by a particular date, or issuance of a document. If a registration, upload, or request is rejected or restricted, contact the barangay office at the email below with your account email or tracking number to ask for clarification or a review. There is no in-portal appeal feature or guaranteed response time; applicable legal rights remain unaffected.</p>
 
                     <h2 id="mod-responsibility">User responsibility</h2>
-                    <p>Provide accurate information and avoid content that could harm or misidentify others. We expect respectful, lawful use.</p>
+                    <p>Check information and files before submitting them, use the portal only for your own authorized account and requests, and respect the privacy and rights of other people. Report suspected account compromise or an incorrect moderation action promptly.</p>
 
                     <h2 id="mod-contact">Contact</h2>
                     <div class="policy-contact-card">
@@ -770,37 +1179,38 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <ol class="policy-toc-list">
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('cr-policy')">Copyright policy</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('cr-reporting')">Reporting infringement</button></li>
-                        <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('cr-response')">Response</button></li>
-                        <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('cr-counter')">Counter-notice</button></li>
+                        <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('cr-response')">How reports are handled</button></li>
+                        <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('cr-review')">Requesting a review</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('cr-contact')">Contact</button></li>
                     </ol>
                 </nav>
                 <div class="policy-page">
                     <header class="policy-header policy-copyright">
                         <p class="eyebrow">Legal</p>
-                        <h1 id="copyright-title">Copyright &amp; DMCA Notice</h1>
-                        <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 3, 2026</span><span class="policy-academic-note">Academic project — no real data collected</span></p></header>
-                    <p class="policy-lead">We respect intellectual property rights. If you believe content on this portal infringes your copyright, please contact us.</p>
+                        <h1 id="copyright-title">Copyright Notice</h1>
+                        <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 17, 2026</span></p></header>
+                    <p class="policy-lead">We respect intellectual property rights under Philippine law, including the Intellectual Property Code of the Philippines (Republic Act No. 8293). This page explains how portal materials and resident uploads may be used, and how to report a suspected infringement.</p>
 
                     <h2 id="cr-policy">Copyright policy</h2>
-                    <p>Content submitted to this portal may be copyright-protected. We do not allow material belonging to others without permission or a lawful right to use it.</p>
+                    <p>Text, graphics, software, photographs, and other materials on the portal may be protected by copyright or other rights. Those rights remain with the relevant owner. You may not copy or reuse protected portal material except with permission or as allowed by law. Nothing on this page transfers ownership of a government seal, third-party work, or other protected material.</p>
+                    <p>You keep your rights in files and materials you submit. By uploading them, you give the portal a limited, non-exclusive permission to store, reproduce, and make them available to authorized personnel only as reasonably needed to review or fulfill your request, secure the service, and meet legal obligations. This permission ends when the material is deleted, except for copies that must be retained for a lawful purpose.</p>
 
                     <h2 id="cr-reporting">Reporting infringement</h2>
                     <p>Send a written notice that includes:</p>
                     <ul>
-                        <li>Your full name and contact information</li>
-                        <li>A description of the work you believe has been infringed</li>
-                        <li>The location of the allegedly infringing material on the portal</li>
-                        <li>A good-faith statement that the use is unauthorized</li>
-                        <li>A statement that the information in the notice is accurate</li>
-                        <li>Your signature</li>
+                        <li>Your name, preferred contact details, and whether you are the rights holder or authorized to act for them</li>
+                        <li>A description of the protected work and the right you believe has been infringed</li>
+                        <li>The exact portal URL, request reference, or other location of the material, plus enough detail to identify it</li>
+                        <li>A good-faith statement explaining why the use is not authorized by the rights holder, an agent, or the law</li>
+                        <li>A statement that the notice is accurate and that you are the rights holder or authorized representative</li>
+                        <li>Your typed or written signature</li>
                     </ul>
 
-                    <h2 id="cr-response">Response</h2>
-                    <p>We review all notices and may remove or disable access to material that appears to violate copyright law, and may contact the user who submitted it.</p>
+                    <h2 id="cr-response">How reports are handled</h2>
+                    <p>Email the notice to <a href="mailto:deleonjuliusakeem@gmail.com">deleonjuliusakeem@gmail.com</a> with the subject "Copyright report." We will review notices, may ask for supporting information, and may restrict or remove material when appropriate. Where reasonably practicable, we may notify the person who submitted it and provide a chance to respond, while protecting privacy and complying with legal requirements. Submitting a report does not guarantee removal.</p>
 
-                    <h2 id="cr-counter">Counter-notice</h2>
-                    <p>If you believe content was removed by mistake, contact us with a counter-notice. We will review it and may restore the content if appropriate.</p>
+                    <h2 id="cr-review">Requesting a review</h2>
+                    <p>If you submitted material that was restricted or removed and believe the action was mistaken, email us with the relevant URL or request reference, explain why you are authorized to use the material or believe the use is lawful, and include any supporting information. We will consider the response and may restore access where appropriate. This is an administrative review process and does not replace rights or remedies available under Philippine law.</p>
 
                     <h2 id="cr-contact">Contact</h2>
                     <div class="policy-contact-card">
@@ -824,7 +1234,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <?php require __DIR__ . '/includes/shared/site-footer.php'; ?>
 
     <?php require __DIR__ . '/includes/shared/dialogs.php'; ?>    <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true">Message</div>
-    <script src="script.js?v=20261016-camera-upload" defer></script>
+    <script src="script.js?v=20261021-public-record-archive-grid-v1" defer></script>
 </body>
 </html>
 

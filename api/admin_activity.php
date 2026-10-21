@@ -53,7 +53,7 @@ $list = $pdo->prepare("SELECT a.audit_id, a.action,
         COALESCE(u.role, 'Admin') AS admin_role,
         CASE WHEN a.action = 'reject_resident' AND LOCATE('; reason: ', a.details) > 0
             THEN SUBSTRING_INDEX(a.details, '; reason: ', -1) ELSE NULL END AS reason,
-        CASE WHEN a.action LIKE 'request_%' THEN (SELECT request_id FROM document_request WHERE tracking_code = SUBSTRING_INDEX(SUBSTRING_INDEX(a.details, 'Tracking ', -1), ';', 1) LIMIT 1) ELSE NULL END AS request_id,
+        CASE WHEN a.action LIKE 'request_%' OR a.action = 'walk_in_request_created' THEN (SELECT request_id FROM document_request WHERE tracking_code = SUBSTRING_INDEX(SUBSTRING_INDEX(a.details, 'Tracking ', -1), ';', 1) LIMIT 1) ELSE NULL END AS request_id,
         CASE WHEN a.action = 'disclosure_edited' THEN a.details ELSE NULL END AS edit_details
     FROM audit_log a $joins $whereSql
     ORDER BY $sortColumn $direction, a.audit_id DESC LIMIT $perPage OFFSET $offset");

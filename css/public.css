@@ -1,5 +1,5 @@
 /* Guest-facing public header */
-.navbar { position: sticky; top: 0; border-bottom: 1px solid var(--color-border); }
+.navbar { position: sticky; top: 0; }
 .brand-link { text-decoration: none; }
 .guest-user-view .logo-text strong { font-size: var(--text-16); }
 .guest-user-view .nav-menu { display: flex; align-items: center; justify-content: flex-end; gap: 24px; font-size: 15px; }

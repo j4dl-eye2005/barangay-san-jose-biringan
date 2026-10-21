@@ -7,9 +7,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') { http_response_code(405); ec
 requireAdminAccess();
 
 $data = jsonBody(8192);
-$title = trim(is_string($data['title'] ?? null) ? $data['title'] : '');
-$title = function_exists('mb_substr') ? mb_substr($title, 0, 120, 'UTF-8') : substr($title, 0, 120);
-$details = $title === '' ? 'Disclosure draft saved' : "Disclosure draft saved: $title";
+$details = 'Disclosure draft saved';
 
 try {
     $audit = $pdo->prepare('INSERT INTO audit_log (user_id, action, details) VALUES (?, ?, ?)');

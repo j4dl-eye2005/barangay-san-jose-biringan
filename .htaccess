@@ -10,12 +10,12 @@ ErrorDocument 404 /index.php?error=404
 </IfModule>
 
 <IfModule mod_headers.c>
-    Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://www.google.com/recaptcha/; frame-src 'self' https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/; upgrade-insecure-requests"
+    Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://www.google.com/recaptcha/; frame-src 'self' https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/"
     Header always set X-Frame-Options "DENY"
     Header always set X-Content-Type-Options "nosniff"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
-    Header always set Strict-Transport-Security "max-age=31536000"
+    Header always set Strict-Transport-Security "max-age=31536000" env=HTTPS
     <FilesMatch "\.(?:css|js|png|jpe?g|gif|webp|svg|ico|woff2?)$">
         Header set Cache-Control "public, max-age=2592000, immutable"
     </FilesMatch>
@@ -36,7 +36,7 @@ ErrorDocument 404 /index.php?error=404
     AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json application/xml image/svg+xml
 </IfModule>
 
-<FilesMatch "^(?:\.env(?:\..*)?|\.gitignore|.*\.sql|.*\.zip|create_admin\.php|test_.*\.php)$">
+<FilesMatch "^(?:\.env(?:\..*)?|\.gitignore|.*\.sql|.*\.zip|.*\.log|SECURITY_OPERATIONS\.md|create_admin\.php|test_.*\.php)$">
     Require all denied
 </FilesMatch>
 
@@ -50,8 +50,10 @@ ErrorDocument 404 /index.php?error=404
     RewriteRule ^(?:private|private_storage|storage)/ - [F,L,NC]
     RewriteRule ^\.agents(?:/|$) - [F,L,NC]
 
-    # Route unknown paths through PHP; only the configured secret path opens admin login.
+    RewriteRule ^admin-access/?$ index.php?admin_access_form=1 [L,QSA]
+
+    # Unknown paths show the generic unavailable page; no path is an admin credential.
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^(.+?)/?$ index.php?private_admin_entry=$1 [L,QSA]
+    RewriteRule ^(.+?)/?$ index.php?error=404 [L,QSA]
 </IfModule>

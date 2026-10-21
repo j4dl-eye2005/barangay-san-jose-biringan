@@ -11,8 +11,8 @@
     --color-surface: #ffffff;
     --color-ink: #1c1917;
     --color-text: #57534e;
-    --color-muted: #78716c;
-    --color-quiet: #a8a29e;
+    --color-muted: #566059;
+    --color-quiet: #566059;
     --color-border: #e7e5e4;
     --color-separator: #f0eeeb;
     --color-logo-green: #0c5700;
@@ -63,7 +63,7 @@
     --radius-pill: 999px;
     --topbar-height: 56px;
     --rail-width: 240px;
-    --content-width: 1180px;
+    --content-width: 1200px;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -74,7 +74,7 @@ html {
     scrollbar-gutter: stable;
     scrollbar-width: thin;
     scrollbar-color: var(--color-quiet) transparent;
-    overflow-x: hidden;
+    overflow-x: clip;
     background: var(--color-canvas);
 }
 
@@ -84,7 +84,7 @@ body {
     margin: 0;
     min-width: 320px;
     min-height: 100vh;
-    overflow-x: hidden;
+    overflow-x: clip;
     background: transparent;
     color: var(--color-ink);
     font-family: var(--font-sans);
@@ -145,16 +145,23 @@ p { color: var(--color-text); }
     top: 0;
     z-index: 1000;
     min-height: var(--topbar-height);
-    border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface);
+    border-bottom: 1px solid transparent;
+    background: #fff;
+    box-shadow: none;
+    transition: border-color .18s ease, box-shadow .18s ease;
 }
+.navbar.is-scrolled { border-bottom-color: var(--color-border); box-shadow: 0 2px 10px rgba(28, 25, 23, .08); }
 .nav-inner {
     display: flex;
     align-items: center;
-    width: min(100% - 44px, var(--content-width));
+    width: min(100%, 1120px);
     margin: 0 auto;
+    padding-right: 24px;
+    padding-left: 24px;
+    box-sizing: border-box;
     min-height: var(--topbar-height);
 }
+.portal-main-row { display: contents; }
 .logo-container {
     display: inline-flex;
     align-items: center;
@@ -192,8 +199,37 @@ p { color: var(--color-text); }
     background: var(--color-accent-soft);
     color: var(--color-accent-hover);
 }
-.user-info { display: flex; align-items: center; gap: var(--space-3); margin-left: var(--space-4); padding-left: var(--space-4); border-left: 1px solid var(--color-border); }
-#welcome-user { max-width: 190px; overflow: hidden; color: var(--color-text); font-size: var(--text-12); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.user-info { position: relative; display: flex; align-items: center; gap: var(--space-3); margin-left: var(--space-4); padding-left: var(--space-4); border-left: 1px solid var(--color-border); }
+#welcome-user { display: inline-flex; max-width: 190px; align-items: center; gap: 8px; padding: 8px 4px; border: 0; background: transparent; color: var(--color-text); font-family: inherit; font-size: var(--text-12); font-weight: 600; white-space: nowrap; cursor: pointer; }
+#welcome-user span { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+#welcome-user:hover { color: var(--color-accent-hover); }
+#welcome-user:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; border-radius: 10px; }
+#welcome-user i { font-size: 10px; transition: transform .16s ease; }
+#welcome-user[aria-expanded="true"] i { transform: rotate(180deg); }
+.account-avatar { display: none; }
+.user-account-menu { position: absolute; z-index: 1200; top: calc(100% + 8px); right: 0; display: grid; width: 260px; min-width: 240px; max-width: calc(100vw - 32px); box-sizing: border-box; gap: 0; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); box-shadow: 0 10px 24px rgba(28, 25, 23, .14); }
+.user-account-menu[hidden] { display: none; }
+.user-account-menu:not([hidden]) { animation: account-menu-enter .16s ease-out both; }
+.account-menu-summary { min-width: 0; padding: 8px 12px 10px; }
+.account-menu-summary strong,
+.account-menu-summary span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-menu-summary strong { color: var(--color-ink); font-size: var(--text-12); font-weight: 700; }
+.account-menu-summary span { margin-top: 3px; color: var(--color-muted); font-size: var(--text-11); }
+.account-menu-divider { height: 0; margin: 2px 4px 6px; border-top: 1px solid var(--color-separator); }
+.account-menu-logout-divider { margin: 6px 4px 4px; }
+.user-account-menu .account-menu-item { display: flex; width: 100%; min-height: 44px; align-items: center; gap: 10px; padding: 10px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--color-text); font: inherit; font-size: var(--text-12); font-weight: 600; text-align: left; white-space: nowrap; cursor: pointer; transition: background-color .14s ease, color .14s ease; }
+.user-account-menu .account-menu-item i { width: 16px; color: currentColor; text-align: center; }
+.user-account-menu .account-menu-item:hover { background: var(--color-accent-soft); color: var(--color-accent-hover); }
+.user-account-menu .account-menu-item:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+.user-account-menu .account-menu-logout:hover { background: #fff0ef; color: #a3433b; }
+@keyframes account-menu-enter { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 767px) {
+    #welcome-user .account-greeting { display: none; }
+    #welcome-user .account-avatar { position: relative; display: grid; width: 34px; height: 34px; max-width: none; place-items: center; overflow: hidden; border-radius: 50%; background: #e3e4e8; color: transparent; font-size: 0; text-overflow: clip; }
+    #welcome-user .account-avatar::before { position: absolute; top: 6px; left: 50%; width: 11px; height: 12px; border-radius: 50%; background: #707477; content: ""; transform: translateX(-50%); }
+    #welcome-user .account-avatar::after { position: absolute; right: 4px; bottom: 0; left: 4px; height: 13px; border-radius: 48% 48% 0 0 / 72% 72% 0 0; background: #707477; content: ""; }
+    .user-account-menu { min-width: min(240px, calc(100vw - 32px)); max-width: calc(100vw - 32px); }
+}
 .nav-toggle { display: none; align-items: center; gap: var(--space-2); min-height: 40px; margin-left: auto; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-ink); font-size: var(--text-12); font-weight: 700; }
 .category-nav { margin-left: auto; }
 #main-nav.hidden-nav { display: none; }
@@ -223,13 +259,17 @@ body[data-route-start="moderation"] #moderation,
 body[data-route-start="copyright"] #copyright { display: block; animation: page-enter .34s cubic-bezier(.22, .61, .36, 1) both; }
 body[data-route-start="login"] #login,
 body[data-route-start="admin-login"] #admin-login,
-body[data-route-start="forgot-password"] #forgot-password { display: flex; animation: page-enter .34s cubic-bezier(.22, .61, .36, 1) both; }
+body[data-route-start="forgot-password"] #forgot-password,
+body[data-route-start="resident-change-email"] #resident-change-email,
+body[data-route-start="resident-change-password"] #resident-change-password { display: flex; animation: page-enter .34s cubic-bezier(.22, .61, .36, 1) both; }
 /* Keep registration's first paint on the same single section animation as
    navigation; separate panel animations made the form and brand enter apart. */
 body[data-route-start="register"] #register { display: flex; animation: page-enter .34s cubic-bezier(.22, .61, .36, 1) both; }
 body[data-route-start="login"] #main-nav,
 body[data-route-start="admin-login"] #main-nav,
 body[data-route-start="forgot-password"] #main-nav,
+body[data-route-start="resident-change-email"] #main-nav,
+body[data-route-start="resident-change-password"] #main-nav,
 body[data-route-start="register"] #main-nav { display: none; }
 
 /* #landing has its own higher-specificity layout rule in home.css. Explicitly
@@ -241,7 +281,7 @@ body[data-route-start]:not([data-route-start="landing"]) #landing { display: non
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
-.page-shell { width: min(100% - 44px, var(--content-width)); margin: 0 auto; padding: var(--space-8) 0 var(--space-10); }
+.page-shell { width: min(100%, var(--content-width)); margin: 0 auto; padding: var(--space-8) 32px var(--space-10); }
 .eyebrow, .step-label {
     margin-bottom: var(--space-2);
     color: var(--color-accent);
@@ -261,111 +301,13 @@ body::before {
     background: var(--color-canvas);
 }
 
-/* One full-screen, non-specific screen for unavailable routes and blocked admin paths. */
-#app-container .unavailable-section.active {
-    display: grid;
-    box-sizing: border-box;
-    min-height: 100vh;
-    place-items: center;
-    padding: 12px;
-    background: #f4f7f2;
-}
-html.hide-unavailable-scrollbar { scrollbar-width: none; scrollbar-gutter: auto; -ms-overflow-style: none; background: #f4f7f2; }
+/* Shared error-screen layout is in unavailable.css for standalone and in-app 404s. */
+html.hide-unavailable-scrollbar { scrollbar-width: none; scrollbar-gutter: auto; -ms-overflow-style: none; background: #fff; }
 html.hide-unavailable-scrollbar::-webkit-scrollbar,
 body.unavailable-view::-webkit-scrollbar { display: none; width: 0; height: 0; }
-.unavailable-page-content { display: grid; gap: 14px; width: min(100%, 760px); margin: 0 auto; }
-.unavailable-brand { display: inline-flex; min-height: 44px; align-items: center; gap: 10px; width: max-content; color: #20231f; text-decoration: none; }
-.unavailable-brand img { display: block; width: 40px; height: 40px; object-fit: cover; border-radius: 50%; }
-.unavailable-brand-text { display: flex; flex-direction: column; line-height: 1.25; }
-.unavailable-brand-text strong { font-size: 16px; font-weight: 800; }
-.unavailable-brand-text span { color: #747a71; font-size: 13px; font-weight: 400; }
-.unavailable-card {
-    box-sizing: border-box;
-    width: min(100%, 760px);
-    padding: clamp(22px, 4vw, 34px);
-    border: 1px solid #dce4d8;
-    border-radius: 20px;
-    background: #fff;
-    box-shadow: 0 10px 28px rgba(22, 61, 23, .055);
-}
-.unavailable-icon-wrap { display: grid; width: 52px; height: 52px; place-items: center; margin: 0 0 14px; border-radius: 50%; background: #edf4e9; color: #12600b; }
-.unavailable-icon { display: block; width: 30px; height: 30px; }
-.unavailable-code {
-    margin: 0 0 10px;
-    color: #12600b;
-    font-size: 13px;
-    font-weight: 800;
-    letter-spacing: .13em;
-    text-transform: uppercase;
-}
-.unavailable-card h1 {
-    margin: 0 0 12px;
-    font-size: clamp(30px, 6vw, 44px);
-    line-height: 1.08;
-    letter-spacing: -.018em;
-    text-wrap: balance;
-}
-.unavailable-description { margin: 0 0 8px; color: #444b42; font-size: 17px; }
-.unavailable-address { display: block; margin: 0 0 22px; color: #62685f; font-size: 13px; }
-.unavailable-address code { overflow-wrap: anywhere; color: #62685f; font: inherit; }
-.unavailable-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.unavailable-home,
-.unavailable-back,
-.unavailable-quick-links a,
-.unavailable-card-footer a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; }
-.unavailable-home,
-.unavailable-back {
-    padding: 0 20px;
-    border: 1px solid #086000;
-    border-radius: 10px;
-    font: inherit;
-    font-weight: 700;
-    text-decoration: none;
-    cursor: pointer;
-    transition: background-color .18s ease, color .18s ease, box-shadow .18s ease;
-}
-.unavailable-home { background: #086000; color: #fff; }
-.unavailable-home:hover { background: #064b00; color: #fff; }
-.unavailable-back { background: #fff; color: #086000; }
-.unavailable-back:hover { background: #edf4e9; color: #064b00; }
-.unavailable-quick-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0 16px; margin-top: 24px; padding-top: 8px; border-top: 1px solid #edf0eb; }
-.unavailable-quick-links span { width: 100%; color: #5d625a; font-size: 13px; font-weight: 700; }
-.unavailable-quick-links a,
-.unavailable-card-footer a { color: #086000; font-size: 14px; font-weight: 500; text-decoration: none; text-underline-offset: 3px; }
-.unavailable-quick-links a { font-weight: 500; text-decoration: none; }
-.unavailable-brand:hover,
-.unavailable-quick-links a:hover,
-.unavailable-card-footer a:hover { color: #064b00; }
-.unavailable-quick-links a:hover,
-.unavailable-card-footer a:hover { text-decoration: underline; }
-.unavailable-quick-links a:hover { padding: 0 6px; margin-right: -12px; margin-left: -6px; border-radius: 6px; background: #edf4e9; }
-.unavailable-card-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #edf0eb; }
-.unavailable-card-footer p { margin: 0; color: #5d625a; font-size: 13px; }
-.unavailable-card-footer .unavailable-report { margin-left: auto; font-size: 13px; }
-.unavailable-home:focus-visible,
-.unavailable-back:focus-visible,
-.unavailable-quick-links a:focus-visible,
-.unavailable-brand:focus-visible,
-.unavailable-card-footer a:focus-visible { outline: 3px solid #12600b; outline-offset: 3px; border-radius: 4px; }
-@media (max-width: 600px) {
-    #app-container .unavailable-section.active { padding: 24px 16px 16px; }
-    .unavailable-page-content { gap: 10px; }
-    .unavailable-card { padding: 20px; border-radius: 16px; }
-    .unavailable-code { font-weight: 800; letter-spacing: .13em; }
-    .unavailable-address,
-    .unavailable-address code { color: #62685f; font-size: 12px; overflow-wrap: anywhere; }
-    .unavailable-actions { display: grid; grid-template-columns: 1fr; }
-    .unavailable-home, .unavailable-back { box-sizing: border-box; width: 100%; }
-    .unavailable-quick-links { gap: 12px; }
-    .unavailable-card-footer { align-items: flex-start; gap: 12px; }
-    .unavailable-card-footer .unavailable-report { margin-left: 0; }
-}
-body.unavailable-view #main-nav,
-body.unavailable-view .site-disclaimer-bar,
-body.unavailable-view .site-footer,
 body.unavailable-view #policy-back-top,
 body.unavailable-view .skip-link { display: none !important; }
-body.unavailable-view { display: block; border: 0; background: #f4f7f2; }
+body.unavailable-view { display: block; border: 0; background: #fff; }
 body.unavailable-view #app-container { width: 100%; max-width: none; margin: 0; }
 
 #landing { position: relative; isolation: isolate; overflow: hidden; min-height: 0; }

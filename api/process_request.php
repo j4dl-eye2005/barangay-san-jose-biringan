@@ -27,9 +27,9 @@ if (!in_array($action, ['Approve', 'Reject', 'Ready', 'Pickup'], true)) {
     exit;
 }
 
-$request = $pdo->prepare("SELECT dr.tracking_code, r.email, r.first_name, r.middle_name, r.last_name, dt.name AS document_name
+$request = $pdo->prepare("SELECT dr.tracking_code, r.email, COALESCE(r.first_name, dr.walk_in_name) AS first_name, r.middle_name, r.last_name, dr.request_source, dt.name AS document_name
                           FROM document_request dr
-                          JOIN resident r ON r.resident_id = dr.resident_id
+                          LEFT JOIN resident r ON r.resident_id = dr.resident_id
                           JOIN document_type dt ON dt.document_type_id = dr.document_type_id
                           WHERE dr.request_id = ?");
 $request->execute([$requestId]);
@@ -53,10 +53,7 @@ $auditAction = match ($action) {
     'Ready' => 'request_ready_for_pickup',
     'Pickup' => 'request_completed',
 };
-$residentName = trim(implode(' ', array_filter([$requestInfo['first_name'], $requestInfo['middle_name'], $requestInfo['last_name']])));
-$auditDetails = "Tracking {$requestInfo['tracking_code']}; resident {$residentName}; document {$requestInfo['document_name']}";
-if ($action === 'Reject' && is_string($details) && trim($details) !== '') $auditDetails .= '; reason: ' . trim($details);
-$audit->execute([$_SESSION['user_id'], $auditAction, $auditDetails]);
+$audit->execute([$_SESSION['user_id'], $auditAction, "Request ID $requestId; new status $newStatus"]);
 
 $appUrl   = portalConfig()['app_url'];
 
@@ -105,10 +102,11 @@ $htmlBody = portalEmailTemplate(
 );
 
 $emailError = null;
-$emailSent  = queuePortalEmail($pdo, $requestInfo['email'], $emailSubject, $plainBody, $htmlBody, $emailError);
-if (!$emailSent) $emailSent = sendPortalEmail($requestInfo['email'], $emailSubject, $plainBody, $emailError, $htmlBody);
-if (!$emailSent) {
-    error_log("process_request.php email failed for request $requestId: " . ($emailError ?? 'unknown error'));
+$emailSent = false;
+if (!empty($requestInfo['email'])) {
+    $emailSent = queuePortalEmail($pdo, $requestInfo['email'], $emailSubject, $plainBody, $htmlBody, $emailError);
+    if (!$emailSent) $emailSent = sendPortalEmail($requestInfo['email'], $emailSubject, $plainBody, $emailError, $htmlBody);
+    if (!$emailSent) error_log("process_request.php email failed for request $requestId: " . ($emailError ?? 'unknown error'));
 }
 
 echo json_encode(['success' => true, 'emailSent' => $emailSent]);

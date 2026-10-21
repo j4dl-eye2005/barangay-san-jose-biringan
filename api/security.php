@@ -7,7 +7,7 @@ function appIsHttps(): bool
     return isset($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off' && $_SERVER['HTTPS'] !== '';
 }
 
-/** Admin route access is granted by visiting the configured secret entry URL. */
+/** Admin route access is granted by submitting the configured key through the private entry form. */
 function hasAdminEntryAuthorization(): bool
 {
     $authorizedAt = (int) ($_SESSION['admin_entry_authorized_at'] ?? 0);
@@ -16,6 +16,25 @@ function hasAdminEntryAuthorization(): bool
         return false;
     }
     return true;
+}
+
+function rotateCsrfToken(): string
+{
+    $_SESSION['_csrf_token'] = bin2hex(random_bytes(32));
+    return $_SESSION['_csrf_token'];
+}
+
+function csrfToken(): string
+{
+    if (session_status() !== PHP_SESSION_ACTIVE) startAppSession();
+    $token = $_SESSION['_csrf_token'] ?? null;
+    return is_string($token) && preg_match('/^[a-f0-9]{64}$/', $token) ? $token : rotateCsrfToken();
+}
+
+function csrfTokenIsValid(): bool
+{
+    $provided = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($_POST['csrf_token'] ?? '');
+    return is_string($provided) && $provided !== '' && hash_equals(csrfToken(), $provided);
 }
 
 /** Validate the unguessable entry key and establish a session gate. */
@@ -27,13 +46,43 @@ function authorizeAdminEntry(string $providedKey): bool
     session_regenerate_id(true);
     $_SESSION['admin_entry_authorized'] = true;
     $_SESSION['admin_entry_authorized_at'] = time();
+    rotateCsrfToken();
     return true;
 }
 
-/** Preserve existing call sites while replacing network-IP checks with the secret-route session gate. */
-function isAllowedAdminIp(): bool
+/** Clear an authenticated session if the account's password changed elsewhere. */
+function enforceAuthenticatedSessionVersion(PDO $pdo): bool
 {
-    return hasAdminEntryAuthorization();
+    $role = (string) ($_SESSION['role'] ?? '');
+    $id = $role === 'Admin' ? (int) ($_SESSION['user_id'] ?? 0)
+        : ($role === 'Resident' ? (int) ($_SESSION['resident_id'] ?? 0) : 0);
+    if ($id < 1) return true;
+
+    try {
+        $table = $role === 'Admin' ? 'user' : 'resident';
+        $idColumn = $role === 'Admin' ? 'user_id' : 'resident_id';
+        $stmt = $pdo->prepare("SELECT auth_version FROM $table WHERE $idColumn = ? LIMIT 1");
+        $stmt->execute([$id]);
+        $currentVersion = $stmt->fetchColumn();
+        if ($currentVersion !== false && isset($_SESSION['_auth_version'])
+            && (int) $_SESSION['_auth_version'] === (int) $currentVersion) return true;
+        if ($currentVersion === false) error_log('Authenticated session references a missing account.');
+        elseif (!isset($_SESSION['_auth_version'])) error_log('Authenticated session has no account version and was revoked.');
+        else error_log('Authenticated session was revoked after an account version change.');
+        $entryAuthorized = !empty($_SESSION['admin_entry_authorized']);
+        $entryAuthorizedAt = (int) ($_SESSION['admin_entry_authorized_at'] ?? 0);
+        $_SESSION = [];
+        if ($role === 'Admin' && $entryAuthorized && $entryAuthorizedAt > 0 && time() - $entryAuthorizedAt <= 12 * 60 * 60) {
+            $_SESSION['admin_entry_authorized'] = true;
+            $_SESSION['admin_entry_authorized_at'] = $entryAuthorizedAt;
+        }
+        session_regenerate_id(true);
+        rotateCsrfToken();
+        return true;
+    } catch (Throwable $e) {
+        error_log('Could not validate authenticated session version.');
+        return false;
+    }
 }
 
 function adminMfaEncryptionKey(): string
@@ -124,53 +173,59 @@ function verifyAdminTotp(string $secret, string $code, ?int $lastCounter = null)
     return null;
 }
 
+function portalRequestBasePath(): string
+{
+    $scriptPath = '';
+    $scriptFilename = realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? ''));
+    $documentRoot = realpath((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''));
+    if ($scriptFilename !== false && $documentRoot !== false) {
+        $normalizedScript = str_replace('\\', '/', $scriptFilename);
+        $normalizedRoot = rtrim(str_replace('\\', '/', $documentRoot), '/');
+        if (strncasecmp($normalizedScript, $normalizedRoot . '/', strlen($normalizedRoot) + 1) === 0) {
+            $scriptPath = '/' . ltrim(substr($normalizedScript, strlen($normalizedRoot)), '/');
+        }
+    }
+    if ($scriptPath === '') {
+        $scriptPath = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php'));
+    }
+    $scriptDirectory = dirname($scriptPath);
+    return $scriptDirectory === '/' || $scriptDirectory === '.' ? '' : rtrim($scriptDirectory, '/');
+}
+
 function unavailablePageMarkup(string $titleId = 'unavailable-title'): string
 {
-    $appUrl = portalConfig()['app_url'];
-    $appUrlIsValid = isAllowedPortalUrl($appUrl);
-    $appPath = $appUrlIsValid ? rtrim((string) parse_url($appUrl, PHP_URL_PATH), '/') : '';
-    $homePath = $appPath . '/index.php';
-    $logoPath = $appPath . '/Barangay San Jose, Biringan City.png';
+    $appBasePath = portalRequestBasePath();
+    $homePath = $appBasePath . '/index.php';
     $originalPath = (string) ($_SERVER['REDIRECT_URL'] ?? $_SERVER['REQUEST_URI'] ?? '/');
     $originalQuery = (string) ($_SERVER['REDIRECT_QUERY_STRING'] ?? '');
     $attemptedAddress = trim($originalPath . ($originalQuery !== '' && !str_contains($originalPath, '?') ? '?' . $originalQuery : ''));
     $attemptedAddress = preg_replace('/[\x00-\x1F\x7F]/u', '', $attemptedAddress) ?? '/';
     $attemptedAddress = preg_replace('/([?&](?:token|secret|password|key)=)[^&#]*/i', '$1[redacted]', $attemptedAddress) ?? $attemptedAddress;
     $attemptedAddress = substr($attemptedAddress, 0, 500);
-    $publicHome = ($appUrlIsValid ? rtrim($appUrl, '/') : '') . '/index.php#landing';
+    $attemptedParts = parse_url($attemptedAddress);
+    $attemptedPath = is_array($attemptedParts) && isset($attemptedParts['path']) ? (string) $attemptedParts['path'] : '/';
+    if ($attemptedPath === '') $attemptedPath = '/';
+    if (is_array($attemptedParts) && isset($attemptedParts['query'])) $attemptedPath .= '?' . $attemptedParts['query'];
+    if (is_array($attemptedParts) && isset($attemptedParts['fragment'])) $attemptedPath .= '#' . $attemptedParts['fragment'];
+    $publicHome = $homePath . '#landing';
     $escapedHome = htmlspecialchars($publicHome, ENT_QUOTES, 'UTF-8');
     $escapedAddress = htmlspecialchars($attemptedAddress, ENT_QUOTES, 'UTF-8');
+    $escapedMobileAddress = htmlspecialchars($attemptedPath, ENT_QUOTES, 'UTF-8');
     $reportHref = 'mailto:deleonjuliusakeem@gmail.com?subject=Report%20a%20broken%20link&body=' . rawurlencode('Broken link: ' . $attemptedAddress);
     return '<div class="unavailable-page-content">'
-        . '<a class="unavailable-brand" href="' . $escapedHome . '"><img src="' . htmlspecialchars($logoPath, ENT_QUOTES, 'UTF-8') . '" alt="" width="40" height="40"><span class="unavailable-brand-text"><strong>Barangay San Jose</strong><span>Digital services and public records</span></span></a>'
-        . '<section class="unavailable-card" aria-labelledby="' . htmlspecialchars($titleId, ENT_QUOTES, 'UTF-8') . '">'
-        . '<div class="unavailable-icon-wrap"><svg class="unavailable-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M24 13v13m0 8h.02" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="3.5"/></svg></div>'
-        . '<p class="unavailable-code">Error 404</p><h1 id="' . htmlspecialchars($titleId, ENT_QUOTES, 'UTF-8') . '">This page isn’t available.</h1>'
+        . '<main class="unavailable-main"><section class="unavailable-content" aria-labelledby="' . htmlspecialchars($titleId, ENT_QUOTES, 'UTF-8') . '">'
+        . '<p class="unavailable-code" aria-hidden="true">404</p>'
+        . '<h1 id="' . htmlspecialchars($titleId, ENT_QUOTES, 'UTF-8') . '">This page isn’t available.</h1>'
         . '<p class="unavailable-description">The page you&#39;re looking for may have been moved or removed.</p>'
-        . '<p class="unavailable-address"><span>Address you tried:</span> <code>' . $escapedAddress . '</code></p>'
+        . '<p class="unavailable-address"><span>Address you tried:</span> <code class="unavailable-address-desktop">' . $escapedAddress . '</code><code class="unavailable-address-mobile">' . $escapedMobileAddress . '</code></p>'
         . '<div class="unavailable-actions"><a class="unavailable-home" href="' . $escapedHome . '">Return to home</a>'
-        . '<a class="unavailable-back" href="' . $escapedHome . '" onclick="if (history.length > 1) { event.preventDefault(); history.back(); }">Go back</a></div>'
-        . '<nav class="unavailable-quick-links" aria-label="Quick links"><span>Quick links</span><a href="' . htmlspecialchars($homePath, ENT_QUOTES, 'UTF-8') . '#bulletin">Disclosures</a><a href="' . htmlspecialchars($homePath, ENT_QUOTES, 'UTF-8') . '#login">Request a document</a><a href="' . htmlspecialchars($homePath, ENT_QUOTES, 'UTF-8') . '#login">Login</a></nav>'
-        . '<div class="unavailable-card-footer"><p>Still stuck? <a href="mailto:deleonjuliusakeem@gmail.com">Contact the barangay office.</a></p><a class="unavailable-report" href="' . htmlspecialchars($reportHref, ENT_QUOTES, 'UTF-8') . '">Report a broken link</a></div>'
-        . '</section></div>';
-}
-
-function unavailablePageStyles(): string
-{
-    return 'html,body{min-height:100%;margin:0;border:0}html,body{scrollbar-width:none;-ms-overflow-style:none}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none;width:0;height:0}body{min-height:100vh;padding:12px;box-sizing:border-box;background:#f4f7f2;color:#20231f;font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}main.unavailable-shell{width:min(100%,760px);margin:0 auto}.unavailable-page-content{display:grid;gap:14px;width:100%;margin:0 auto}'
-        . '.unavailable-brand{display:inline-flex;min-height:44px;align-items:center;gap:10px;width:max-content;color:#20231f;text-decoration:none}.unavailable-brand img{display:block;width:40px;height:40px;object-fit:cover;border-radius:50%}.unavailable-brand-text{display:flex;flex-direction:column;line-height:1.25}.unavailable-brand-text strong{font-size:16px;font-weight:800}.unavailable-brand-text span{color:#747a71;font-size:13px;font-weight:400}'
-        . '.unavailable-card{box-sizing:border-box;width:min(100%,760px);padding:clamp(22px,4vw,34px);border:1px solid #dce4d8;border-radius:20px;background:#fff;box-shadow:0 10px 28px #163d170e}'
-        . '.unavailable-icon-wrap{display:grid;width:52px;height:52px;place-items:center;margin:0 0 14px;border-radius:50%;background:#edf4e9;color:#12600b}.unavailable-icon{display:block;width:30px;height:30px}'
-        . '.unavailable-code{margin:0 0 10px;color:#12600b;font-size:13px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}'
-        . '.unavailable-card h1{max-width:22ch;margin:0 0 12px;font-size:clamp(30px,5.6vw,44px);line-height:1.08;letter-spacing:-.018em;text-wrap:balance}'
-        . '.unavailable-description{margin:0 0 8px;color:#444b42;font-size:17px}.unavailable-address{display:block;margin:0 0 22px;color:#62685f;font-size:13px}.unavailable-address code{overflow-wrap:anywhere;color:#62685f;font:inherit}'
-        . '.unavailable-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.unavailable-home,.unavailable-back,.unavailable-quick-links a,.unavailable-card-footer a{display:inline-flex;align-items:center;justify-content:center;min-height:44px}'
-        . '.unavailable-home,.unavailable-back{padding:0 20px;border:1px solid #086000;border-radius:10px;font:inherit;font-weight:700;text-decoration:none;cursor:pointer;transition:background-color .18s ease,color .18s ease,box-shadow .18s ease}'
-        . '.unavailable-home{background:#086000;color:#fff}.unavailable-home:hover{background:#064b00;color:#fff}.unavailable-back{background:#fff;color:#086000}.unavailable-back:hover{background:#edf4e9;color:#064b00}'
-        . '.unavailable-quick-links{display:flex;flex-wrap:wrap;align-items:center;gap:0 16px;margin-top:24px;padding-top:8px;border-top:1px solid #edf0eb}.unavailable-quick-links span{width:100%;color:#5d625a;font-size:13px;font-weight:700}.unavailable-quick-links a,.unavailable-card-footer a{color:#086000;font-size:14px;font-weight:500;text-decoration:none;text-underline-offset:3px}.unavailable-brand:hover,.unavailable-quick-links a:hover,.unavailable-card-footer a:hover{color:#064b00}.unavailable-quick-links a:hover,.unavailable-card-footer a:hover{text-decoration:underline}.unavailable-quick-links a:hover{padding:0 6px;margin-right:-12px;margin-left:-6px;border-radius:6px;background:#edf4e9}'
-        . '.unavailable-card-footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 16px;margin-top:6px;padding-top:6px;border-top:1px solid #edf0eb}.unavailable-card-footer p{margin:0;color:#5d625a;font-size:13px}.unavailable-card-footer a{min-height:44px}.unavailable-card-footer .unavailable-report{margin-left:auto;font-size:13px}'
-        . '.unavailable-home:focus-visible,.unavailable-back:focus-visible,.unavailable-quick-links a:focus-visible,.unavailable-brand:focus-visible,.unavailable-card-footer a:focus-visible{outline:3px solid #12600b;outline-offset:3px;border-radius:4px}'
-        . '@media(max-width:600px){body{padding:24px 16px 16px}.unavailable-page-content{gap:10px}.unavailable-card{padding:20px;border-radius:16px}.unavailable-code{font-weight:800;letter-spacing:.13em}.unavailable-address,.unavailable-address code{color:#62685f;font-size:12px;overflow-wrap:anywhere}.unavailable-actions{display:grid;grid-template-columns:1fr}.unavailable-home,.unavailable-back{width:100%;box-sizing:border-box}.unavailable-quick-links{gap:12px}.unavailable-card-footer{align-items:flex-start;gap:12px}.unavailable-card-footer .unavailable-report{margin-left:0}}';
+        . '<a class="unavailable-back" href="' . $escapedHome . '">Go back</a></div>'
+        . '<nav class="unavailable-quick-links" aria-label="Quick links">'
+        . '<a href="' . htmlspecialchars($homePath, ENT_QUOTES, 'UTF-8') . '#bulletin">Disclosures</a><span aria-hidden="true">·</span>'
+        . '<a href="' . htmlspecialchars($homePath, ENT_QUOTES, 'UTF-8') . '#login">Request a document</a><span aria-hidden="true">·</span>'
+        . '<a href="' . htmlspecialchars($homePath, ENT_QUOTES, 'UTF-8') . '#login">Log in</a></nav>'
+        . '<div class="unavailable-help"><p><span class="unavailable-help-desktop">Still stuck? <a href="mailto:deleonjuliusakeem@gmail.com">Contact the barangay office</a><span aria-hidden="true"> · </span><a class="unavailable-report" href="' . htmlspecialchars($reportHref, ENT_QUOTES, 'UTF-8') . '">Report a broken link</a></span><span class="unavailable-help-mobile"><span>Still stuck? <a href="mailto:deleonjuliusakeem@gmail.com">Contact the barangay office</a></span><span><a class="unavailable-report" href="' . htmlspecialchars($reportHref, ENT_QUOTES, 'UTF-8') . '">Report a broken link</a></span></span></p></div>'
+        . '</section></main></div>';
 }
 
 function renderUnavailablePage(int $statusCode = 404): void
@@ -178,14 +233,36 @@ function renderUnavailablePage(int $statusCode = 404): void
     http_response_code($statusCode);
     header('Content-Type: text/html; charset=utf-8');
     header('Cache-Control: no-store, private');
-    echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Page unavailable</title><style>'
-        . unavailablePageStyles()
-        . '</style></head><body><main class="unavailable-shell">' . unavailablePageMarkup() . '</main></body></html>';
+    // Resolve assets from the actual app location, including local subfolders.
+    $appBasePath = portalRequestBasePath();
+    $assetPrefix = htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8');
+    $pageBase = htmlspecialchars($appBasePath . '/index.php', ENT_QUOTES, 'UTF-8');
+    $adminInitialSection = null;
+    $suppressSiteDisclaimer = true;
+    ob_start();
+    require dirname(__DIR__) . '/includes/shared/site-header.php';
+    $siteHeader = ob_get_clean();
+    ob_start();
+    require dirname(__DIR__) . '/includes/shared/site-footer.php';
+    $siteFooter = ob_get_clean();
+    echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f1f6ec"><base href="' . $pageBase . '"><title>Page unavailable</title>'
+        . '<link rel="icon" type="image/png" href="' . $assetPrefix . '/favicon.png?v=20261016-favicon-mint">'
+        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/base.css?v=20261021-sticky-header-shadow-v1">'
+        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/home.css?v=20261015-performance-queue">'
+        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/components.css?v=20261015-performance-queue">'
+        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/public.css?v=20261016-sticky-menu-stable">'
+        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/shared-responsive.css?v=20261017-profile-security-columns">'
+        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/unavailable.css?v=20261021-404-header-container-v2">'
+        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/portal-public.css?v=20261021-public-record-archive-grid-v1">'
+        . '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></head>'
+        . '<body class="unavailable-view guest-user-view public-portal-view" data-admin-entry-authorized="0">' . $siteHeader
+        . '<div class="unavailable-shell">' . unavailablePageMarkup() . '</div>' . $siteFooter
+        . '<script src="' . $assetPrefix . '/script.js?v=20261021-public-record-archive-grid-v1" defer></script></body></html>';
     exit;
 }
 
 /** Use one generic response for blocked admin access and unavailable URLs. */
-function denyAdminIpAccess(?bool $asJson = null): void
+function denyAdminEntryAccess(?bool $asJson = null): void
 {
     if ($asJson === null) {
         $asJson = str_contains((string) ($_SERVER['SCRIPT_NAME'] ?? ''), '/api/');
@@ -202,7 +279,7 @@ function denyAdminIpAccess(?bool $asJson = null): void
 /** Enforce the secret entry gate and then the normal authenticated-admin requirement. */
 function requireAdminAccess(): void
 {
-    if (!isAllowedAdminIp()) denyAdminIpAccess(true);
+    if (!hasAdminEntryAuthorization()) denyAdminEntryAccess(true);
     if (isset($_SESSION['user_id']) && ($_SESSION['role'] ?? '') === 'Admin' && !empty($_SESSION['admin_mfa_verified_at'])) return;
 
     if (function_exists('logPermissionFailure')) logPermissionFailure();
@@ -212,10 +289,35 @@ function requireAdminAccess(): void
     exit;
 }
 
+/** Soft-archive stale, unverified accounts with no submitted requests. */
+function archiveExpiredUnverifiedResidents(PDO $pdo): void
+{
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare("INSERT IGNORE INTO portal_maintenance (maintenance_key, last_run_at) VALUES ('archive_unverified_residents', '1970-01-01 00:00:00')")->execute();
+        $check = $pdo->query("SELECT last_run_at FROM portal_maintenance WHERE maintenance_key = 'archive_unverified_residents' FOR UPDATE");
+        $lastRun = strtotime((string) $check->fetchColumn()) ?: 0;
+        if ($lastRun > time() - 86400) { $pdo->commit(); return; }
+        $pdo->exec("UPDATE resident r
+            SET r.archived_at = UTC_TIMESTAMP(), r.is_active = 0, r.auth_version = r.auth_version + 1
+            WHERE r.archived_at IS NULL AND r.email_verified_at IS NULL
+              AND r.created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY)
+              AND NOT EXISTS (SELECT 1 FROM document_request dr WHERE dr.resident_id = r.resident_id)");
+        $pdo->exec("DELETE evt FROM email_verification_token evt JOIN resident r ON r.resident_id = evt.resident_id WHERE r.archived_at IS NOT NULL");
+        $pdo->exec("UPDATE portal_maintenance SET last_run_at = UTC_TIMESTAMP() WHERE maintenance_key = 'archive_unverified_residents'");
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
+}
+
 function sendAppSecurityHeaders(): void
 {
     if (headers_sent()) return;
-    header("Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://www.google.com/recaptcha/; frame-src 'self' https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/; upgrade-insecure-requests");
+    $contentSecurityPolicy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://www.google.com/recaptcha/; frame-src 'self' https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/";
+    if (appIsHttps()) $contentSecurityPolicy .= '; upgrade-insecure-requests';
+    header('Content-Security-Policy: ' . $contentSecurityPolicy);
     header('X-Frame-Options: DENY');
     header('X-Content-Type-Options: nosniff');
     header('Referrer-Policy: strict-origin-when-cross-origin');
@@ -226,11 +328,14 @@ function sendAppSecurityHeaders(): void
 function startAppSession(): void
 {
     if (session_status() === PHP_SESSION_ACTIVE) return;
+    $GLOBALS['sessionExpiredThisRequest'] = false;
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
     ini_set('session.cookie_httponly', '1');
     ini_set('session.cookie_samesite', 'Lax');
-    $secureCookie = appIsHttps() || strtolower((string) (getenv('APP_ENV') ?: '')) === 'production';
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $isLocalHost = (bool) preg_match('/^(localhost|127\.0\.0\.1|\[::1\])(?::\d{1,5})?$/', $host);
+    $secureCookie = appIsHttps() || (!$isLocalHost && strtolower((string) (getenv('APP_ENV') ?: '')) === 'production');
     session_set_cookie_params([
         'lifetime' => 0,
         'path' => '/',
@@ -240,9 +345,9 @@ function startAppSession(): void
     ]);
     session_start();
 
-    // Admin sessions require a recent visit to the configured secret entry URL.
-    if (($_SESSION['role'] ?? '') === 'Admin' && (!isAllowedAdminIp() || empty($_SESSION['admin_mfa_verified_at']))) {
-        $GLOBALS['adminIpDeniedThisRequest'] = true;
+    // Admin sessions require a recent successful entry-key check and completed MFA.
+    if (($_SESSION['role'] ?? '') === 'Admin' && (!hasAdminEntryAuthorization() || empty($_SESSION['admin_mfa_verified_at']))) {
+        $GLOBALS['adminEntryDeniedThisRequest'] = true;
         $_SESSION = [];
         session_regenerate_id(true);
     }
@@ -253,6 +358,7 @@ function startAppSession(): void
     $last = (int) ($_SESSION['_last_activity'] ?? $now);
     $created = (int) ($_SESSION['_created_at'] ?? $now);
     if (($now - $last) > $idleTimeout || ($now - $created) > $absoluteTimeout) {
+        $GLOBALS['sessionExpiredThisRequest'] = true;
         $_SESSION = [];
         if (ini_get('session.use_cookies')) {
             $params = session_get_cookie_params();
@@ -278,6 +384,7 @@ function startAppSession(): void
 function enforceRequestSafety(): void
 {
     sendAppSecurityHeaders();
+    startAppSession();
     ini_set('display_errors', '0');
     ini_set('log_errors', '1');
     static $handlerInstalled = false;
@@ -308,10 +415,15 @@ function enforceRequestSafety(): void
     }
     if (!in_array($method, ['GET', 'HEAD', 'OPTIONS'], true)) {
         $fetchSite = strtolower((string) ($_SERVER['HTTP_SEC_FETCH_SITE'] ?? ''));
-        if ($fetchSite === 'cross-site' || !isSameOriginRequest()) {
+        $scriptPath = strtolower(str_replace('\\', '/', (string) parse_url((string) ($_SERVER['SCRIPT_NAME'] ?? ''), PHP_URL_PATH)));
+        $isAdminEntryForm = $method === 'POST'
+            && ($_POST['admin_entry_submit'] ?? null) === '1'
+            && isset($_GET['admin_access_form'])
+            && str_ends_with($scriptPath, '/index.php');
+        if ($fetchSite === 'cross-site' || !isSameOriginRequest() || (!$isAdminEntryForm && !csrfTokenIsValid())) {
             http_response_code(403);
             header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(['success' => false, 'message' => 'Request could not be verified. Reload the page and try again.']);
+            echo json_encode(['success' => false, 'message' => 'Your request could not be verified. Reload the page and try again.']);
             exit;
         }
     }
@@ -319,6 +431,10 @@ function enforceRequestSafety(): void
 
 function isSameOriginRequest(): bool
 {
+    $fetchSite = strtolower((string) ($_SERVER['HTTP_SEC_FETCH_SITE'] ?? ''));
+    if ($fetchSite === 'same-origin') return true;
+    if ($fetchSite === 'cross-site') return false;
+
     $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
     $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
     if ($origin !== '') {
@@ -328,6 +444,10 @@ function isSameOriginRequest(): bool
         $hostPort = preg_match('/:\d+$/', $host) ? (int) substr($host, strrpos($host, ':') + 1) : null;
         return $originHost !== '' && $originHost === $hostOnly && ($originPort === null || $hostPort === null || (int) $originPort === $hostPort);
     }
+    // Some browsers omit Referer when the page uses a no-referrer policy.
+    // Fetch Metadata identifies same-origin form submissions; the session-bound
+    // CSRF token remains mandatory in enforceRequestSafety().
+    if (in_array($fetchSite, ['same-origin', 'same-site'], true)) return true;
     $referer = (string) ($_SERVER['HTTP_REFERER'] ?? '');
     if ($referer === '') return false;
     return strtolower((string) parse_url($referer, PHP_URL_HOST)) === preg_replace('/:\d+$/', '', $host);
@@ -374,11 +494,42 @@ function rateLimit(PDO $pdo, string $scope, int $maxAttempts, int $windowSeconds
 
 function passwordMeetsPolicy(string $password): bool
 {
-    return strlen($password) >= 12
+    return strlen($password) >= 8
         && strlen($password) <= 256
         && preg_match('/[a-z]/', $password)
         && preg_match('/[A-Z]/', $password)
         && preg_match('/[0-9]/', $password);
+}
+
+function isAllowedEmailProvider(string $email): bool
+{
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) return false;
+    $domain = strtolower(substr(strrchr($email, '@') ?: '', 1));
+    static $domains = [
+        'gmail.com', 'googlemail.com',
+        'yahoo.com', 'yahoo.com.ph', 'yahoo.co.uk', 'yahoo.ca', 'yahoo.com.au', 'yahoo.co.nz', 'ymail.com', 'rocketmail.com',
+        'outlook.com', 'outlook.ph', 'hotmail.com', 'hotmail.co.uk', 'hotmail.com.au', 'live.com', 'live.com.ph', 'msn.com',
+        'icloud.com', 'me.com', 'mac.com',
+        'proton.me', 'protonmail.com', 'protonmail.ch', 'pm.me'
+    ];
+    return in_array($domain, $domains, true);
+}
+
+function isValidPhilippineMobile(string $phone): bool
+{
+    if (!preg_match('/^(?:09[0-9]{9}|\\+639[0-9]{9})$/', $phone)) return false;
+    $national = str_starts_with($phone, '+63') ? '0' . substr($phone, 3) : $phone;
+    static $prefixes = [
+        '0817', '0895', '0896', '0897', '0898',
+        '0900', '0904', '0905', '0906', '0907', '0908', '0909', '0910', '0911', '0912', '0913', '0914', '0915',
+        '0916', '0917', '0918', '0919', '0920', '0921', '0922', '0923', '0924', '0925', '0926', '0927', '0928',
+        '0929', '0930', '0931', '0932', '0933', '0934', '0935', '0936', '0937', '0938', '0939', '0940', '0941',
+        '0942', '0943', '0944', '0945', '0946', '0947', '0948', '0949', '0950', '0951', '0952', '0953', '0954',
+        '0955', '0956', '0957', '0958', '0959', '0961', '0962', '0963', '0964', '0965', '0966', '0967', '0968',
+        '0969', '0970', '0971', '0972', '0973', '0974', '0975', '0976', '0977', '0978', '0979', '0980', '0981',
+        '0982', '0985', '0989', '0990', '0991', '0992', '0993', '0994', '0995', '0996', '0997', '0998', '0999'
+    ];
+    return in_array(substr($national, 0, 4), $prefixes, true);
 }
 
 function isAllowedPortalUrl(string $url): bool

@@ -25,7 +25,7 @@ try {
     $audit = $pdo->prepare("INSERT INTO audit_log (user_id, action, details) VALUES (NULL, 'resident_email_verified', ?)");
     $audit->execute(['Resident ID ' . (int) $residentId]);
     $pdo->commit();
-    echo json_encode(['success'=>true, 'message'=>'Email verified. Your residency is ready for review.']);
+    echo json_encode(['success'=>true, 'message'=>'Email verified. You can now submit document requests.']);
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('Email verification failed: ' . $e->getMessage());

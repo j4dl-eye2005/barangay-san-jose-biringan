@@ -10,6 +10,15 @@ api/db.php
 uploads/proofs/
 uploads/disclosures/
 
+# Private storage: keep protection files, ignore stored data
+/private_storage/*
+!/private_storage/.htaccess
+!/private_storage/.gitkeep
+
+# Uploaded profile photos: keep upload protection rules
+/uploads/profile-photos/*
+!/uploads/profile-photos/.htaccess
+
 # One-time admin seeding script (prints a plaintext password)
 create_admin.php
 
@@ -21,3 +30,16 @@ test_mail.php
 .env.*
 !*.example
 ../barangay_portal_private/
+
+# Runtime files
+/logs/
+/cache/
+/tmp/
+*.log
+
+# OS/editor clutter
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~

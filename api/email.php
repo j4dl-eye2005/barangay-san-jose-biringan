@@ -73,6 +73,17 @@ function queuePortalEmail(PDO $pdo, string $recipient, string $subject, string $
     }
 }
 
+/** Queue a new-request alert only for administrators who opted in. */
+function notifyAdminsOfNewRequest(PDO $pdo, string $trackingCode, string $requestSummary): void
+{
+    try {
+        $admins = $pdo->query("SELECT email FROM user WHERE role = 'Admin' AND notification_new_requests = 1")->fetchAll(PDO::FETCH_COLUMN);
+        $appUrl = rtrim((string) portalConfig()['app_url'], '/');
+        $message = "A new document request was submitted.\n\nRequest: $requestSummary\nTracking number: $trackingCode\n\nReview it in the admin workspace: $appUrl/admin_requests.php#admin-requests\n";
+        foreach ($admins as $email) { $mailError = null; queuePortalEmail($pdo, (string)$email, 'New resident document request', $message, null, $mailError); }
+    } catch (Throwable $e) { error_log('Administrator new-request notification could not be queued.'); }
+}
+
 /**
  * Send a notification email through the configured SMTP server.
  *

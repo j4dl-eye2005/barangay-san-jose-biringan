@@ -26,6 +26,8 @@ Admin sign-in is available only after visiting the unguessable path configured b
 
 For an existing database, apply `admin_mfa_migration.sql` once before deploying the MFA-enabled PHP files. On the first sign-in, each administrator must enroll an authenticator app using the displayed setup key and confirm a current 6-digit code. If an administrator loses their authenticator, a database administrator must reset that account's MFA columns before it can be enrolled again.
 
+For an existing database, also apply `profile_enhancements_migration.sql` once before deploying the expanded My profile features. It adds profile photos, administrator details and notification settings, password-change dates, active-session tracking, and MFA recovery-code storage.
+
 ```sh
 php -r "echo password_hash('Choose-a-strong-password', PASSWORD_DEFAULT), PHP_EOL;"
 ```
@@ -40,6 +42,8 @@ VALUES ('Admin', 'User', 'admin@example.com', 'PASTE_GENERATED_HASH_HERE', 'Admi
 Then sign in through `http://localhost/barangay_portal_new/index.php#admin-login`. Use the email and original password you chose. The login checks the stored hash; it does not accept a resident account. The legacy `index.html` URL forwards to `index.php`.
 
 For an existing database, run `admin_workspace_migration.sql`, `resident_payment_migration.sql`, and `security_hardening_migration.sql` once in the `barangay_portal` database. These add request notes, payment status, email verification, and rate-limit storage. Existing residents are marked as previously verified by the security migration; new registrations must verify their email.
+
+For an older local database that does not have `resident.archived_at`, run `resident_archive_migration.sql` once. The current login and account APIs expect this nullable column.
 
 ## Main areas
 

@@ -13,10 +13,17 @@ CREATE TABLE IF NOT EXISTS user (
     last_name     VARCHAR(100) NOT NULL,
     email         VARCHAR(190) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
+    auth_version  INT UNSIGNED NOT NULL DEFAULT 0,
     role          VARCHAR(50)  NOT NULL DEFAULT 'Admin',
     admin_mfa_secret_enc TEXT DEFAULT NULL,
     admin_mfa_enabled_at DATETIME DEFAULT NULL,
     admin_mfa_last_counter BIGINT DEFAULT NULL,
+    profile_photo VARCHAR(80) DEFAULT NULL,
+    position_title VARCHAR(120) DEFAULT NULL,
+    contact_number VARCHAR(30) DEFAULT NULL,
+    notification_new_requests TINYINT(1) NOT NULL DEFAULT 0,
+    notification_payment_verification TINYINT(1) NOT NULL DEFAULT 0,
+    password_changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
@@ -31,10 +38,35 @@ CREATE TABLE IF NOT EXISTS resident (
     address       VARCHAR(255) DEFAULT NULL,
     proof_path    VARCHAR(500) DEFAULT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    profile_photo VARCHAR(80) DEFAULT NULL,
+    password_changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    auth_version  INT UNSIGNED NOT NULL DEFAULT 0,
     email_verified_at DATETIME     DEFAULT NULL,
-    is_active     TINYINT(1)   NOT NULL DEFAULT 0,
+    is_active     TINYINT(1)   NOT NULL DEFAULT 1,
+    archived_at   DATETIME    DEFAULT NULL,
     created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_residents_active_verified_created (is_active, email_verified_at, created_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS account_session (
+    session_key CHAR(64) NOT NULL PRIMARY KEY,
+    account_type VARCHAR(10) NOT NULL,
+    account_id INT NOT NULL,
+    user_agent VARCHAR(255) NOT NULL DEFAULT '',
+    created_at DATETIME NOT NULL,
+    last_active_at DATETIME NOT NULL,
+    INDEX idx_account_session_lookup (account_type, account_id, last_active_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS admin_mfa_recovery_code (
+    recovery_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    code_hash CHAR(64) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    used_at DATETIME DEFAULT NULL,
+    INDEX idx_admin_recovery_user (user_id, used_at),
+    CONSTRAINT fk_admin_recovery_user FOREIGN KEY (user_id)
+        REFERENCES user (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- Types of documents a resident can request
@@ -48,9 +80,15 @@ CREATE TABLE IF NOT EXISTS document_type (
 CREATE TABLE IF NOT EXISTS document_request (
     request_id       INT AUTO_INCREMENT PRIMARY KEY,
     tracking_code    VARCHAR(50)  NOT NULL UNIQUE,
-    resident_id      INT          NOT NULL,
+    resident_id      INT          DEFAULT NULL,
     document_type_id INT          NOT NULL,
     purpose          TEXT         DEFAULT NULL,
+    request_source   VARCHAR(20)  NOT NULL DEFAULT 'online',
+    walk_in_name     VARCHAR(200) DEFAULT NULL,
+    walk_in_phone    VARCHAR(30)  DEFAULT NULL,
+    walk_in_address  VARCHAR(255) DEFAULT NULL,
+    proof_path       VARCHAR(500) DEFAULT NULL,
+    proof_type       VARCHAR(40)  DEFAULT NULL,
     current_status   VARCHAR(50)  NOT NULL DEFAULT 'Pending',
     payment_status   VARCHAR(20)  NOT NULL DEFAULT 'Unpaid',
     rejection_reason TEXT         DEFAULT NULL,
@@ -58,7 +96,7 @@ CREATE TABLE IF NOT EXISTS document_request (
     INDEX idx_requests_status_created (current_status, created_at),
     INDEX idx_requests_resident_created (resident_id, created_at),
     CONSTRAINT fk_request_resident FOREIGN KEY (resident_id)
-        REFERENCES resident (resident_id) ON DELETE CASCADE,
+        REFERENCES resident (resident_id) ON DELETE SET NULL,
     CONSTRAINT fk_request_doctype FOREIGN KEY (document_type_id)
         REFERENCES document_type (document_type_id)
 ) ENGINE=InnoDB;
@@ -155,6 +193,11 @@ CREATE TABLE IF NOT EXISTS app_rate_limit (
     INDEX idx_rate_window (window_started_at)
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS portal_maintenance (
+    maintenance_key VARCHAR(80) PRIMARY KEY,
+    last_run_at DATETIME NOT NULL
+) ENGINE=InnoDB;
+
 -- Single-use email verification tokens for new resident registrations.
 CREATE TABLE IF NOT EXISTS email_verification_token (
     token_hash CHAR(64) NOT NULL PRIMARY KEY,
@@ -172,7 +215,7 @@ CREATE TABLE IF NOT EXISTS portal_email_queue (
     queue_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     recipient VARCHAR(254) NOT NULL,
     subject VARCHAR(255) NOT NULL,
-    text_body LONGTEXT NOT NULL,
+    text_body LONGTEXT DEFAULT NULL,
     html_body LONGTEXT DEFAULT NULL,
     status VARCHAR(16) NOT NULL DEFAULT 'queued',
     attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,

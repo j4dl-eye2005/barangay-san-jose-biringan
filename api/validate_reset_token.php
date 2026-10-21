@@ -10,12 +10,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 
 $data = jsonBody(8192);
 $token = strtolower(trim(is_string($data['token'] ?? null) ? $data['token'] : ''));
-if (!preg_match('/^[a-f0-9]{64}$/', $token)) denyAdminIpAccess(true);
+if (!preg_match('/^[a-f0-9]{64}$/', $token)) denyAdminEntryAccess(true);
 
 $find = $pdo->prepare('SELECT account_type FROM password_reset_token WHERE token_hash = ? AND expires_at > NOW() LIMIT 1');
 $find->execute([hash('sha256', $token)]);
 $accountType = $find->fetchColumn();
-if (!in_array($accountType, ['resident', 'admin'], true)) denyAdminIpAccess(true);
-if ($accountType === 'admin' && !isAllowedAdminIp()) denyAdminIpAccess(true);
+if (!in_array($accountType, ['resident', 'admin'], true)) denyAdminEntryAccess(true);
+if ($accountType === 'admin' && !hasAdminEntryAuthorization()) denyAdminEntryAccess(true);
 
 echo json_encode(['success' => true]);

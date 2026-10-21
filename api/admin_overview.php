@@ -5,7 +5,6 @@ header('Content-Type: application/json');
 requireAdminAccess();
 
 $needsActionRequests = (int) $pdo->query("SELECT COUNT(*) FROM document_request WHERE current_status = 'Approved'")->fetchColumn();
-$pendingResidents = (int) $pdo->query('SELECT COUNT(*) FROM resident WHERE is_active = 0 AND email_verified_at IS NOT NULL')->fetchColumn();
 $readyForPickup = (int) $pdo->query("SELECT COUNT(*) FROM document_request WHERE current_status = 'Ready for Pickup'")->fetchColumn();
 $completedThisWeek = (int) $pdo->query("SELECT COUNT(*) FROM request_status_log WHERE status = 'Completed' AND YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)")->fetchColumn();
 $newResidentsThisWeek = (int) $pdo->query("SELECT COUNT(*) FROM resident WHERE YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)")->fetchColumn();
@@ -15,19 +14,18 @@ $byDocument = $pdo->query("SELECT dt.name AS document_type, COUNT(dr.request_id)
     GROUP BY dt.document_type_id, dt.name ORDER BY request_count DESC, dt.name ASC")->fetchAll();
 
 $oldest = $pdo->query("SELECT dr.request_id, dr.tracking_code, dr.current_status, dr.created_at,
-        dt.name AS document_type, CONCAT_WS(' ', r.first_name, r.middle_name, r.last_name) AS resident_name
+        dt.name AS document_type, COALESCE(NULLIF(CONCAT_WS(' ', r.first_name, r.middle_name, r.last_name), ''), dr.walk_in_name) AS resident_name
     FROM document_request dr
     JOIN document_type dt ON dt.document_type_id = dr.document_type_id
-    JOIN resident r ON r.resident_id = dr.resident_id
+    LEFT JOIN resident r ON r.resident_id = dr.resident_id
     WHERE dr.current_status IN ('Pending', 'Approved')
     ORDER BY dr.created_at ASC LIMIT 5")->fetchAll();
 
 echo json_encode([
     'success' => true,
     'summary' => [
-        'needs_action' => $needsActionRequests + $pendingResidents,
+        'needs_action' => $needsActionRequests,
         'approved_waiting' => $needsActionRequests,
-        'pending_residents' => $pendingResidents,
         'ready_for_pickup' => $readyForPickup,
         'completed_this_week' => $completedThisWeek,
         'new_residents_this_week' => $newResidentsThisWeek,

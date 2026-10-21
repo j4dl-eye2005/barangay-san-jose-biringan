@@ -12,7 +12,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 try {
-    // The browser submits this form as multipart/form-data because it contains a file.
     $email = strtolower(trim(is_string($_POST['email'] ?? null) ? $_POST['email'] : ''));
     $website = trim(is_string($_POST['website'] ?? null) ? $_POST['website'] : '');
     $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
@@ -22,9 +21,7 @@ try {
     $phone = trim(is_string($_POST['phone'] ?? null) ? $_POST['phone'] : '');
     $address = trim(is_string($_POST['address'] ?? null) ? $_POST['address'] : '');
     $termsAccepted = ($_POST['termsAccepted'] ?? '') === '1';
-    $proof = $_FILES['proof'] ?? null;
-
-    if (!$email || !$password || !$firstName || !$lastName || !$address || !$proof || !$termsAccepted) {
+    if (!$email || !$password || !$firstName || !$lastName || !$address || !$termsAccepted) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Registration could not be completed. Check your details and try again.']);
         exit;
@@ -38,11 +35,11 @@ try {
         exit;
     }
     $validName = static fn(string $name): bool => (bool) preg_match('/^[\p{L}\p{M} .\'-]{1,100}$/u', $name);
-    if (strlen($email) > 190 || !filter_var($email, FILTER_VALIDATE_EMAIL)
+    if (strlen($email) > 190 || !isAllowedEmailProvider($email)
         || !passwordMeetsPolicy($password)
         || !$validName($firstName) || !$validName($lastName) || ($middleName !== '' && !$validName($middleName))
         || strlen($address) > 255 || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', $address)
-        || ($phone !== '' && !preg_match('/^\+?[0-9().\s-]{7,30}$/', $phone))) {
+        || ($phone !== '' && !isValidPhilippineMobile($phone))) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Registration could not be completed. Check your details and try again.']);
         exit;
@@ -68,44 +65,20 @@ try {
         exit;
     }
 
-    $extension = validateUpload($proof, ['pdf' => true, 'docx' => true, 'jpg' => true, 'jpeg' => true, 'png' => true], 5 * 1024 * 1024);
-    if ($extension === null) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Registration could not be completed. Check the proof file and try again.']);
-        exit;
-    }
-
     $stmt = $pdo->prepare("SELECT email FROM resident WHERE email = ? UNION SELECT email FROM user WHERE email = ?");
     $stmt->execute([$email, $email]);
     if ($stmt->fetch()) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Registration could not be completed. Check your details and try again.']);
+        echo json_encode(['success' => false, 'message' => 'This email already exists. Sign in to the existing account or use another email.']);
         exit;
     }
 
-    // Save the proof file first so a failed upload never leaves an orphan
-    // resident row without an attached document.
-    $proofDirectory = privateStorageDirectory('proofs');
-
-    $proofName = bin2hex(random_bytes(16)) . '.' . $extension;
-    if (!move_uploaded_file($proof['tmp_name'], $proofDirectory . DIRECTORY_SEPARATOR . $proofName)) {
-        throw new RuntimeException('Unable to save proof file');
-    }
-    $proofPath = 'proofs/' . $proofName;
-
     $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-    try {
-        $stmt = $pdo->prepare(
-            "INSERT INTO resident (first_name, middle_name, last_name, email, phone_number, address, proof_path, password_hash, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)"
-        );
-        $stmt->execute([$firstName, $middleName, $lastName, $email, $phone, $address, $proofPath, $passwordHash]);
-        $residentId = (int) $pdo->lastInsertId();
-    } catch (Throwable $e) {
-        // Roll back the stored file if the insert fails.
-        $storedProof = $proofDirectory . DIRECTORY_SEPARATOR . $proofName;
-        if (is_file($storedProof)) unlink($storedProof);
-        throw $e;
-    }
+    $stmt = $pdo->prepare(
+        "INSERT INTO resident (first_name, middle_name, last_name, email, phone_number, address, password_hash, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)"
+    );
+    $stmt->execute([$firstName, $middleName, $lastName, $email, $phone, $address, $passwordHash]);
+    $residentId = (int) $pdo->lastInsertId();
 
     $rawToken = bin2hex(random_bytes(32));
     $tokenHash = hash('sha256', $rawToken);
@@ -113,10 +86,10 @@ try {
     $token->execute([$tokenHash, $residentId]);
     $verificationUrl = $appUrl . '/index.php?verify=' . rawurlencode($rawToken);
     $firstNameForEmail = trim($firstName) ?: 'there';
-    $plainMessage = "Hello $firstNameForEmail,\n\nPlease verify your email address to complete your Barangay San Jose resident registration:\n$verificationUrl\n\nThis link expires in 24 hours. After verification, a barangay administrator will review your residency proof.\n\nBarangay San Jose";
+    $plainMessage = "Hello $firstNameForEmail,\n\nPlease verify your email address for your Barangay San Jose account:\n$verificationUrl\n\nThis link expires in 24 hours. You can log in and browse the portal now; email verification is required before you submit a document request.\n\nBarangay San Jose";
     $htmlMessage = portalEmailTemplate('Resident registration', 'Verify your email address', [
         "Hello $firstNameForEmail,",
-        'Please verify your email address to complete your resident registration. A barangay administrator will review your residency proof after verification.'
+        'Please verify your email address. You can log in and browse the portal now; email verification is required before submitting a document request.'
     ], 'Verify email', $verificationUrl, 'This link expires in 24 hours.');
     $mailError = null;
     $mailQueued = queuePortalEmail($pdo, $email, 'Verify your Barangay San Jose account', $plainMessage, $htmlMessage, $mailError);
@@ -135,15 +108,12 @@ try {
             error_log('Could not save registration mail diagnostic.');
         }
 
-        $pdo->prepare('DELETE FROM resident WHERE resident_id = ?')->execute([$residentId]);
-        if (is_file($proofDirectory . DIRECTORY_SEPARATOR . $proofName)) unlink($proofDirectory . DIRECTORY_SEPARATOR . $proofName);
         error_log('Registration verification email could not be queued: ' . ($mailError ?? 'unknown queue error'));
-        http_response_code(503);
-        echo json_encode(['success' => false, 'message' => 'Registration could not be completed right now. Please try again later.']);
-        exit;
     }
 
-    echo json_encode(['success' => true, 'message' => 'Check your email for a verification link. Your residency will be reviewed after you verify.']);
+    echo json_encode(['success' => true, 'emailVerificationSent' => $mailQueued, 'message' => $mailQueued
+        ? 'Your account is ready. You can log in now. Verify your email before submitting a document request.'
+        : 'Your account is ready and you can log in now. We could not send the verification email, but you can resend it from your account.']);
 } catch (Throwable $e) {
     error_log('Registration processing failed: ' . $e->getMessage());
     http_response_code(500);

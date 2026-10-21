@@ -6,7 +6,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $stmt = $pdo->query("
         SELECT d.disclosure_id, d.category_id, d.published_by_user_id, d.title, d.content,
                d.is_archived, d.timestamp_posted, c.category_name,
-               da.attachment_id, da.file_name,
+               da.attachment_id, da.file_name, da.file_type,
+               da.file_path AS attachment_storage_path,
                CASE WHEN da.attachment_id IS NULL THEN NULL ELSE CONCAT('api/public_attachment.php?id=', da.attachment_id) END AS file_path
         FROM disclosure d
         JOIN disclosure_category c ON d.category_id = c.category_id
@@ -14,7 +15,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         WHERE d.is_archived = FALSE
         ORDER BY d.timestamp_posted DESC
     ");
-    echo json_encode($stmt->fetchAll());
+    $items = $stmt->fetchAll();
+    foreach ($items as &$item) {
+        $item['file_size'] = null;
+        $storedPath = $item['attachment_storage_path'] ?? null;
+        if (is_string($storedPath) && $storedPath !== '') {
+            try {
+                $resolvedPath = resolveStoredUpload($storedPath);
+                if ($resolvedPath !== null && is_file($resolvedPath)) {
+                    $size = filesize($resolvedPath);
+                    $item['file_size'] = $size === false ? null : $size;
+                }
+            } catch (Throwable $error) {
+                // Keep the public record available if attachment metadata cannot be read.
+            }
+        }
+        unset($item['attachment_storage_path']);
+    }
+    unset($item);
+    echo json_encode($items);
 } 
 
 elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -103,9 +122,6 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         echo json_encode(['success'=>false, 'message'=>'Choose a category and enter a title (up to 120 characters) and description (up to 2,000 characters)']);
         exit;
     }
-    $beforeStmt = $pdo->prepare('SELECT title, content FROM disclosure WHERE disclosure_id = ? AND is_archived = FALSE');
-    $beforeStmt->execute([$id]);
-    $before = $beforeStmt->fetch();
     $stmt = $pdo->prepare('UPDATE disclosure SET category_id = ?, title = ?, content = ? WHERE disclosure_id = ? AND is_archived = FALSE');
     $stmt->execute([$categoryId, $title, $content, $id]);
     if ($stmt->rowCount() === 0) {
@@ -118,7 +134,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         }
     }
     $audit = $pdo->prepare('INSERT INTO audit_log (user_id, action, details) VALUES (?, ?, ?)');
-    $audit->execute([$_SESSION['user_id'], 'disclosure_edited', json_encode(['disclosure_id' => $id, 'title' => $title, 'before' => $before, 'after' => ['title' => $title, 'content' => $content]], JSON_UNESCAPED_UNICODE)]);
+    $audit->execute([$_SESSION['user_id'], 'disclosure_edited', 'Disclosure ID ' . $id . ' was edited']);
     echo json_encode(['success'=>true]);
 }
 
