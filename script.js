@@ -74,6 +74,7 @@ let residentEmailAvailabilityTimer = null;
 let residentEmailAvailabilitySequence = 0;
 let residentRequestItems = [];
 let residentRequestStatusFilter = 'active';
+let residentRequestPlaceholderResizeTimer = null;
 let requestProofObjectUrl = null;
 let requestSubmitting = false;
 let editingDisclosureId = null;
@@ -96,6 +97,13 @@ let publicDisclosuresLoadedAt = 0;
 let publicDisclosuresItems = [];
 let publicDisclosuresLoadPromise = null;
 let publicDisclosuresLoadError = false;
+let publicDisclosuresLoadedQueryKey = '';
+let publicDisclosuresPage = 1;
+let publicDisclosuresPerPage = 40;
+let publicDisclosuresTotal = 0;
+let publicDisclosuresArchiveTotal = 0;
+let publicDisclosuresHasMore = false;
+let publicDisclosuresCategoryCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let activeBulletinCategory = null;
 let activeBulletinFilter = 'all';
 const publicBulletinCategories = {
@@ -133,6 +141,7 @@ let registrationEmailCheckTimer = null;
 let registrationEmailCheckSequence = 0;
 let toastHideTimer = null;
 let toastExitTimer = null;
+let adminMfaCopyFeedbackTimer = null;
 const adminPanelLoadedAt = new Map();
 const ADMIN_PANEL_CACHE_MS = 30000;
 const PUBLIC_DISCLOSURES_CACHE_MS = 30000;
@@ -142,11 +151,11 @@ let passwordResetToken = ['password-reset', 'forgot-password'].includes(resetFra
 let passwordResetContext = resetFragmentParams.get('context') === 'admin' ? 'admin' : 'resident';
 let passwordResetReturnToProfile = document.querySelector('meta[name="password-reset-return-to-profile"]')?.content === 'true';
 const emailVerificationToken = () => document.querySelector('meta[name="email-verify-token"]')?.content || '';
-const appDocumentTitle = document.body?.dataset.appTitle || document.title;
+const appDocumentTitle = document.body?.dataset.appTitle || 'Barangay San Jose Digital Portal';
 
 window.INITIAL_ADMIN_SECTION = document.body?.dataset.initialAdminSection || null;
 const delegatedActionNames = new Set([
-    'activateDisclosureCategory', 'changePickupCalendarMonth', 'checkAuthAndRedirect', 'clearPublicRecordsSearchInput',
+    'activateDisclosureCategory', 'changePickupCalendarMonth', 'checkAuthAndRedirect', 'clearPublicRecordsSearchInput', 'copyAuthenticatorSetupKey',
     'clearActivityFilters', 'clearDisclosureFile', 'closeAdminRequestDetail', 'closeMobileMenu',
     'closeBulletinDeleteDialog', 'closeModal', 'confirmBulletinDelete', 'exportActivityCsv',
     'focusContactInfo', 'handleActivityFilterChange', 'handleAdminLogin', 'handleAdminMfaSubmit', 'handleAdminMfaDigitKeydown', 'handleAdminMfaPaste', 'cancelAdminMfa', 'handleViewProfile',
@@ -532,6 +541,15 @@ function showSection(id, fromHistory = false, adminSection = null) {
         section = document.getElementById(id);
     }
     if (!section) return;
+    if (currentUser?.role) document.body.dataset.accountRole = currentUser.role;
+    if (window.ensurePortalRouteStyles && !window.portalRouteStylesAreReady(id)) {
+        section.dataset.routeStylesPending = '1';
+        void window.ensurePortalRouteStyles(id).finally(() => {
+            delete section.dataset.routeStylesPending;
+        });
+    } else {
+        delete section.dataset.routeStylesPending;
+    }
     const residentWorkspaceView = currentUser?.role === 'Resident' && ['resident-dashboard', 'resident-profile'].includes(id);
     document.body.classList.toggle('resident-workspace-view', residentWorkspaceView);
     document.body.classList.toggle('public-portal-view', ['landing', 'bulletin', 'login', 'admin-login', 'forgot-password', 'register', 'resident-change-email', 'resident-change-password', 'privacy-policy', 'terms', 'moderation', 'copyright', 'page-unavailable'].includes(id) || residentWorkspaceView);
@@ -542,7 +560,22 @@ function showSection(id, fromHistory = false, adminSection = null) {
     const unavailableView = id === 'page-unavailable' || (id === 'admin-login' && document.body.dataset.adminEntryAuthorized === '0');
     document.body.classList.toggle('unavailable-view', unavailableView);
     document.documentElement.classList.toggle('hide-unavailable-scrollbar', unavailableView);
-    document.title = unavailableView ? 'Page unavailable' : appDocumentTitle;
+    const sectionTitles = {
+        landing: appDocumentTitle,
+        bulletin: 'Public Records | Barangay San Jose Digital Portal',
+        login: 'Resident log in | Barangay San Jose Digital Portal',
+        'admin-login': 'Administrator sign in | Barangay San Jose Digital Portal',
+        'forgot-password': 'Password reset | Barangay San Jose Digital Portal',
+        register: 'Create resident account | Barangay San Jose Digital Portal',
+        'resident-dashboard': 'My document requests | Barangay San Jose Digital Portal',
+        'resident-profile': 'My profile | Barangay San Jose Digital Portal',
+        'admin-dashboard': 'Administration | Barangay San Jose Digital Portal',
+        'privacy-policy': 'Privacy policy | Barangay San Jose Digital Portal',
+        terms: 'Terms and conditions | Barangay San Jose Digital Portal',
+        moderation: 'Moderation policy | Barangay San Jose Digital Portal',
+        copyright: 'Copyright notice | Barangay San Jose Digital Portal'
+    };
+    document.title = unavailableView ? 'Page unavailable' : (sectionTitles[id] || appDocumentTitle);
     if (unavailableView) {
         const attemptedAddress = (document.body.dataset.unavailableAddress || window.location.href).replace(/([?&#](?:token|secret|password|key)=)[^&#]*/gi, '$1[redacted]');
         document.body.dataset.unavailableAddress = attemptedAddress;
@@ -569,7 +602,7 @@ function showSection(id, fromHistory = false, adminSection = null) {
         else adminProfileLink.removeAttribute('aria-current');
     }
     if (adminProfileSection) {
-        document.querySelectorAll('#admin-dashboard .admin-tabs .admin-tab, #admin-nav-section .admin-nav-tab').forEach(tab => {
+        document.querySelectorAll('#admin-dashboard .admin-tabs .admin-tab, #main-nav .admin-nav-tab').forEach(tab => {
             tab.classList.remove('active');
             tab.setAttribute('aria-current', 'false');
             if (tab.classList.contains('admin-tab')) tab.setAttribute('aria-selected', 'false');
@@ -586,10 +619,16 @@ function showSection(id, fromHistory = false, adminSection = null) {
     if (id === 'login' || id === 'register') renderRecaptchaWidget(id);
 
     const nav = document.getElementById('main-nav');
-    nav.classList.toggle('hidden-nav', ['login', 'register', 'admin-login', 'forgot-password', 'resident-change-email', 'resident-change-password'].includes(id));
+    nav?.classList.toggle('hidden-nav', ['login', 'register', 'admin-login', 'forgot-password', 'resident-change-email', 'resident-change-password'].includes(id));
     closeUserMenu();
     closeMobileMenu();
 
+    if (currentUser?.role === 'Admin' && id !== 'admin-dashboard') {
+        document.querySelectorAll('#main-nav .admin-nav-tab').forEach(tab => {
+            tab.classList.remove('active');
+            tab.setAttribute('aria-current', 'false');
+        });
+    }
     document.querySelectorAll('.nav-links [data-section]').forEach(item => {
         const target = item.dataset.section;
         const active = target === id || (target === 'dashboard' && (id.endsWith('-dashboard') || id === 'resident-profile'));
@@ -1280,25 +1319,26 @@ function updateNavBar() {
     const profileDivider = document.getElementById('account-profile-divider');
     const mobileProfileLink = document.getElementById('mobile-profile-nav-item');
     const mobileAccountActions = document.getElementById('mobile-account-actions');
+    const adminMobileProfileLink = document.getElementById('admin-mobile-profile-nav-item');
+    const adminMobileLogoutLink = document.getElementById('admin-mobile-logout-nav-item');
     const adminSidebarAccount = document.getElementById('admin-sidebar-account');
     document.body.classList.toggle('admin-user-view', currentUser?.role === 'Admin');
     document.body.classList.toggle('resident-user-view', currentUser?.role === 'Resident');
     document.body.classList.toggle('guest-user-view', !currentUser);
     const emailBanner = document.getElementById('email-verification-banner');
     if (emailBanner) emailBanner.hidden = !currentUser || currentUser.role !== 'Resident' || currentUser.emailVerified === true;
-    // Show admin workspace nav section in hamburger only for admins
-    const adminNavSection = document.getElementById('admin-nav-section');
-    if (adminNavSection) adminNavSection.hidden = currentUser?.role !== 'Admin';
     if (adminSidebarAccount) adminSidebarAccount.hidden = currentUser?.role !== 'Admin';
     const guestAuthActions = document.getElementById('guest-auth-actions');
     if (guestAuthActions) guestAuthActions.classList.toggle('hidden', Boolean(currentUser));
     if (mobileRegisterCta) mobileRegisterCta.classList.toggle('hidden', Boolean(currentUser));
     if (profileLink) profileLink.classList.toggle('hidden', !['Resident', 'Admin'].includes(currentUser?.role));
     if (profileDivider) profileDivider.hidden = !['Resident', 'Admin'].includes(currentUser?.role);
-    if (mobileProfileLink) mobileProfileLink.hidden = !['Resident', 'Admin'].includes(currentUser?.role);
+    if (mobileProfileLink) mobileProfileLink.hidden = currentUser?.role !== 'Resident';
     if (mobileAccountActions) mobileAccountActions.hidden = !currentUser;
+    if (adminMobileProfileLink) adminMobileProfileLink.hidden = currentUser?.role !== 'Admin';
+    if (adminMobileLogoutLink) adminMobileLogoutLink.hidden = currentUser?.role !== 'Admin';
     if (currentUser) { 
-        info.classList.remove('hidden'); 
+        info?.classList.remove('hidden');
         const fullName = String(currentUser.name || '').trim();
         const firstName = fullName.split(/\s+/)[0] || 'Account';
         const nameParts = fullName.split(/\s+/).filter(Boolean);
@@ -1311,14 +1351,15 @@ function updateNavBar() {
             renderAdminSidebarAvatar(currentUser.role === 'Admin' ? currentUser.profilePhoto : null);
         }
         if (currentUser.role === 'Admin') loadAdminSidebarAvatarPhoto();
-        document.getElementById('welcome-user-name').textContent = `Hi, ${firstName}`;
+        const welcomeUserName = document.getElementById('welcome-user-name');
+        if (welcomeUserName) welcomeUserName.textContent = `Hi, ${firstName}`;
         const avatar = document.getElementById('welcome-user-avatar');
         if (avatar) avatar.textContent = initials.toUpperCase();
         const menuName = document.getElementById('account-menu-full-name');
         const menuEmail = document.getElementById('account-menu-email');
         if (menuName) menuName.textContent = fullName || 'Account';
         if (menuEmail) menuEmail.textContent = currentUser.email || '';
-        dashboardLink.classList.remove('hidden');
+        dashboardLink?.classList.remove('hidden');
         if (bulletinAdminAction) bulletinAdminAction.classList.toggle('hidden', currentUser.role !== 'Admin');
         if (heroGuestActions) heroGuestActions.classList.add('hidden');
         if (heroGuestHelper) heroGuestHelper.classList.add('hidden');
@@ -1327,8 +1368,8 @@ function updateNavBar() {
     } else {
         adminSidebarPhotoLookupUserId = null;
         closeUserMenu();
-        info.classList.add('hidden');
-        dashboardLink.classList.add('hidden');
+        info?.classList.add('hidden');
+        dashboardLink?.classList.add('hidden');
         if (bulletinAdminAction) bulletinAdminAction.classList.add('hidden');
         if (heroGuestActions) heroGuestActions.classList.remove('hidden');
         if (heroGuestHelper) heroGuestHelper.classList.remove('hidden');
@@ -1449,10 +1490,9 @@ function observeBulletinExcerpts() {
 }
 
 function getPublicDisclosureRecordHref(item, categoryId) {
-    const params = new URLSearchParams({ category: String(categoryId) });
     const recordId = Number(item?.disclosure_id);
-    if (Number.isSafeInteger(recordId) && recordId > 0) params.set('record', String(recordId));
-    return `index.php#bulletin?${params.toString()}`;
+    if (Number.isSafeInteger(recordId) && recordId > 0) return `record.php?id=${recordId}`;
+    return `index.php#bulletin?category=${encodeURIComponent(String(categoryId))}`;
 }
 
 function getBulletinRecordIdFromLocation() {
@@ -1494,6 +1534,24 @@ function renderBulletinRecordSkeletons(container, label = 'Loading public record
             ])
         ]));
     }
+}
+
+function appendDisclosurePageControl(container) {
+    if (!container) return;
+    container.querySelector('.bulletin-load-more')?.remove();
+    if (!publicDisclosuresHasMore) return;
+    container.appendChild(el('button', {
+        className: 'bulletin-load-more',
+        text: 'Load more records',
+        attrs: { type: 'button' },
+        on: { click: async event => {
+            const button = event.currentTarget;
+            if (button.disabled) return;
+            button.disabled = true;
+            button.textContent = 'Loading records…';
+            await loadDisclosures(false, publicDisclosuresPage + 1);
+        } }
+    }));
 }
 
 function renderBulletinAnnouncementSkeletons(container) {
@@ -1611,22 +1669,12 @@ function scrollSelectedBulletinFilterIntoView(filter) {
     const track = document.getElementById('bulletin-category-filters');
     const chip = track?.querySelector(`[data-bulletin-filter="${filter}"]`);
     if (!track || !chip) return;
-    window.clearTimeout(track.__bulletinFilterSettleTimer);
-    window.clearTimeout(track.__bulletinProgrammaticFilterTimer);
     const trackRect = track.getBoundingClientRect();
     const chipRect = chip.getBoundingClientRect();
     const offset = chipRect.left + chipRect.width / 2 - (trackRect.left + track.clientWidth / 2);
     const maxScroll = Math.max(0, track.scrollWidth - track.clientWidth);
     const target = Math.min(maxScroll, Math.max(0, track.scrollLeft + offset));
-    if (Math.abs(target - track.scrollLeft) < 1) {
-        track.__bulletinProgrammaticFilterTarget = '';
-        return;
-    }
-    track.__bulletinProgrammaticFilterTarget = String(filter);
-    track.__bulletinProgrammaticFilterTimer = window.setTimeout(() => {
-        track.__bulletinProgrammaticFilterTarget = '';
-        track.__bulletinProgrammaticFilterTimer = 0;
-    }, 900);
+    if (Math.abs(target - track.scrollLeft) < 1) return;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     track.scrollTo({ left: target, behavior: reducedMotion ? 'auto' : 'smooth' });
 }
@@ -1648,50 +1696,9 @@ function updateBulletinFilterRailState(filter = activeBulletinFilter) {
     updateBulletinFilterDots(filter);
 }
 
-function bindBulletinFilterRail() {
-    const track = document.getElementById('bulletin-category-filters');
-    if (!track || track.__bulletinFilterScrollBound) return;
-    track.__bulletinFilterScrollBound = true;
-    let frame = 0;
-    const getNearestFilter = () => {
-        const center = track.getBoundingClientRect().left + track.clientWidth / 2;
-        const nearest = Array.from(track.querySelectorAll('[data-bulletin-filter]')).reduce((best, chip) => {
-            const rect = chip.getBoundingClientRect();
-            const distance = Math.abs(rect.left + rect.width / 2 - center);
-            return !best || distance < best.distance ? { value: chip.dataset.bulletinFilter, distance } : best;
-        }, null);
-        return nearest?.value;
-    };
-    track.addEventListener('scroll', () => {
-        const programmaticTarget = track.__bulletinProgrammaticFilterTarget;
-        if (programmaticTarget) {
-            if (String(getNearestFilter()) !== programmaticTarget) return;
-            track.__bulletinProgrammaticFilterTarget = '';
-            window.clearTimeout(track.__bulletinProgrammaticFilterTimer);
-            track.__bulletinProgrammaticFilterTimer = 0;
-        }
-        if (!frame) {
-            frame = requestAnimationFrame(() => {
-                frame = 0;
-                const nearestFilter = getNearestFilter();
-                const pendingTarget = track.__bulletinProgrammaticFilterTarget;
-                if (pendingTarget && String(nearestFilter) !== pendingTarget) return;
-                updateBulletinFilterRailState(nearestFilter);
-            });
-        }
-        window.clearTimeout(track.__bulletinFilterSettleTimer);
-        track.__bulletinFilterSettleTimer = window.setTimeout(() => {
-            const filter = getNearestFilter();
-            const pendingTarget = track.__bulletinProgrammaticFilterTarget;
-            if (pendingTarget && String(filter) !== pendingTarget) return;
-            if (filter !== undefined && String(filter) !== String(activeBulletinFilter)) setBulletinFilter(filter);
-        }, 120);
-    }, { passive: true });
-}
-
 function createBulletinRecordPlaceholder() {
     return el('article', {
-        className: 'bulletin-record-row bulletin-record-placeholder',
+        className: 'bulletin-record-row bulletin-record-placeholder bulletin-record-enter',
         attrs: { role: 'status' }
     }, [
         el('span', { className: 'bulletin-record-placeholder-label', text: 'Coming soon' }),
@@ -1704,7 +1711,6 @@ function renderBulletinArchive(query = '') {
     const container = document.getElementById('bulletin-archive-list');
     const filters = document.getElementById('bulletin-category-filters');
     if (!container || !filters) return;
-    bindBulletinFilterRail();
     const normalized = String(query || '').trim().toLocaleLowerCase();
     const countAll = document.getElementById('bulletin-count-all');
     updateBulletinFilterRailState();
@@ -1744,9 +1750,9 @@ function renderBulletinArchive(query = '') {
         return `${item.title || ''} ${item.content || ''} ${item.file_name || ''} ${categoryName}`.toLocaleLowerCase().includes(normalized);
     });
 
-    if (countAll) countAll.textContent = String(validRecords.length);
+    if (countAll) countAll.textContent = String(publicDisclosuresArchiveTotal);
     [1, 2, 3, 4].forEach(id => {
-        const categoryCount = validRecords.filter(item => Number(item.category_id) === id).length;
+        const categoryCount = Number(publicDisclosuresCategoryCounts[id] || 0);
         const count = document.getElementById(`bulletin-count-${id}`);
         const button = filters.querySelector(`[data-bulletin-filter="${id}"]`);
         const subtitle = filters.querySelector(`[data-bulletin-filter="${id}"] .bulletin-filter-copy small`);
@@ -1845,6 +1851,7 @@ function renderBulletinArchive(query = '') {
     for (let index = 0; index < placeholdersNeeded; index += 1) {
         container.appendChild(createBulletinRecordPlaceholder());
     }
+    appendDisclosurePageControl(container);
     container.querySelectorAll('.bulletin-record-summary').forEach(element =>
         fitBulletinExcerpt(element, element.dataset.fullExcerpt, Number(element.dataset.maxExcerptLines)));
     observeBulletinExcerpts();
@@ -1862,8 +1869,10 @@ function setBulletinFilter(filter) {
     else {
         clearPublicRecordsSearch();
         renderBulletinArchive('');
-        renderBulletinLatest('');
     }
+    void loadDisclosures().then(() => {
+        if (query.trim()) renderPublicRecordsSearch(query);
+    });
 }
 
 function clearPublicRecordsSearch() {
@@ -1887,6 +1896,7 @@ function clearPublicRecordsSearchInput() {
     input.value = '';
     syncPublicRecordsSearchControls();
     renderPublicRecordsSearch('');
+    void loadDisclosures(true);
     input.focus();
 }
 
@@ -1923,12 +1933,7 @@ function renderPublicRecordsSearch(query) {
     if (!normalized) { clearPublicRecordsSearch(); return; }
 
     const documentMatches = portalSearchDocuments.filter(item => item.title.toLocaleLowerCase().includes(normalized));
-    const recordMatches = publicDisclosuresItems.filter(item => {
-        if (activeBulletinFilter !== 'all' && Number(item.category_id) !== Number(activeBulletinFilter)) return false;
-        const categoryName = publicBulletinCategories[Number(item.category_id)]?.title || '';
-        return `${item.title || ''} ${item.content || ''} ${item.file_name || ''} ${categoryName}`.toLocaleLowerCase().includes(normalized);
-    });
-    const total = documentMatches.length + recordMatches.length;
+    const total = documentMatches.length + publicDisclosuresTotal;
     clearNode(results);
     summary.textContent = publicDisclosuresLoaded
         ? `${total} ${total === 1 ? 'match' : 'matches'} across public records and document requests for “${String(query).trim()}”.`
@@ -1936,11 +1941,11 @@ function renderPublicRecordsSearch(query) {
             ? `Public records are temporarily unavailable. ${documentMatches.length} document ${documentMatches.length === 1 ? 'match' : 'matches'} found.`
             : `${documentMatches.length ? `${documentMatches.length} document ${documentMatches.length === 1 ? 'match' : 'matches'} found. ` : ''}Searching public records for “${String(query).trim()}”…`;
 
-    results.hidden = documentMatches.length === 0 && (recordMatches.length > 0 || !publicDisclosuresLoaded);
+    results.hidden = documentMatches.length === 0 && (publicDisclosuresTotal > 0 || !publicDisclosuresLoaded);
     if (documentMatches.length) {
         results.hidden = false;
         appendDocumentMatches(results, documentMatches);
-    } else if (publicDisclosuresLoaded && !recordMatches.length) {
+    } else if (publicDisclosuresLoaded && publicDisclosuresTotal === 0) {
         results.hidden = false;
         results.appendChild(el('div', { className: 'records-search-empty', attrs: { role: 'status' } }, [
             el('strong', { text: 'No matching results' }),
@@ -1962,7 +1967,7 @@ function portalSearch(form) {
     activeBulletinFilter = 'all';
     setBulletinCategoryView(null);
     renderPublicRecordsSearch(query);
-    void loadDisclosures().then(() => renderPublicRecordsSearch(query));
+    void loadDisclosures(true).then(() => renderPublicRecordsSearch(query));
     return false;
 }
 
@@ -2040,6 +2045,7 @@ function renderBulletinCategory(categoryId) {
         }
         list.appendChild(article);
     });
+    appendDisclosurePageControl(list);
     scrollToBulletinRecordFromLocation();
 }
 
@@ -2058,8 +2064,9 @@ function setBulletinCategoryView(categoryId) {
     if (!grid || !view || !overview || !heading || !description) return;
 
     activeBulletinCategory = id;
-    overview.hidden = Boolean(id);
-    grid.hidden = Boolean(id);
+    // Keep announcements and category filters visible while showing the chosen records below.
+    overview.hidden = false;
+    grid.hidden = false;
     if (id) {
         view.hidden = false;
         view.classList.remove('is-leaving');
@@ -2154,6 +2161,7 @@ function showBulletinOverview() {
     clearPublicRecordsSearch();
     renderBulletinArchive('');
     renderBulletinLatest('');
+    void loadDisclosures(true);
     window.scrollTo({ top: 0, left: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 }
 
@@ -2837,6 +2845,75 @@ function handleAdminLogin(e) {
     performLogin(email, password, 'admin');
 }
 
+async function copyAuthenticatorSetupKey(secretId, button = null) {
+    const keyElement = document.getElementById(secretId);
+    const displayedKey = keyElement?.textContent?.trim();
+    const key = secretId === 'admin-mfa-secret' ? displayedKey?.replace(/\s+/g, '') : displayedKey;
+    if (!key) {
+        showToast('Authenticator setup key is not available.', 'error');
+        return;
+    }
+
+    let copied = false;
+    try {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(key);
+            copied = true;
+        }
+    } catch (_) { /* Use the local copy fallback when clipboard access is unavailable. */ }
+
+    if (!copied) {
+        let temporary;
+        try {
+            temporary = document.createElement('textarea');
+            temporary.value = key;
+            temporary.setAttribute('readonly', '');
+            temporary.style.position = 'fixed';
+            temporary.style.left = '-9999px';
+            document.body.appendChild(temporary);
+            temporary.select();
+            copied = document.execCommand('copy');
+        } catch (_) {
+            copied = false;
+        } finally {
+            temporary?.remove();
+        }
+    }
+
+    if (copied && secretId === 'admin-mfa-secret' && button) {
+        window.clearTimeout(adminMfaCopyFeedbackTimer);
+        button.replaceChildren(Object.assign(document.createElement('i'), { className: 'fas fa-check' }));
+        button.querySelector('i')?.setAttribute('aria-hidden', 'true');
+        button.title = 'Copied';
+        const tooltip = button.parentElement?.querySelector('.admin-mfa-copy-tooltip');
+        if (tooltip) tooltip.hidden = false;
+        const liveRegion = document.getElementById('admin-mfa-copy-live');
+        if (liveRegion) liveRegion.textContent = 'Key copied';
+        getAdminMfaDigitInputs()[0]?.focus();
+        adminMfaCopyFeedbackTimer = window.setTimeout(() => {
+            button.replaceChildren(Object.assign(document.createElement('i'), { className: 'fas fa-copy' }));
+            button.querySelector('i')?.setAttribute('aria-hidden', 'true');
+            button.title = 'Copy key';
+            if (tooltip) tooltip.hidden = true;
+            if (liveRegion) liveRegion.textContent = '';
+        }, 2000);
+    }
+    showToast(copied ? 'Authenticator setup key copied. Keep it private.' : 'Could not copy the setup key. Select and copy it manually.', copied ? 'success' : 'error');
+}
+
+function renderStaffAuthenticatorSetupKey(secret) {
+    const keyElement = document.getElementById('admin-mfa-secret');
+    if (!keyElement) return;
+    keyElement.replaceChildren();
+    const key = String(secret || '');
+    for (let offset = 0; offset < key.length; offset += 4) {
+        const group = document.createElement('span');
+        group.className = 'admin-mfa-secret-group';
+        group.textContent = key.slice(offset, offset + 4);
+        keyElement.appendChild(group);
+    }
+}
+
 function getAdminMfaDigitInputs() {
     return Array.from(document.querySelectorAll('#admin-mfa-code-fields .admin-mfa-digit'));
 }
@@ -2996,7 +3073,7 @@ async function cancelAdminMfa() {
     try { await fetch('api/logout.php', { method: 'POST' }); } catch (_) { /* pending MFA expires automatically */ }
     document.getElementById('admin-mfa-step')?.classList.add('hidden');
     document.getElementById('admin-mfa-secret-wrap')?.classList.add('hidden');
-    document.getElementById('admin-mfa-secret').textContent = '';
+    document.getElementById('admin-mfa-secret').replaceChildren();
     document.getElementById('admin-mfa-form')?.reset();
     resetAdminMfaDigits();
     document.getElementById('admin-login-signin-step')?.classList.remove('hidden');
@@ -3222,11 +3299,13 @@ async function performLogin(email, password, context) {
             const setup = Boolean(data.mfaSetupRequired);
             document.getElementById('admin-mfa-title').textContent = setup ? 'Set up your authenticator' : 'Verify your identity';
             document.getElementById('admin-mfa-instructions').textContent = setup
-                ? 'Add an account manually in your authenticator app, then enter its current 6-digit code below.'
+                ? 'Add your account to an authenticator app, then enter the code it shows.'
                 : 'Enter the 6-digit code from your authenticator app.';
+            document.getElementById('admin-mfa-code-step-number').hidden = !setup;
+            document.getElementById('admin-mfa-code-step-text').textContent = setup ? 'Enter the 6-digit code' : 'Authenticator code';
             document.getElementById('admin-mfa-secret-wrap')?.classList.toggle('hidden', !setup);
-            document.getElementById('admin-mfa-secret').textContent = setup ? String(data.secret || '') : '';
-            resetAdminMfaDigits(true);
+            renderStaffAuthenticatorSetupKey(setup ? data.secret : '');
+            resetAdminMfaDigits();
             return;
         }
         if (data.success) {
@@ -3272,20 +3351,15 @@ async function performLogin(email, password, context) {
 /* ============================================================
    REGISTER (FormData for proof upload)
    ============================================================ */
-const registerPoliciesRead = new Set();
 let registerPolicyReturnFocus = null;
 
 function updateRegisterPolicyReadState() {
     const dialog = document.getElementById('register-policy-dialog');
     const content = document.getElementById('register-policy-content');
-    const consent = document.getElementById('register-terms-accepted');
-    const consentLabel = document.getElementById('register-consent-label');
-    const hint = document.getElementById('register-policy-read-hint');
     const closeButton = document.getElementById('register-policy-close');
     const progress = dialog?.querySelector('.register-policy-progress');
     const progressFill = document.getElementById('register-policy-progress-fill');
-    const activePolicy = dialog?.dataset.policyId;
-    if (!content || !consent || !consentLabel || !hint || !closeButton || !['terms', 'privacy-policy'].includes(activePolicy)) return;
+    if (!content || !closeButton) return;
 
     dialog.classList.toggle('has-scrolled', content.scrollTop > 0);
 
@@ -3294,16 +3368,7 @@ function updateRegisterPolicyReadState() {
     if (progress) progress.setAttribute('aria-valuenow', String(percent));
     if (progressFill) progressFill.style.width = `${percent}%`;
 
-    if (content.scrollTop + content.clientHeight >= content.scrollHeight - 4) {
-        registerPoliciesRead.add(activePolicy);
-        closeButton.disabled = false;
-        if (registerPoliciesRead.has('terms') && registerPoliciesRead.has('privacy-policy')) {
-            consent.disabled = false;
-            consentLabel.classList.remove('is-locked');
-            hint.classList.add('is-ready');
-            hint.textContent = 'Both documents read. You can now agree.';
-        }
-    }
+    closeButton.disabled = false;
 }
 
 function openRegisterPolicy(sectionId) {
@@ -3326,8 +3391,8 @@ function openRegisterPolicy(sectionId) {
     academicText.textContent = '';
     lastUpdated.classList.add('hidden');
     lastUpdated.textContent = '';
-    closeButton.textContent = 'I understand';
-    closeButton.disabled = true;
+    closeButton.textContent = 'Close';
+    closeButton.disabled = false;
     if (sectionId === 'terms' || sectionId === 'privacy-policy') {
         const updated = content.querySelector('.policy-updated');
         const academicNote = updated?.querySelector('.policy-academic-note');
@@ -3371,12 +3436,7 @@ function openRegisterPolicy(sectionId) {
     const closeButton = document.getElementById('register-policy-close');
     const closeXButton = document.getElementById('register-policy-close-x');
     const content = document.getElementById('register-policy-content');
-    const consent = document.getElementById('register-terms-accepted');
-    const consentLabel = document.getElementById('register-consent-label');
-    const hint = document.getElementById('register-policy-read-hint');
-    if (!dialog || !closeButton || !closeXButton || !content || !consent || !consentLabel || !hint) return;
-    consent.disabled = true;
-    consentLabel.classList.add('is-locked');
+    if (!dialog || !closeButton || !closeXButton || !content) return;
     content.addEventListener('scroll', updateRegisterPolicyReadState, { passive: true });
     content.addEventListener('keydown', event => {
         if (['End', 'PageDown', 'ArrowDown', ' '].includes(event.key)) requestAnimationFrame(updateRegisterPolicyReadState);
@@ -3399,53 +3459,6 @@ function openRegisterPolicy(sectionId) {
     closeXButton.addEventListener('click', close);
     dialog.addEventListener('click', event => { if (event.target === dialog) close(); });
     dialog.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
-})();
-
-(() => {
-    const termsPanel = document.getElementById('register-terms-scroll');
-    const consent = document.getElementById('register-terms-accepted');
-    const consentLabel = document.getElementById('register-consent-label');
-    const hint = document.getElementById('register-dialog-hint');
-    const readButton = document.getElementById('register-read-terms');
-    const dialog = document.getElementById('register-terms-dialog');
-    const closeButton = document.getElementById('register-terms-close');
-    if (!termsPanel || !consent || !consentLabel || !hint || !readButton || !dialog || !closeButton) return;
-
-    let termsRead = false;
-    const unlockConsent = () => {
-        if (termsRead) return;
-        if (termsPanel.scrollTop + termsPanel.clientHeight >= termsPanel.scrollHeight - 4) {
-            termsRead = true;
-            termsPanel.dataset.read = 'true';
-            consent.disabled = false;
-            consentLabel.classList.remove('is-locked');
-            hint.classList.add('is-ready');
-            hint.textContent = 'You’ve reached the end. You can close this window and agree on the form.';
-            closeButton.disabled = false;
-        }
-    };
-    termsPanel.addEventListener('scroll', unlockConsent, { passive: true });
-    termsPanel.addEventListener('keydown', event => {
-        if (event.key === 'End' || event.key === 'PageDown' || event.key === 'ArrowDown' || event.key === ' ') {
-            requestAnimationFrame(unlockConsent);
-        }
-    });
-    readButton.addEventListener('click', () => {
-        dialog.classList.remove('hidden');
-        document.body.classList.add('modal-open');
-        termsPanel.focus();
-        requestAnimationFrame(unlockConsent);
-    });
-    const closeDialog = () => {
-        if (!termsRead) return;
-        dialog.classList.add('hidden');
-        document.body.classList.remove('modal-open');
-        readButton.focus();
-    };
-    closeButton.addEventListener('click', closeDialog);
-    dialog.addEventListener('keydown', event => {
-        if (event.key === 'Escape' && termsRead) closeDialog();
-    });
 })();
 
 /* ============================================================
@@ -3836,7 +3849,7 @@ function updateDocumentTypeInfo() {
     clearNode(content);
     if (name) {
         const feeText = fee === null ? 'Fee confirmed at the barangay hall' : fee === 0 ? 'Free' : `₱${fee}`;
-        content.append(el('span', { className: 'request-summary-label', text: 'Request summary' }));
+        content.append(el('span', { className: 'request-summary-document', text: name }));
         if (requirements) {
             content.appendChild(el('p', {
                 className: 'request-summary-details request-summary-requirements',
@@ -4164,7 +4177,7 @@ function renderResidentProfile() {
     const profileAvatar = document.getElementById('resident-profile-avatar');
     const banner = document.getElementById('email-verification-banner');
     const isAdmin = currentUser.role === 'Admin';
-    if (accountLabel) accountLabel.textContent = isAdmin ? 'Administrator account' : 'Barangay San Jose portal account';
+    if (accountLabel) accountLabel.textContent = isAdmin ? 'Administrator account' : 'Barangay San Jose Resident Account';
     const verified = isAdmin || currentUser.emailVerified === true;
     const fullName = currentUser.name || '—';
     if (headerName) headerName.textContent = fullName;
@@ -4517,7 +4530,7 @@ async function saveAdminProfileDetails(event) {
 async function saveAdminNotificationPreferences(event) { event.preventDefault(); try { const requests = document.getElementById('admin-notify-requests'); const payments = document.getElementById('admin-notify-payments'); const result = await postProfileAction('save_notifications', { newRequests: requests.checked, paymentVerification: payments.checked }); requests.dataset.savedValue = String(requests.checked); payments.dataset.savedValue = String(payments.checked); updateAdminNotificationSaveState(); showToast(result.message, 'success'); } catch (error) { showToast(error.message, 'error'); } }
 async function revokeOtherAdminSessions() { if (!window.confirm('Log out of all other signed-in devices?')) return; try { const result = await postProfileAction('sessions_revoke_others'); showToast(result.message, 'success'); await loadEnhancedProfile(); } catch (error) { showToast(error.message, 'error'); } }
 async function beginAdminProfileMfa() { const password = window.prompt('Enter your current password to continue.'); if (password === null) return; try { const result = await postProfileAction('mfa_begin', { password }); document.getElementById('admin-profile-mfa-secret').textContent = result.secret; document.getElementById('admin-profile-mfa-secret-hint').textContent = result.replacing ? 'Add this new key to your authenticator app:' : 'Add this key to your authenticator app:'; document.getElementById('admin-profile-mfa-setup-box').hidden = false; document.getElementById('admin-profile-mfa-code').focus(); } catch (error) { showToast(error.message, 'error'); } }
-function cancelAdminProfileMfa() { document.getElementById('admin-profile-mfa-setup-box').hidden = true; document.getElementById('admin-profile-mfa-confirm-form').reset(); }
+function cancelAdminProfileMfa() { document.getElementById('admin-profile-mfa-setup-box').hidden = true; document.getElementById('admin-profile-mfa-secret').textContent = ''; document.getElementById('admin-profile-mfa-confirm-form').reset(); }
 async function confirmAdminProfileMfa(event) { event.preventDefault(); try { await postProfileAction('mfa_confirm', { code: document.getElementById('admin-profile-mfa-code').value.trim() }); cancelAdminProfileMfa(); showToast('Authenticator enabled.', 'success'); await loadEnhancedProfile(); } catch (error) { showToast(error.message, 'error'); } }
 
 function formatProfilePhone(value) {
@@ -4794,6 +4807,89 @@ async function loadResidentData() {
     renderResidentRequestList(residentRequestItems);
 }
 
+function createResidentRequestPlaceholder(showMessage = false) {
+    const headingChildren = [
+        el('span', { className: 'request-placeholder-title' })
+    ];
+    if (showMessage) {
+        headingChildren.push(el('span', { className: 'request-placeholder-message', text: 'Your requests will appear here.' }));
+    }
+    headingChildren.push(el('span', { className: 'request-placeholder-status' }));
+
+    return el('article', {
+        className: 'request-item request-item-placeholder',
+        attrs: { 'aria-hidden': 'true', inert: '', tabindex: '-1' }
+    }, [
+        el('div', { className: 'request-item-heading' }, headingChildren),
+        el('p', { className: 'request-tracking-line request-placeholder-tracking' }, [
+            el('span', { className: 'request-placeholder-bar request-placeholder-tracking-label' }),
+            el('span', { className: 'request-placeholder-bar request-placeholder-tracking-number' })
+        ]),
+        el('p', { className: 'request-requested-line request-placeholder-requested' }, [
+            el('span', { className: 'request-placeholder-bar request-placeholder-requested-bar' })
+        ]),
+        el('ol', { className: 'request-progress request-placeholder-progress' }, [
+            el('li'), el('li'), el('li'), el('li')
+        ]),
+        el('div', { className: 'request-payment-line request-placeholder-payment' }, [
+            el('span', { className: 'request-placeholder-bar request-placeholder-fee' }),
+            el('span', { className: 'request-placeholder-status request-placeholder-payment-status' })
+        ])
+    ]);
+}
+
+function fillResidentRequestListWithPlaceholders(list, visibleRequestCount) {
+    const isMobile = window.matchMedia('(max-width: 767px)').matches;
+    if (isMobile) {
+        const count = Math.max(0, 2 - visibleRequestCount);
+        for (let index = 0; index < count; index += 1) {
+            list.appendChild(createResidentRequestPlaceholder(visibleRequestCount === 0 && index === 0));
+        }
+        return;
+    }
+
+    const minimumCount = visibleRequestCount < 3 ? 1 : 0;
+    const panel = document.getElementById('resident-request-panel-list');
+    const formPanel = document.getElementById('resident-request-panel-new');
+    const listRect = list.getBoundingClientRect();
+    const panelRect = panel?.getBoundingClientRect();
+    const formRect = formPanel?.getBoundingClientRect();
+    const layoutAvailable = panelRect?.height > 0 && formRect?.height > 0;
+    if (!layoutAvailable) {
+        for (let index = 0; index < minimumCount; index += 1) {
+            list.appendChild(createResidentRequestPlaceholder(visibleRequestCount === 0 && index === 0));
+        }
+        return;
+    }
+
+    const panelPaddingBottom = Number.parseFloat(getComputedStyle(panel).paddingBottom) || 0;
+    const listOffset = listRect.top - panelRect.top;
+    const availableHeight = Math.max(0, formRect.height - listOffset - panelPaddingBottom);
+    let remainingHeight = availableHeight - list.scrollHeight;
+    let count = 0;
+    while (count < 30) {
+        const placeholder = createResidentRequestPlaceholder(visibleRequestCount === 0 && count === 0);
+        const beforeHeight = list.scrollHeight;
+        list.appendChild(placeholder);
+        const addedHeight = list.scrollHeight - beforeHeight;
+        if (count < minimumCount || addedHeight <= remainingHeight) {
+            count += 1;
+            remainingHeight -= addedHeight;
+            continue;
+        }
+        placeholder.remove();
+        break;
+    }
+}
+
+window.addEventListener('resize', () => {
+    clearTimeout(residentRequestPlaceholderResizeTimer);
+    residentRequestPlaceholderResizeTimer = setTimeout(() => {
+        const list = document.getElementById('request-list');
+        if (list) renderResidentRequestList(residentRequestItems);
+    }, 120);
+}, { passive: true });
+
 function renderResidentRequestList(requests = residentRequestItems) {
     const list = document.getElementById('request-list');
     if (!list) return;
@@ -4809,15 +4905,6 @@ function renderResidentRequestList(requests = residentRequestItems) {
         const terminal = ['Completed', 'Rejected'].includes(String(request.current_status || ''));
         return residentRequestStatusFilter === 'completed' ? terminal : !terminal;
     });
-
-    if (!visibleRequests.length) {
-        list.append(
-            el('div', { className: 'request-empty-state' }, [
-                el('p', { text: residentRequestStatusFilter === 'completed' ? 'No completed requests' : 'No active requests' })
-            ])
-        );
-        return;
-    }
 
     visibleRequests.forEach(r => {
         const tracking = String(r.tracking_code ?? '');
@@ -4852,7 +4939,7 @@ function renderResidentRequestList(requests = residentRequestItems) {
                 el('span', { text: tracking }),
                 el('button', { className: 'request-copy-button', attrs: { type: 'button', 'aria-label': `Copy tracking number ${tracking}` }, on: { click: () => copyRequestTracking(tracking) } }, [el('i', { className: 'fas fa-copy', attrs: { 'aria-hidden': 'true' } })])
             ]),
-            el('p', {}, [el('strong', { text: 'Requested: ' }), formatDate(r.created_at)]),
+            el('p', { className: 'request-requested-line' }, [el('strong', { text: 'Requested: ' }), formatDate(r.created_at)]),
             progress
         ]);
 
@@ -4885,6 +4972,7 @@ function renderResidentRequestList(requests = residentRequestItems) {
 
         list.appendChild(item);
     });
+    fillResidentRequestListWithPlaceholders(list, visibleRequests.length);
 }
 
 /* ============================================================
@@ -4914,12 +5002,19 @@ async function loadAdminOverview() {
         if (!response.ok || !data.success) throw new Error(data.message || 'Could not load the overview.');
         markAdminPanelLoaded('overview');
         const summary = data.summary;
-        document.getElementById('overview-needs-action').textContent = summary.needs_action;
+        const setOverviewValue = (id, value) => {
+            const target = document.getElementById(id);
+            if (!target) return;
+            const unavailable = value === null || value === undefined || value === '' || !Number.isFinite(Number(value));
+            target.textContent = unavailable ? 'Unavailable' : String(Number(value));
+            target.classList.toggle('is-unavailable', unavailable);
+        };
+        setOverviewValue('overview-needs-action', summary.needs_action);
         const approvedWaiting = Number(summary.approved_waiting) || 0;
         document.getElementById('overview-needs-action-caption').textContent = `${approvedWaiting} approved ${approvedWaiting === 1 ? 'request' : 'requests'}`;
-        document.getElementById('overview-ready-count').textContent = summary.ready_for_pickup;
-        document.getElementById('overview-completed-count').textContent = summary.completed_this_week;
-        document.getElementById('overview-new-residents-count').textContent = summary.new_residents_this_week;
+        setOverviewValue('overview-ready-count', summary.ready_for_pickup);
+        setOverviewValue('overview-completed-count', summary.completed_this_week);
+        setOverviewValue('overview-new-residents-count', summary.new_residents_this_week);
 
         clearNode(chart);
         const documentCounts = Array.isArray(data.requests_by_document) ? data.requests_by_document : [];
@@ -4963,6 +5058,13 @@ async function loadAdminOverview() {
             });
         }
     } catch (error) {
+        ['overview-needs-action', 'overview-ready-count', 'overview-completed-count', 'overview-new-residents-count'].forEach(id => {
+            const value = document.getElementById(id);
+            if (value) {
+                value.textContent = 'Unavailable';
+                value.classList.add('is-unavailable');
+            }
+        });
         chart.replaceChildren(el('p', { className: 'empty-state', text: 'Overview data is unavailable.' }));
         oldestList.replaceChildren(el('p', { className: 'empty-state', text: 'Could not load waiting requests.' }));
     }
@@ -4981,8 +5083,65 @@ function openOverviewDestination(destination) {
     if (button) setAdminRequestFilter(status, button);
 }
 
+function friendlyActivityDevice(userAgent) {
+    const agent = String(userAgent || '');
+    const browser = /Edg\//i.test(agent) ? 'Edge'
+        : /OPR\//i.test(agent) ? 'Opera'
+        : /Firefox\//i.test(agent) ? 'Firefox'
+        : /Chrome\//i.test(agent) ? 'Chrome'
+        : /Safari\//i.test(agent) ? 'Safari'
+        : /Trident|MSIE/i.test(agent) ? 'Internet Explorer' : 'Browser';
+    const platform = /Windows/i.test(agent) ? 'Windows'
+        : /Android/i.test(agent) ? 'Android'
+        : /iPhone|iPad|iPod/i.test(agent) ? 'iOS'
+        : /Macintosh|Mac OS/i.test(agent) ? 'macOS'
+        : /Linux/i.test(agent) ? 'Linux' : 'device';
+    return `${browser} on ${platform}`;
+}
+
+function getActivitySecurityInfo(entry) {
+    const action = String(entry.action || '').toLowerCase().replace(/[\s-]+/g, '_');
+    const raw = String(entry.details || '');
+    const userAgent = raw.match(/;\s*device\s+(.+)$/i)?.[1]?.trim() || raw.match(/\bdevice\s+(.+)$/i)?.[1]?.trim() || '';
+    const networkHash = raw.match(/\bIP hash\s+([a-f\d]{16,})/i)?.[1] || '';
+    if (!['admin_login_mfa', 'admin_mfa_failed', 'failed_admin_login', 'failed_resident_login'].includes(action)) return null;
+
+    let summary = 'Sign-in security event';
+    if (action === 'admin_login_mfa') {
+        summary = /enrolled authenticator/i.test(raw) ? 'Authenticator set up' : 'Admin signed in with an authenticator';
+    } else if (action === 'admin_mfa_failed') {
+        summary = 'Authenticator code was rejected';
+    } else if (action === 'failed_admin_login') {
+        summary = 'Admin sign-in failed';
+    } else if (action === 'failed_resident_login') {
+        summary = 'Resident sign-in failed';
+    }
+
+    const technical = [];
+    if (networkHash) technical.push(`Network identifier (hashed): ${networkHash}`);
+    if (userAgent) technical.push(`Browser signature: ${userAgent}`);
+    return {
+        summary,
+        device: userAgent ? friendlyActivityDevice(userAgent) : '',
+        technical: technical.join('\n')
+    };
+}
+
 function formatActivityAction(action) {
+    const raw = String(action || '').trim();
+    const normalized = raw.toLowerCase().replace(/[\s-]+/g, '_');
     const labels = {
+        admin_login_mfa: 'Admin sign-in (MFA)',
+        admin_login_authenticator: 'Admin login (authenticator)',
+        admin_mfa_failed: 'Authenticator check failed',
+        failed_admin_login: 'Failed admin sign-in',
+        failed_resident_login: 'Failed resident sign-in',
+        resident_login_success: 'Resident sign-in',
+        resident_email_verified: 'Resident email verified',
+        password_reset_completed: 'Password reset completed',
+        resident_login: 'Resident login',
+        admin_enrolled_authenticator: 'Admin enrolled authenticator',
+        admin_mfa_enrolled: 'Admin enrolled authenticator',
         approve_resident: 'Resident verified',
         reject_resident: 'Resident rejected',
         proof_viewed: 'Proof viewed',
@@ -4993,15 +5152,27 @@ function formatActivityAction(action) {
         disclosure_published: 'Disclosure posted',
         disclosure_draft_saved: 'Draft saved',
         disclosure_edited: 'Disclosure edited',
-        disclosure_unpublished: 'Disclosure unpublished', admin_login: 'Admin logged in', failed_admin_login: 'Failed login attempt', admin_deleted: 'Admin deleted'
+        disclosure_unpublished: 'Disclosure unpublished',
+        admin_login: 'Admin sign-in',
+        admin_deleted: 'Admin deleted'
     };
-    return labels[action] || String(action || '').replaceAll('_', ' ');
+    return labels[normalized] || raw.replaceAll('_', ' ').replace(/\b\w/g, character => character.toUpperCase());
+}
+function activityActionClass(action) {
+    const normalized = String(action || '').toLowerCase().replace(/[\s-]+/g, '_');
+    if (normalized.startsWith('failed_') || normalized.endsWith('_failed') || normalized.includes('reject')) return 'is-red';
+    if (['admin_login_mfa', 'resident_login_success', 'admin_login', 'request_approved', 'request_completed', 'disclosure_published', 'approve_resident', 'resident_verified'].includes(normalized)) return 'is-green';
+    if (normalized.includes('mfa') || normalized.includes('authenticator') || normalized.includes('edit') || normalized === 'proof_viewed') return 'is-blue';
+    if (normalized.includes('ready_for_pickup') || normalized === 'walk_in_request_created') return 'is-amber';
+    return 'is-neutral';
 }
 function formatMobileActivityAction(action) {
     const labels = { approve_resident: 'Verified', reject_resident: 'Rejected', admin_login: 'Admin login' };
     return labels[action] || formatActivityAction(action);
 }
 function getMobileActivityTarget(entry, detailText = '') {
+    const securityInfo = getActivitySecurityInfo(entry);
+    if (securityInfo) return securityInfo.device ? `Device: ${securityInfo.device}` : '';
     const raw = String(entry.details || '').trim();
     const requestMatch = raw.match(/^Tracking number: ([^ ·]+) · Resident: (.+?) · Document: (.+)$/);
     if (requestMatch) return `Resident: ${requestMatch[2].trim()}`;
@@ -5124,10 +5295,12 @@ async function loadAdminActivity(page = 1) {
         if (mobileList) clearNode(mobileList);
         activityPageCount = data.pages;
         activityLastRows = data.entries;
+        const activityPagination = document.querySelector('#admin-activity-panel .activity-pagination');
+        if (activityPagination) activityPagination.hidden = !Number(data.total);
         if (!data.entries.length) {
-            const td = el('td', { className: 'table-empty-state', attrs: { colspan: '4' } }, [el('strong', {text:'No activity matches these filters.'}), el('button', {className:'btn-outline', text:'Clear filters', attrs:{type:'button'}, on:{click:clearActivityFilters}})]);
+            const td = el('td', { className: 'table-empty-state', text: 'No activity found.', attrs: { colspan: '4' } });
             tbody.appendChild(el('tr', { className: 'table-empty-row' }, [td]));
-            if (mobileList) mobileList.appendChild(el('p', { className: 'activity-mobile-empty', text: 'No activity matches these filters.' }));
+            if (mobileList) mobileList.appendChild(el('p', { className: 'activity-mobile-empty', text: 'No activity found.' }));
         } else {
             let group = '';
             const mobileGroups = [];
@@ -5144,19 +5317,38 @@ async function loadAdminActivity(page = 1) {
                 }
                 else if(entry.action==='disclosure_edited' && entry.edit_details) { let snapshot; try { snapshot=JSON.parse(entry.edit_details); } catch (_) {} const title=snapshot ? `Disclosure #${snapshot.disclosure_id}: ${snapshot.title}` : entry.details; detail.appendChild(el('strong',{text:title||'Disclosure edited'})); }
                 else if(entry.details === 'Name not recorded') detail.appendChild(el('em',{className:'activity-name-missing',text:'Name not recorded'}));
+                else if(String(entry.action || '').toLowerCase().replace(/[\s-]+/g, '_') === 'resident_login_success') detail.appendChild(el('strong',{text:'Resident account signed in successfully'}));
                 else if(entry.action==='approve_resident' || entry.action==='reject_resident' || entry.action==='proof_viewed') {
                     detail.appendChild(el('strong',{text:String(entry.details||'').replace(/^Resident:\s*/,'').replace(/\s*\(ID\s.*$/,'')||'—'}));
                     if (entry.action === 'reject_resident' && entry.reason) detail.appendChild(el('small',{className:'activity-request-meta',text:`Reason: ${entry.reason}`}));
                 }
-                else detail.appendChild(el('strong',{text:entry.details||'—'}));
+                else {
+                    const rawDetails = String(entry.details || '—');
+                    const securityInfo = getActivitySecurityInfo(entry);
+                    if (securityInfo) {
+                        detail.appendChild(el('strong', { text: securityInfo.summary }));
+                        if (securityInfo.device) detail.appendChild(el('small', { className: 'activity-request-meta', text: `Device: ${securityInfo.device}` }));
+                        if (securityInfo.technical) {
+                            detail.appendChild(el('details', { className: 'activity-edit-details activity-technical-details' }, [
+                                el('summary', { text: 'Technical details' }),
+                                el('p', { text: securityInfo.technical })
+                            ]));
+                        }
+                    } else {
+                        detail.appendChild(el('strong',{text:rawDetails,attrs:{title:rawDetails}}));
+                    }
+                }
                 if(entry.action==='disclosure_edited' && entry.edit_details) {
                     let snapshot; try { snapshot=JSON.parse(entry.edit_details); } catch (_) { snapshot=null; }
                     detail.appendChild(el('details',{className:'activity-edit-details'},[el('summary',{text:'View details'}),el('p',{text:snapshot ? `Before: ${snapshot.before?.title||''} — ${snapshot.before?.content||''}\nAfter: ${snapshot.after?.title||''} — ${snapshot.after?.content||''}` : entry.edit_details})]));
                 }
+                const residentActor = /^resident[_ ]/i.test(String(entry.action || '')) ? String(entry.details || '').match(/^Resident:\s*(.+?)(?:\s*\(ID\s.*)?$/i)?.[1]?.trim() : '';
+                const actorName = residentActor || entry.admin_name || '—';
+                const actorRole = residentActor ? 'Resident' : (entry.admin_role || 'Admin');
                 const row = el('tr',{},[
                     el('td',{text:datePresentation.timeLabel,attrs:{'data-label':'Time',title:datePresentation.fullTimestamp}}),
-                    el('td',{attrs:{'data-label':'Admin'}},[el('strong',{text:entry.admin_name}),el('small',{className:'activity-admin-role',text:entry.admin_role})]),
-                    el('td',{attrs:{'data-label':'Action'}},[el('span',{className:`activity-badge ${entry.action.includes('reject')?'is-red':entry.action.includes('edit')?'is-blue':entry.action.includes('ready')?'is-amber':entry.action.includes('approve')||entry.action.includes('completed')?'is-green':'is-neutral'}`,text:formatActivityAction(entry.action)})]),detail
+                    el('td',{attrs:{'data-label':'Actor'}},[el('strong',{text:actorName}),el('small',{className:'activity-admin-role',text:actorRole})]),
+                    el('td',{attrs:{'data-label':'Action'}},[el('span',{className:`activity-badge ${activityActionClass(entry.action)}`,text:formatActivityAction(entry.action)})]),detail
                 ]); tbody.appendChild(row);
 
                 if (mobileList) {
@@ -5166,7 +5358,7 @@ async function loadAdminActivity(page = 1) {
                     if (existing) {
                         existing.count += 1;
                     } else {
-                        const actionClass = entry.action === 'proof_viewed' || entry.action.includes('edit') ? 'is-blue' : entry.action.includes('reject') ? 'is-red' : entry.action.includes('ready') ? 'is-amber' : entry.action.includes('approve') || entry.action.includes('completed') ? 'is-green' : 'is-neutral';
+                        const actionClass = activityActionClass(entry.action);
                         const mobileDetail = entry.action === 'disclosure_edited' && entry.edit_details
                             ? (detail.querySelector('strong')?.textContent || 'Disclosure edited')
                             : (Array.from(detail.children).map(node => node.textContent.trim()).filter(Boolean).join(' · ') || '—');
@@ -5176,7 +5368,7 @@ async function loadAdminActivity(page = 1) {
                             dateLabel: getActivityDatePresentation(date, 'date').groupLabel,
                             timeLabel: getActivityDatePresentation(date, 'date').timeLabel,
                             fullTimestamp: getActivityDatePresentation(date, 'date').fullTimestamp,
-                            adminName: entry.admin_name || '—',
+                            adminName: actorName,
                             actionLabel: formatMobileActivityAction(entry.action),
                             actionClass,
                             target: getMobileActivityTarget(entry, mobileDetail),
@@ -5221,6 +5413,8 @@ async function loadAdminActivity(page = 1) {
         ]));
         if (mobileList) mobileList.replaceChildren(el('p', { className: 'activity-mobile-empty', text: 'Activity log is unavailable.' }));
         document.getElementById('activity-page-status').textContent = 'Activity unavailable';
+        const activityPagination = document.querySelector('#admin-activity-panel .activity-pagination');
+        if (activityPagination) activityPagination.hidden = true;
         document.getElementById('activity-result-count').textContent = 'Showing 0-0 of 0';
         document.getElementById('activity-prev').disabled = true;
         document.getElementById('activity-next').disabled = true;
@@ -5303,12 +5497,14 @@ function renderAdminRequests() {
     const pageStatus = document.getElementById('request-page-status');
     const previous = document.getElementById('request-prev');
     const next = document.getElementById('request-next');
+    const pagination = document.querySelector('#admin-requests-panel .request-pagination');
+    if (pagination) pagination.hidden = adminRequestTotal === 0;
     if (pageStatus) pageStatus.textContent = adminRequestTotal ? `Page ${adminRequestPage} of ${Math.max(1, adminRequestPages)} · ${adminRequestTotal} requests` : 'No requests';
     if (previous) previous.disabled = adminRequestPage <= 1 || adminRequestPages === 0;
     if (next) next.disabled = adminRequestPage >= adminRequestPages || adminRequestPages === 0;
 
     if (filtered.length === 0) {
-        tbody.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No requests here yet.', attrs: { colspan: '8' } })]));
+        tbody.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No requests found.', attrs: { colspan: '8' } })]));
         if (mobileList) {
             const activeFilter = document.querySelector('.request-filter.active');
             const filterName = activeFilter?.dataset.filterStatus === 'All' ? 'All requests' : `${activeFilter?.dataset.filterLabel || adminRequestStatusFilter} requests`;
@@ -5726,12 +5922,14 @@ async function loadResidentAccounts() {
     const pageStatus = document.getElementById('resident-page-status');
     const previous = document.getElementById('resident-prev');
     const next = document.getElementById('resident-next');
+    const pagination = document.getElementById('resident-account-pagination');
+    if (pagination) pagination.hidden = total === 0;
     if (pageStatus) pageStatus.textContent = total ? `Page ${residentAccountPage} of ${residentAccountPages} · ${total} accounts` : 'No resident accounts';
     if (previous) previous.disabled = residentAccountPage <= 1 || residentAccountPages === 0;
     if (next) next.disabled = residentAccountPage >= residentAccountPages || residentAccountPages === 0;
 
     if (!residents.length) {
-        if (tbody) tbody.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No resident accounts have been registered.', attrs: { colspan: '7' } })]));
+        if (tbody) tbody.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No accounts found.', attrs: { colspan: '7' } })]));
         if (mobileList) mobileList.appendChild(el('p', { className: 'resident-mobile-empty', text: 'No resident accounts have been registered.' }));
         return;
     }
@@ -5753,10 +5951,10 @@ async function loadResidentAccounts() {
         };
         if (tbody) tbody.appendChild(el('tr', {}, [
             el('td', { attrs: { 'data-label': 'Name', title: name } }, [el('strong', { className: 'resident-admin-name', text: name || 'Name not provided' })]),
-            el('td', { text: r.email || '—', attrs: { 'data-label': 'Email', title: r.email || '' } }),
-            el('td', { text: r.phone_number || '—', attrs: { 'data-label': 'Phone' } }),
-            el('td', { text: r.address || '—', attrs: { 'data-label': 'Address', title: r.address || '' } }),
-            el('td', { text: formatDate(r.created_at), attrs: { 'data-label': 'Registered' } }),
+            el('td', { attrs: { 'data-label': 'Email', title: r.email || '' } }, [el('span', { className: 'resident-admin-cell-text resident-admin-email', text: r.email || '—' })]),
+            el('td', { attrs: { 'data-label': 'Phone', title: r.phone_number || '' } }, [el('span', { className: 'resident-admin-cell-text resident-admin-phone', text: r.phone_number || '—' })]),
+            el('td', { attrs: { 'data-label': 'Address', title: r.address || '' } }, [el('span', { className: 'resident-admin-cell-text resident-admin-address', text: r.address || '—' })]),
+            el('td', { attrs: { 'data-label': 'Registered' } }, [el('span', { className: 'resident-admin-cell-text resident-admin-registered', text: formatDate(r.created_at) })]),
             el('td', { attrs: { 'data-label': 'Status' } }, [status]),
             el('td', { attrs: { 'data-label': 'Actions' } }, [actionButtons('desktop')])
         ]));
@@ -5887,7 +6085,7 @@ function switchAdminTab(tab, options = {}) {
         disclosures: document.getElementById('tab-disclosures'),
         activity: document.getElementById('tab-activity')
     };
-    // Nav mirror tab buttons (hamburger menu on mobile)
+    // Admin workspace navigation buttons in the shared primary nav.
     const navBtns = {
         overview:    document.getElementById('nav-tab-overview'),
         requests:    document.getElementById('nav-tab-requests'),
@@ -6367,7 +6565,7 @@ async function loadRecentDisclosures() {
     const list = document.getElementById('recent-disclosures-list');
     if (!list) return;
     try {
-        const res = await fetch('api/disclosures.php');
+        const res = await fetch('api/disclosures.php?limit=10');
         if (!res.ok) throw new Error('Could not load disclosures.');
         const items = await res.json();
         markAdminPanelLoaded('disclosures');
@@ -6518,12 +6716,19 @@ function toggleBulletinReadMore(button) {
 /* ============================================================
    PUBLIC: LOAD DISCLOSURES
    ============================================================ */
-async function loadDisclosures(force = false) {
-    if (publicDisclosuresLoaded && !force && Date.now() - publicDisclosuresLoadedAt < PUBLIC_DISCLOSURES_CACHE_MS) return publicDisclosuresItems;
+async function loadDisclosures(force = false, requestedPage = 1) {
+    const searchQuery = (document.getElementById('public-records-search-input')?.value || '').trim();
+    const requestedCategory = activeBulletinCategory || (activeBulletinFilter !== 'all' ? Number(activeBulletinFilter) : null);
+    const queryKey = JSON.stringify({ category: requestedCategory, search: searchQuery });
+    const nextPage = Math.max(1, Number(requestedPage) || 1);
+    const appendPage = nextPage > 1 && publicDisclosuresLoaded && queryKey === publicDisclosuresLoadedQueryKey && !force;
+    if (publicDisclosuresLoaded && !force && nextPage === 1 && queryKey === publicDisclosuresLoadedQueryKey && Date.now() - publicDisclosuresLoadedAt < PUBLIC_DISCLOSURES_CACHE_MS) return publicDisclosuresItems;
     if (publicDisclosuresLoadPromise) {
         if (!force) return publicDisclosuresLoadPromise;
         await publicDisclosuresLoadPromise;
     }
+    const page = appendPage ? nextPage : 1;
+    const hadLoadedRecords = publicDisclosuresLoaded;
     const lists = {
         1: document.getElementById('list-1'),
         2: document.getElementById('list-2'),
@@ -6533,27 +6738,48 @@ async function loadDisclosures(force = false) {
     const load = async () => {
         publicDisclosuresLoadError = false;
         const currentQuery = document.getElementById('public-records-search-input')?.value || '';
-        renderBulletinArchive(currentQuery);
-        renderBulletinLatest(currentQuery);
-        Object.values(lists).forEach(list => {
-            if (!list) return;
-            list.setAttribute('aria-busy', 'true');
-            clearNode(list);
-            list.appendChild(el('li', {}, [
-                el('p', { className: 'bulletin-loading bulletin-loading-compact', attrs: { role: 'status' } }, [
-                    el('span', { className: 'bulletin-loading-spinner', attrs: { 'aria-hidden': 'true' } }),
-                    'Loading…'
-                ])
-            ]));
-        });
-        if (activeBulletinCategory) renderBulletinCategory(activeBulletinCategory);
+        if (!appendPage) {
+            if (!hadLoadedRecords) {
+                publicDisclosuresLoaded = false;
+                renderBulletinArchive(currentQuery);
+                renderBulletinLatest(currentQuery);
+                Object.values(lists).forEach(list => {
+                    if (!list) return;
+                    list.setAttribute('aria-busy', 'true');
+                    clearNode(list);
+                    list.appendChild(el('li', {}, [
+                        el('p', { className: 'bulletin-loading bulletin-loading-compact', attrs: { role: 'status' } }, [
+                            el('span', { className: 'bulletin-loading-spinner', attrs: { 'aria-hidden': 'true' } }),
+                            'Loading…'
+                        ])
+                    ]));
+                });
+                if (activeBulletinCategory) renderBulletinCategory(activeBulletinCategory);
+            }
+        }
 
         try {
-            const res = await fetch('api/disclosures.php', { cache: 'no-store', headers: { Accept: 'application/json' } });
+            const params = new URLSearchParams({ page: String(page), limit: String(publicDisclosuresPerPage) });
+            if (requestedCategory) params.set('category', String(requestedCategory));
+            if (searchQuery) params.set('search', searchQuery);
+            const res = await fetch(`api/disclosures.php?${params}`, { cache: force ? 'reload' : 'default', headers: { Accept: 'application/json' } });
             if (!res.ok) throw new Error('Public records could not be loaded.');
             const items = await res.json();
             if (!Array.isArray(items)) throw new Error('Public records returned an invalid response.');
-            publicDisclosuresItems = items;
+            publicDisclosuresItems = appendPage ? [...publicDisclosuresItems, ...items] : items;
+            publicDisclosuresPage = page;
+            publicDisclosuresTotal = Number(res.headers.get('X-Public-Records-Total')) || 0;
+            publicDisclosuresHasMore = publicDisclosuresPage * publicDisclosuresPerPage < publicDisclosuresTotal;
+            publicDisclosuresLoadedQueryKey = queryKey;
+            try {
+                const counts = decodeURIComponent(res.headers.get('X-Public-Records-Category-Counts') || '');
+                const parsedCounts = JSON.parse(counts);
+                if (parsedCounts && typeof parsedCounts === 'object') {
+                    publicDisclosuresCategoryCounts = parsedCounts;
+                    publicDisclosuresArchiveTotal = Object.values(parsedCounts)
+                        .reduce((total, count) => total + (Number(count) || 0), 0);
+                }
+            } catch (_) { /* Older deployments may not include category count headers. */ }
 
             Object.values(lists).forEach(list => {
                 if (!list) return;
@@ -6563,7 +6789,7 @@ async function loadDisclosures(force = false) {
                 list.appendChild(el('li', {}, [el('p', { className: 'empty-state', text: getBulletinEmptyMessage(categoryId) })]));
             });
 
-            items.forEach(item => {
+            publicDisclosuresItems.forEach(item => {
                 const list = lists[item.category_id];
                 if (!list) return;
                 const placeholder = list.querySelector('.empty-state');
@@ -6620,9 +6846,9 @@ async function loadDisclosures(force = false) {
             publicDisclosuresLoadedAt = Date.now();
             publicDisclosuresLoadError = false;
             if (activeBulletinCategory) renderBulletinCategory(activeBulletinCategory);
-            const searchQuery = document.getElementById('public-records-search-input')?.value || '';
-            renderBulletinArchive(searchQuery);
-            renderBulletinLatest(searchQuery);
+            const activeSearchQuery = document.getElementById('public-records-search-input')?.value || '';
+            renderBulletinArchive(activeSearchQuery);
+            if (!requestedCategory || requestedCategory === 1) renderBulletinLatest(activeSearchQuery);
             requestAnimationFrame(() => {
                 document.querySelectorAll('#bulletin .bulletin-list li').forEach(item => {
                     const content = item.querySelector('.bulletin-item-content');
@@ -6631,28 +6857,30 @@ async function loadDisclosures(force = false) {
                     link.hidden = !window.matchMedia('(max-width: 767px)').matches || content.scrollHeight <= content.clientHeight + 1;
                 });
             });
-            return items;
+            return publicDisclosuresItems;
         } catch (error) {
-            publicDisclosuresLoaded = false;
+            publicDisclosuresLoaded = hadLoadedRecords;
             publicDisclosuresLoadError = true;
-            const searchQuery = document.getElementById('public-records-search-input')?.value || '';
-            renderBulletinArchive(searchQuery);
-            renderBulletinLatest(searchQuery);
-            Object.values(lists).forEach(list => {
-                if (!list) return;
-                list.setAttribute('aria-busy', 'false');
-                clearNode(list);
-                list.appendChild(el('li', {}, [
-                    el('p', { className: 'empty-state', text: 'Unable to load records.' }),
-                    el('button', {
-                        className: 'bulletin-inline-retry',
-                        text: 'Try again',
-                        attrs: { type: 'button' },
-                        on: { click: () => loadDisclosures(true) }
-                    })
-                ]));
-            });
-            if (activeBulletinCategory) renderBulletinCategory(activeBulletinCategory);
+            const activeSearchQuery = document.getElementById('public-records-search-input')?.value || '';
+            renderBulletinArchive(activeSearchQuery);
+            if (!hadLoadedRecords) {
+                renderBulletinLatest(activeSearchQuery);
+                Object.values(lists).forEach(list => {
+                    if (!list) return;
+                    list.setAttribute('aria-busy', 'false');
+                    clearNode(list);
+                    list.appendChild(el('li', {}, [
+                        el('p', { className: 'empty-state', text: 'Unable to load records.' }),
+                        el('button', {
+                            className: 'bulletin-inline-retry',
+                            text: 'Try again',
+                            attrs: { type: 'button' },
+                            on: { click: () => loadDisclosures(true) }
+                        })
+                    ]));
+                });
+                if (activeBulletinCategory) renderBulletinCategory(activeBulletinCategory);
+            }
             return null;
         }
     };
@@ -6729,7 +6957,7 @@ async function loadLatestAnnouncements() {
     const status = document.getElementById('latest-announcements-status');
 
     try {
-        const res = await fetch('api/disclosures.php');
+        const res = await fetch('api/disclosures.php?limit=3&category=1');
         if (!res.ok) throw new Error('Request failed');
         const items = await res.json();
         const latest = Array.isArray(items) ? items.slice(0, 3) : [];

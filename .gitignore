@@ -24,6 +24,10 @@ create_admin.php
 
 # Temporary SMTP test script
 test_mail.php
+_email_test.php
+
+# Private storage data files
+private_storage/admin_ip_allowlist.php
 
 # Runtime secrets and private uploads
 .env
@@ -31,10 +35,17 @@ test_mail.php
 !*.example
 ../barangay_portal_private/
 
+# Ignore local database files and dumps while keeping SQL schema/migration sources trackable
+/database/*
+!/database/*.sql
+/database/*dump*.sql
+/database/*backup*.sql
+
 # Runtime files
 /logs/
 /cache/
 /tmp/
+/vendor/
 *.log
 
 # OS/editor clutter

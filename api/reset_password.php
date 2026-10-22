@@ -63,8 +63,11 @@ try {
     }
     $delete = $pdo->prepare('DELETE FROM password_reset_token WHERE account_type = ? AND account_id = ?');
     $delete->execute([$reset['account_type'], $reset['account_id']]);
-    $audit = $pdo->prepare("INSERT INTO audit_log (user_id, action, details) VALUES (NULL, 'password_reset_completed', ?)");
-    $audit->execute(['Account type ' . $reset['account_type'] . '; account ID ' . (int) $reset['account_id']]);
+    $audit = $pdo->prepare("INSERT INTO audit_log (user_id, subject_resident_id, action, details) VALUES (NULL, ?, 'password_reset_completed', ?)");
+    $audit->execute([
+        $reset['account_type'] === 'resident' ? (int) $reset['account_id'] : null,
+        'Account type ' . $reset['account_type'] . '; account ID ' . (int) $reset['account_id'],
+    ]);
     $pdo->commit();
 
     $sessionRestored = is_array($profileResident);

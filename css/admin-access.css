@@ -90,7 +90,20 @@ a { color: inherit; }
     align-items: flex-start;
     padding: 120px clamp(2rem, 6vw, 5rem) 3rem;
     overflow: hidden;
-    background: var(--color-panel-warm);
+    isolation: isolate;
+    background: #0c5700;
+    color: #fff;
+}
+
+.left-panel::before {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: url("../assets/barangay-hall-background-optimized.jpg") center 38% / cover no-repeat;
+    background-image: image-set(url("../assets/barangay-hall-background.webp") type("image/webp"), url("../assets/barangay-hall-background-optimized.jpg") type("image/jpeg"));
+    content: "";
+    opacity: .03;
+    pointer-events: none;
 }
 
 .left-panel::after {
@@ -105,7 +118,11 @@ a { color: inherit; }
 }
 
 .panel-content { position: relative; z-index: 1; max-width: 420px; }
+.left-panel .panel-content { color: #fff; }
 .panel-logo { display: block; width: 60px; height: 60px; margin-bottom: var(--space-6); border-radius: 50%; object-fit: cover; }
+.left-panel::after { display: none; }
+.left-panel h1 { color: #fff; }
+.left-panel p, .left-panel .panel-footer { color: rgba(255, 255, 255, .88); }
 
 .badge {
     display: inline-flex;
@@ -119,6 +136,11 @@ a { color: inherit; }
     font-weight: 800;
     letter-spacing: 0.06em;
     text-transform: uppercase;
+}
+.left-panel .badge {
+    border-color: rgba(255, 255, 255, .72);
+    background: rgba(255, 255, 255, .12);
+    color: #fff;
 }
 
 .left-panel h1 {
@@ -432,3 +454,9 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* Keep the branded access-panel typography readable over its dark backdrop. */
+body.admin-access-page .left-panel h1,
+body.admin-access-page .left-panel .badge { color: #fff; }
+body.admin-access-page .left-panel p,
+body.admin-access-page .left-panel .panel-footer { color: rgba(255, 255, 255, .9); }

@@ -65,9 +65,10 @@ try {
         $message = 'Resident account archived and permanently deleted. Related request records were kept.';
     }
 
-    $audit = $pdo->prepare('INSERT INTO audit_log (user_id, action, details) VALUES (?, ?, ?)');
+    $audit = $pdo->prepare('INSERT INTO audit_log (user_id, subject_resident_id, action, details) VALUES (?, ?, ?, ?)');
     $audit->execute([
         (int) $_SESSION['user_id'],
+        (int) $residentId,
         $auditAction,
         'Resident: ' . ($name !== '' ? $name : 'Name not provided') . ' (ID ' . (int) $residentId . '; email ' . (string) $resident['email'] . ')',
     ]);

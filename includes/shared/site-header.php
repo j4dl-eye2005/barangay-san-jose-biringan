@@ -18,7 +18,7 @@
         <div class="nav-inner">
         <div class="portal-main-row">
         <a class="logo-container brand-link" href="#landing" data-action-click="showSection('landing'); return false" aria-label="Go to Barangay San Jose home" data-portal-i18n-aria-label="brandLabel">
-            <img src="Barangay San Jose, Biringan City.png" alt="Barangay San Jose seal" class="logo">
+            <img src="assets/barangay-seal.svg" alt="Barangay San Jose seal" class="logo" width="128" height="128" decoding="async">
             <span class="logo-text">
                 <strong>Barangay San Jose</strong>
                 <span data-portal-i18n="tagline">Digital services and public records</span>
@@ -43,23 +43,20 @@
             <ul class="nav-links">
                 <li class="nav-home-item"><button type="button" data-section="landing" aria-current="page" data-action-click="showSection('landing')" data-portal-i18n="home">Home</button></li>
                 <li class="portal-services-nav-item"><button type="button" data-section="services" data-action-click="showHomeAnchor('services')" data-portal-i18n="services">Services</button></li>
-                <li><button type="button" data-section="bulletin" data-action-click="showSection('bulletin')" data-portal-i18n="publicRecords">Public Records</button></li>
+                <li class="portal-public-records-nav-item"><button type="button" data-section="bulletin" data-action-click="showSection('bulletin')" data-portal-i18n="publicRecords">Public Records</button></li>
                 <li class="portal-track-nav-item"><button type="button" data-section="resident-dashboard" data-action-click="openResidentProfileQuickLink('track')" data-portal-i18n="trackRequests">Track Request</button></li>
                 <li class="portal-contact-nav-item"><button type="button" data-section="contact" data-action-click="focusContactInfo()" data-portal-i18n="contact">Contact</button></li>
                 <li><button type="button" class="hidden" id="dashboard-nav-link" data-section="dashboard" data-action-click="openDashboard()">Dashboard</button></li>
                 <li class="mobile-profile-nav-item" id="mobile-profile-nav-item" hidden><button type="button" data-section="resident-profile" data-action-click="showSection('resident-profile')">My profile</button></li>
+                <li class="admin-workspace-nav-item"><button class="admin-nav-tab <?= $adminInitialSection === null || $adminInitialSection === 'overview' ? 'active' : '' ?>" type="button" id="nav-tab-overview" data-action-click="switchAdminTab('overview'); closeMobileMenu();">Overview</button></li>
+                <li class="admin-workspace-nav-item"><button class="admin-nav-tab <?= $adminInitialSection === 'requests' ? 'active' : '' ?>" type="button" id="nav-tab-requests" data-action-click="switchAdminTab('requests'); closeMobileMenu();">Requests<span class="admin-tab-count" id="nav-requests-queue-count" aria-label="0 pending requests" hidden>0</span></button></li>
+                <li class="admin-workspace-nav-item"><button class="admin-nav-tab <?= $adminInitialSection === 'residents' ? 'active' : '' ?>" type="button" id="nav-tab-residents" data-action-click="switchAdminTab('residents'); closeMobileMenu();">Residents</button></li>
+                <li class="admin-workspace-nav-item"><button class="admin-nav-tab <?= $adminInitialSection === 'disclosures' ? 'active' : '' ?>" type="button" id="nav-tab-disclosures" data-action-click="switchAdminTab('disclosures'); closeMobileMenu();">Post</button></li>
+                <li class="admin-workspace-nav-item"><button class="admin-nav-tab" type="button" id="nav-tab-public-records" data-section="bulletin" data-action-click="showSection('bulletin'); closeMobileMenu();">Public Records</button></li>
+                <li class="admin-workspace-nav-item"><button class="admin-nav-tab <?= $adminInitialSection === 'activity' ? 'active' : '' ?>" type="button" id="nav-tab-activity" data-action-click="switchAdminTab('activity'); closeMobileMenu();">Logs</button></li>
+                <li class="admin-workspace-nav-item admin-mobile-account-item" id="admin-mobile-profile-nav-item" <?= ($_SESSION['role'] ?? '') !== 'Admin' ? 'hidden' : '' ?>><button type="button" data-action-click="showSection('resident-profile'); closeMobileMenu();">My profile</button></li>
+                <li class="admin-workspace-nav-item admin-mobile-account-item" id="admin-mobile-logout-nav-item" <?= ($_SESSION['role'] ?? '') !== 'Admin' ? 'hidden' : '' ?>><button type="button" data-action-click="logout()">Log out</button></li>
             </ul>
-            <!-- Admin workspace tabs — shown only inside the hamburger on mobile when admin is logged in -->
-            <div class="admin-nav-section" id="admin-nav-section" hidden>
-                <div class="admin-nav-label">Workspace</div>
-                <ul class="admin-nav-tabs-list">
-                    <li><button class="admin-nav-tab <?= $adminInitialSection === null || $adminInitialSection === 'overview' ? 'active' : '' ?>" type="button" id="nav-tab-overview" data-action-click="switchAdminTab('overview'); closeMobileMenu();">Overview</button></li>
-                    <li><button class="admin-nav-tab <?= $adminInitialSection === 'requests' ? 'active' : '' ?>" type="button" id="nav-tab-requests" data-action-click="switchAdminTab('requests'); closeMobileMenu();">Requests queue<span class="admin-tab-count" id="nav-requests-queue-count" aria-label="0 pending requests" hidden>0</span></button></li>
-                    <li><button class="admin-nav-tab <?= $adminInitialSection === 'residents' ? 'active' : '' ?>" type="button" id="nav-tab-residents" data-action-click="switchAdminTab('residents'); closeMobileMenu();">Resident accounts</button></li>
-                    <li><button class="admin-nav-tab <?= $adminInitialSection === 'disclosures' ? 'active' : '' ?>" type="button" id="nav-tab-disclosures" data-action-click="switchAdminTab('disclosures'); closeMobileMenu();">Post disclosure</button></li>
-                    <li><button class="admin-nav-tab <?= $adminInitialSection === 'activity' ? 'active' : '' ?>" type="button" id="nav-tab-activity" data-action-click="switchAdminTab('activity'); closeMobileMenu();">Activity log</button></li>
-                </ul>
-            </div>
             <div class="user-info hidden" id="user-info">
                 <button id="welcome-user" class="account-menu-toggle" type="button" aria-haspopup="menu" aria-controls="user-account-menu" aria-expanded="false" data-action-click="toggleUserMenu(this)"><span id="welcome-user-name" class="account-greeting"></span><span id="welcome-user-avatar" class="account-avatar" aria-hidden="true"></span><i class="fas fa-chevron-down" aria-hidden="true"></i></button>
                 <div class="user-account-menu" id="user-account-menu" role="menu" hidden>

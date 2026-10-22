@@ -246,18 +246,19 @@ function renderUnavailablePage(int $statusCode = 404): void
     require dirname(__DIR__) . '/includes/shared/site-footer.php';
     $siteFooter = ob_get_clean();
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f1f6ec"><base href="' . $pageBase . '"><title>Page unavailable</title>'
-        . '<link rel="icon" type="image/png" href="' . $assetPrefix . '/favicon.png?v=20261016-favicon-mint">'
-        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/base.css?v=20261021-sticky-header-shadow-v1">'
-        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/home.css?v=20261015-performance-queue">'
+        . '<link rel="icon" type="image/png" href="' . $assetPrefix . '/assets/favicon-optimized.png">'
+        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/base.css?v=20261021-route-css-loading-v1">'
+        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/home.css?v=20261021-square-policy-rail">'
         . '<link rel="stylesheet" href="' . $assetPrefix . '/css/components.css?v=20261015-performance-queue">'
         . '<link rel="stylesheet" href="' . $assetPrefix . '/css/public.css?v=20261016-sticky-menu-stable">'
         . '<link rel="stylesheet" href="' . $assetPrefix . '/css/shared-responsive.css?v=20261017-profile-security-columns">'
         . '<link rel="stylesheet" href="' . $assetPrefix . '/css/unavailable.css?v=20261021-404-header-container-v2">'
-        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/portal-public.css?v=20261021-public-record-archive-grid-v1">'
+        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/portal-public.css?v=20261021-performance-assets-paging-v1">'
+        . '<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>'
         . '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></head>'
         . '<body class="unavailable-view guest-user-view public-portal-view" data-admin-entry-authorized="0">' . $siteHeader
         . '<div class="unavailable-shell">' . unavailablePageMarkup() . '</div>' . $siteFooter
-        . '<script src="' . $assetPrefix . '/script.js?v=20261021-public-record-archive-grid-v1" defer></script></body></html>';
+        . '<script src="' . $assetPrefix . '/script.js?v=20261022-login-null-guards-v1" defer></script></body></html>';
     exit;
 }
 
@@ -384,7 +385,7 @@ function startAppSession(): void
 function enforceRequestSafety(): void
 {
     sendAppSecurityHeaders();
-    startAppSession();
+    if (empty($GLOBALS['skipAppSessionForPublicRead'])) startAppSession();
     ini_set('display_errors', '0');
     ini_set('log_errors', '1');
     static $handlerInstalled = false;
@@ -580,7 +581,7 @@ function validateDocxPackage(string $path, string $mime): bool
 
 function privateStorageDirectory(string $kind): string
 {
-    if (!in_array($kind, ['proofs', 'disclosures'], true)) throw new InvalidArgumentException('Invalid private storage type.');
+    if (!in_array($kind, ['proofs', 'disclosures', 'profile-photos'], true)) throw new InvalidArgumentException('Invalid private storage type.');
     $base = portalConfig()['private_storage'];
     $directory = $base . DIRECTORY_SEPARATOR . $kind;
     if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
@@ -588,14 +589,9 @@ function privateStorageDirectory(string $kind): string
     }
     $realDirectory = realpath($directory);
     $documentRoot = realpath((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''));
-    $appPrivateRoot = realpath(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'private_storage');
-    $isProtectedAppStorage = $realDirectory !== false
-        && $appPrivateRoot !== false
-        && strcasecmp($realDirectory, $appPrivateRoot . DIRECTORY_SEPARATOR . $kind) === 0
-        && is_file($appPrivateRoot . DIRECTORY_SEPARATOR . '.htaccess');
     $isInsideDocumentRoot = $realDirectory !== false && $documentRoot !== false
         && ($realDirectory === $documentRoot || str_starts_with(strtolower($realDirectory), strtolower($documentRoot . DIRECTORY_SEPARATOR)));
-    if ($realDirectory === false || ($isInsideDocumentRoot && !$isProtectedAppStorage)) {
+    if ($realDirectory === false || $documentRoot === false || $isInsideDocumentRoot) {
         throw new RuntimeException('Private upload storage is not configured in a protected location.');
     }
     return $directory;
@@ -611,23 +607,28 @@ function logPermissionFailure(): void
 function resolveStoredUpload(string $storedPath): ?string
 {
     $normalized = str_replace('\\', '/', $storedPath);
-    if (preg_match('#^uploads/(proofs|disclosures)/([^/]+)$#i', $normalized, $legacy)
-        && preg_match('/\.(?:pdf|docx|jpg|jpeg|png)$/i', $legacy[2])
-        && !preg_match('/[\x00-\x1f\x7f]/', $legacy[2])
-        && $legacy[2] !== '.' && $legacy[2] !== '..') {
-        $directory = realpath(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . $legacy[1]);
-        $candidate = $directory === false ? false : realpath($directory . DIRECTORY_SEPARATOR . $legacy[2]);
-        if ($candidate !== false && is_file($candidate)
-            && str_starts_with(strtolower($candidate), strtolower(rtrim($directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR))) {
-            return $candidate;
-        }
+    $kind = '';
+    $filename = '';
+    if (preg_match('#^uploads/(proofs|disclosures)/([^/]+)$#i', $normalized, $legacy)) {
+        $kind = strtolower($legacy[1]);
+        $filename = $legacy[2];
+        if (!preg_match('/\.(?:pdf|docx|jpg|jpeg|png)$/i', $filename)
+            || preg_match('/[\x00-\x1f\x7f]/', $filename)
+            || $filename === '.' || $filename === '..') return null;
+    } elseif (preg_match('#^(?:private/)?(proofs|disclosures)/([a-f0-9]{32}\.(?:pdf|docx|jpg|jpeg|png))$#i', $normalized, $stored)) {
+        $kind = strtolower($stored[1]);
+        $filename = $stored[2];
+    } else {
         return null;
     }
 
-    if (!preg_match('#^(?:private/)?(?:proofs|disclosures)/[a-f0-9]{32}\.(?:pdf|docx|jpg|jpeg|png)$#i', $normalized)) return null;
-    $relative = str_starts_with($normalized, 'private/') ? substr($normalized, 8) : $normalized;
-    $candidate = portalConfig()['private_storage'] . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
-    return is_file($candidate) ? $candidate : null;
+    $directory = realpath(privateStorageDirectory($kind));
+    $candidate = $directory === false ? false : realpath($directory . DIRECTORY_SEPARATOR . $filename);
+    if ($candidate !== false && is_file($candidate)
+        && str_starts_with(strtolower($candidate), strtolower(rtrim($directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR))) {
+        return $candidate;
+    }
+    return null;
 }
 
 function jsonBody(int $maxBytes = 1024 * 1024): array

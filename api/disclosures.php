@@ -1,9 +1,54 @@
 <?php
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') $GLOBALS['skipAppSessionForPublicRead'] = true;
 require_once 'db.php';
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $stmt = $pdo->query("
+    header('Cache-Control: public, max-age=60, stale-while-revalidate=300');
+    $page = max(1, min(1000, filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT) ?: 1));
+    $perPage = max(1, min(100, filter_var($_GET['limit'] ?? 40, FILTER_VALIDATE_INT) ?: 40));
+    $offset = ($page - 1) * $perPage;
+    $categoryId = filter_var($_GET['category'] ?? null, FILTER_VALIDATE_INT);
+    if (!in_array($categoryId, [1, 2, 3, 4], true)) $categoryId = null;
+    $search = trim(is_string($_GET['search'] ?? null) ? $_GET['search'] : '');
+    if (strlen($search) > 100) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Search text is too long.']);
+        exit;
+    }
+
+    $where = ['d.is_archived = FALSE'];
+    $params = [];
+    if ($categoryId !== null) {
+        $where[] = 'd.category_id = ?';
+        $params[] = $categoryId;
+    }
+    if ($search !== '') {
+        $where[] = '(d.title LIKE ? OR d.content LIKE ? OR da.file_name LIKE ? OR c.category_name LIKE ?)';
+        $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
+        array_push($params, $like, $like, $like, $like);
+    }
+    $whereSql = implode(' AND ', $where);
+    $count = $pdo->prepare("SELECT COUNT(DISTINCT d.disclosure_id)
+        FROM disclosure d
+        JOIN disclosure_category c ON d.category_id = c.category_id
+        LEFT JOIN disclosure_attachment da ON da.attachment_id = (
+            SELECT MIN(attachment_id) FROM disclosure_attachment WHERE disclosure_id = d.disclosure_id
+        )
+        WHERE $whereSql");
+    $count->execute($params);
+    $total = (int) $count->fetchColumn();
+    $categoryCounts = $pdo->query('SELECT category_id, COUNT(*) AS total FROM disclosure WHERE is_archived = FALSE GROUP BY category_id')->fetchAll();
+    $categoryCountsById = [1 => 0, 2 => 0, 3 => 0, 4 => 0];
+    foreach ($categoryCounts as $categoryCount) {
+        $categoryCountsById[(int) $categoryCount['category_id']] = (int) $categoryCount['total'];
+    }
+    header('X-Public-Records-Total: ' . $total);
+    header('X-Public-Records-Page: ' . $page);
+    header('X-Public-Records-Per-Page: ' . $perPage);
+    header('X-Public-Records-Category-Counts: ' . rawurlencode(json_encode($categoryCountsById)));
+
+    $stmt = $pdo->prepare(" 
         SELECT d.disclosure_id, d.category_id, d.published_by_user_id, d.title, d.content,
                d.is_archived, d.timestamp_posted, c.category_name,
                da.attachment_id, da.file_name, da.file_type,
@@ -11,10 +56,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                CASE WHEN da.attachment_id IS NULL THEN NULL ELSE CONCAT('api/public_attachment.php?id=', da.attachment_id) END AS file_path
         FROM disclosure d
         JOIN disclosure_category c ON d.category_id = c.category_id
-        LEFT JOIN disclosure_attachment da ON d.disclosure_id = da.disclosure_id
-        WHERE d.is_archived = FALSE
-        ORDER BY d.timestamp_posted DESC
-    ");
+        LEFT JOIN disclosure_attachment da ON da.attachment_id = (
+            SELECT MIN(attachment_id) FROM disclosure_attachment WHERE disclosure_id = d.disclosure_id
+        )
+        WHERE $whereSql
+        ORDER BY d.timestamp_posted DESC, d.disclosure_id DESC
+        LIMIT $perPage OFFSET $offset");
+    $stmt->execute($params);
     $items = $stmt->fetchAll();
     foreach ($items as &$item) {
         $item['file_size'] = null;

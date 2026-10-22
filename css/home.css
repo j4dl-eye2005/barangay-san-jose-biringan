@@ -110,6 +110,7 @@ body[data-entry-route="password-reset"] .site-footer { display: none; }
 .policy-toc-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
 .policy-toc-btn {
     display: block;
+    box-sizing: border-box;
     width: 100%;
     padding: 7px var(--space-3);
     border: 0;
@@ -124,9 +125,19 @@ body[data-entry-route="password-reset"] .site-footer { display: none; }
     cursor: pointer;
     transition: border-color .14s, color .14s, background .14s;
 }
+.policy-toc-list li { min-width: 0; }
 .policy-toc-btn:hover { border-left-color: var(--color-accent-border); color: var(--color-text); background: var(--color-accent-soft); }
 /* Active state — set by scroll tracker in script.js */
 .policy-toc-btn.toc-active { border-left-color: var(--color-accent); color: var(--color-accent-hover); font-weight: 700; background: var(--color-accent-soft); }
+
+/* Keep the desktop policy section rail square; rounded chips are mobile-only. */
+@media (min-width: 901px) {
+    :is(#privacy-policy, #terms, #moderation, #copyright) .policy-toc-btn {
+        appearance: none;
+        border-radius: 0 !important;
+        box-shadow: none;
+    }
+}
 
 /* Main content */
 .policy-page { min-width: 0; }

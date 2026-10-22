@@ -102,8 +102,8 @@ if ($website !== '') {
         session_regenerate_id(true);
         $_SESSION = ['resident_id' => $resident['resident_id'], 'role' => 'Resident', 'fullName' => $resident['first_name'] . ' ' . $resident['last_name'], '_auth_version' => (int) $resident['auth_version'], '_created_at' => time(), '_last_activity' => time()];
         $csrfToken = rotateCsrfToken();
-        $audit = $pdo->prepare("INSERT INTO audit_log (user_id, action, details) VALUES (NULL, 'resident_login_success', ?)");
-        $audit->execute(['Resident ID ' . (int) $resident['resident_id']]);
+        $audit = $pdo->prepare("INSERT INTO audit_log (user_id, subject_resident_id, action, details) VALUES (NULL, ?, 'resident_login_success', ?)");
+        $audit->execute([(int) $resident['resident_id'], 'Resident ID ' . (int) $resident['resident_id']]);
         echo json_encode(['success' => true, 'id' => $resident['resident_id'], 'name' => $_SESSION['fullName'], 'role' => 'Resident', 'email' => $resident['email'], 'phoneNumber' => $resident['phone_number'] ?? '', 'emailVerified' => !empty($resident['email_verified_at']), 'csrfToken' => $csrfToken]);
         exit;
     }

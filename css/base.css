@@ -236,6 +236,8 @@ p { color: var(--color-text); }
 
 .section { display: none; min-height: calc(100vh - var(--topbar-height)); }
 .section.active { display: block; animation: page-enter .34s cubic-bezier(.22, .61, .36, 1) both; }
+body[data-route-styles-pending] #app-container,
+.section[data-route-styles-pending] { visibility: hidden !important; }
 .auth-section.active { display: flex; min-height: 100vh; animation: page-enter .34s cubic-bezier(.22, .61, .36, 1) both; }
 
 /* Verification and password-reset URLs arrive with query parameters rather

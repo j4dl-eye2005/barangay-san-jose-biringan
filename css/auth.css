@@ -827,6 +827,7 @@ img.proof-preview-media { width: auto; }
 #resident-profile-photo-preview-actions[hidden] { display: none !important; }
 #resident-profile-photo-preview-actions button { min-height: 34px; padding: 6px 10px; font-size: 12px; }
 .admin-profile-only { width: 100%; margin-top: 18px; }
+.resident-profile-page .admin-profile-only[hidden] { display: none !important; }
 .admin-profile-form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin-bottom: 20px; }
 .admin-profile-form label, #admin-profile-mfa-confirm-form label { display: grid; min-width: min(220px, 100%); gap: 6px; color: #555d54; font-size: 13px; font-weight: 600; }
 .admin-profile-form input, #admin-profile-mfa-confirm-form input { min-height: 42px; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: #fff; color: var(--color-ink); font: inherit; }
@@ -1104,7 +1105,193 @@ body:has(#resident-profile.active) .site-footer { display: block !important; }
 #admin-profile-notifications-save { justify-self: start; margin-top: 14px; }
 #admin-profile-notifications-save:disabled { cursor: not-allowed; opacity: .6; }
 #admin-profile-revoke-sessions[hidden] { display: none !important; }
+
+.admin-mfa-secret-copy { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 12px; }
+.admin-mfa-secret-copy code { display: block; min-width: 0; max-width: 100%; padding: 8px 10px; border-radius: 6px; background: #e9f3e7; color: var(--color-accent-hover); font-size: 15px; font-weight: 700; letter-spacing: .06em; overflow-wrap: anywhere; }
+#admin-profile-mfa-setup-box .admin-mfa-secret-copy code { margin-bottom: 0; }
+.admin-mfa-copy-button { display: inline-flex; min-height: 38px; flex: 0 0 auto; align-items: center; justify-content: center; gap: 7px; padding: 7px 11px; font-size: 13px; }
+
+/* Keep the staff setup key and copy action visually connected. */
+#admin-mfa-secret-wrap { margin-top: 18px; }
+#admin-mfa-step .admin-mfa-step { margin: 0 0 20px; }
+#admin-mfa-step .admin-mfa-step-title {
+    display: block;
+    margin: 0 0 8px;
+    color: #174c2a;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: normal;
+    line-height: 1.4;
+    text-transform: none;
+}
+#admin-mfa-step .admin-mfa-step-number { margin-right: 5px; color: #14552b; font-weight: 800; }
+#admin-mfa-step .admin-mfa-step-description { margin: 0 0 12px; color: #34433a; font-size: 14px; line-height: 1.5; }
+#admin-mfa-step .admin-mfa-code-step { margin-bottom: 0; }
+#admin-mfa-step .admin-mfa-code-step .admin-mfa-step-title { margin-bottom: 8px; }
+#admin-mfa-secret-unit {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0;
+    margin: 0 0 8px;
+    overflow: hidden;
+    container-type: inline-size;
+    border: 1px solid #c6dfc8;
+    border-radius: 10px;
+    background: #eaf4e9;
+}
+#admin-mfa-secret-unit code {
+    display: flex;
+    min-width: 0;
+    max-width: none;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 0 8px;
+    padding: 7px 10px;
+    border-radius: 0;
+    background: transparent;
+    color: #2c4737;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    font-size: clamp(11px, calc(1.5cqi + 6px), 14px);
+    font-weight: 500;
+    letter-spacing: .08em;
+    line-height: 1.45;
+    white-space: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    user-select: text;
+}
+#admin-mfa-secret-unit code::-webkit-scrollbar { display: none; }
+#admin-mfa-secret-unit .admin-mfa-secret-group { flex: 0 0 auto; white-space: nowrap; }
+#admin-mfa-step .admin-mfa-private-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    margin: 0;
+    color: #4c5750;
+    font-size: 12px;
+    line-height: 1.45;
+}
+#admin-mfa-step .admin-mfa-private-note i { margin-top: 2px; color: #485b4d; }
+#admin-mfa-secret-unit .admin-mfa-copy-button {
+    display: inline-flex;
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #245a36;
+    padding: 0;
+    font-size: 15px;
+    cursor: pointer;
+}
+#admin-mfa-secret-unit .admin-mfa-copy-control { position: relative; display: flex; flex: 0 0 44px; align-items: center; justify-content: center; margin: 4px; }
+#admin-mfa-secret-unit .admin-mfa-copy-button:hover { background: #dcefdc; color: #174c2a; }
+#admin-mfa-secret-unit .admin-mfa-copy-button:focus-visible { outline: 2px solid #245a36; outline-offset: -2px; }
+#admin-mfa-secret-unit .admin-mfa-copy-tooltip {
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    right: calc(100% + 4px);
+    padding: 4px 7px;
+    border: 1px solid #bfd8c1;
+    border-radius: 5px;
+    background: #f7fbf6;
+    color: #245a36;
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: nowrap;
+    transform: translateY(-50%);
+    box-shadow: 0 1px 4px rgba(30, 55, 35, .12);
+}
+/* Keep staff MFA code fields with the authentication styles loaded on admin login. */
+#admin-login #admin-mfa-step .admin-mfa-code-group { margin-bottom: 0; }
+#admin-login #admin-mfa-step .admin-mfa-code-group > label { margin-bottom: 8px; }
+#admin-login #admin-mfa-code-fields {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 0;
+}
+#admin-login.auth-section.active #admin-mfa-code-fields .admin-mfa-digit {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    height: 56px;
+    min-height: 56px;
+    padding: 0;
+    border: 1px solid #8b948e;
+    border-radius: var(--radius-control);
+    background: #fff;
+    color: var(--color-ink);
+    font: inherit;
+    font-size: 24px;
+    line-height: 1;
+    text-align: center;
+    transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+#admin-login.auth-section.active #admin-mfa-code-fields .admin-mfa-digit:valid:not(:focus) {
+    border-color: #0c5700;
+    background: #f0f7ed;
+}
+#admin-login.auth-section.active #admin-mfa-code-fields .admin-mfa-digit:focus {
+    border-color: #0c5700 !important;
+    outline: 3px solid rgb(12 87 0 / 20%);
+    outline-offset: 2px;
+}
+#admin-login.auth-section.active #admin-mfa-code-fields.is-error .admin-mfa-digit,
+#admin-login.auth-section.active #admin-mfa-code-fields.is-error .admin-mfa-digit:focus {
+    border-color: #c43b3b !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: #fff;
+}
+#admin-login #admin-mfa-submit { margin-top: 24px !important; }
+#admin-login #admin-mfa-submit:disabled,
+#admin-login #admin-mfa-submit:disabled:hover {
+    border-color: #c7dfc8 !important;
+    background: #e8f2e6;
+    color: #174c2a;
+    opacity: 1;
+    cursor: not-allowed;
+}
+#admin-login #admin-mfa-submit:not(:disabled) {
+    border-color: #0c5700 !important;
+    background: #0c5700;
+    color: #fff;
+}
+#admin-login #admin-mfa-submit:not(:disabled):hover { border-color: #084400 !important; background: #084400; }
+#admin-login .admin-mfa-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border: 1px solid #efb8b8;
+    border-radius: var(--radius-control);
+    background: #fff1f1;
+    color: #8f2525;
+    font-size: 14px;
+    line-height: 1.45;
+}
+#admin-login .admin-mfa-error i { flex: 0 0 auto; margin-top: 3px; }
+#admin-login .admin-mfa-submit-progress { display: inline-flex; align-items: center; gap: 8px; }
+#admin-login .admin-mfa-cancel { display: flex; width: fit-content; justify-content: center; margin: 16px auto 0; }
+#admin-login #admin-mfa-step .switch-form { text-align: center; }
+
 @media (max-width: 600px) {
     .admin-profile-activity-list li.admin-profile-event-row { grid-template-columns: 22px minmax(0, 1fr); }
     .admin-profile-event-time { grid-column: 2; text-align: left; }
+}
+
+@media (max-width: 767px) {
+    #admin-login #admin-mfa-code-fields { gap: 8px; }
 }

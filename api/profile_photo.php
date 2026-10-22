@@ -7,7 +7,7 @@ $isAdmin = $role === 'Admin' && !empty($_SESSION['user_id']);
 $id = $isAdmin ? (int) $_SESSION['user_id'] : (($role === 'Resident') ? (int) ($_SESSION['resident_id'] ?? 0) : 0);
 if ($id < 1) { http_response_code(401); header('Content-Type: application/json; charset=utf-8'); echo json_encode(['success'=>false,'message'=>'Log in to continue.']); exit; }
 $table = $isAdmin ? '`user`' : 'resident'; $idColumn = $isAdmin ? 'user_id' : 'resident_id';
-$uploadDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'profile-photos';
+$uploadDir = privateStorageDirectory('profile-photos');
 if ($method === 'GET') {
     $findPhoto = $pdo->prepare("SELECT profile_photo FROM $table WHERE $idColumn = ? LIMIT 1");
     $findPhoto->execute([$id]);

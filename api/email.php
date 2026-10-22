@@ -4,9 +4,16 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception;
 
-require_once dirname(__DIR__) . '/lib/PHPMailer/Exception.php';
-require_once dirname(__DIR__) . '/lib/PHPMailer/PHPMailer.php';
-require_once dirname(__DIR__) . '/lib/PHPMailer/SMTP.php';
+$composerAutoload = dirname(__DIR__) . '/vendor/autoload.php';
+if (is_file($composerAutoload)) {
+    require_once $composerAutoload;
+} else {
+    // The checked-in source copy keeps the existing cPanel copy deployment
+    // working when Composer dependencies have not been installed on the host.
+    require_once dirname(__DIR__) . '/lib/PHPMailer/Exception.php';
+    require_once dirname(__DIR__) . '/lib/PHPMailer/PHPMailer.php';
+    require_once dirname(__DIR__) . '/lib/PHPMailer/SMTP.php';
+}
 require_once __DIR__ . '/config.php';
 
 /** Write a short, credential-redacted mail failure note to protected storage. */
@@ -19,14 +26,10 @@ function logPortalMailFailure(string $reason): void
         if ($realDirectory === false) return;
 
         $documentRoot = realpath((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''));
-        $protectedRoot = realpath(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'private_storage');
-        $insideDocumentRoot = $documentRoot !== false
-            && ($realDirectory === $documentRoot
-                || str_starts_with(strtolower($realDirectory), strtolower($documentRoot . DIRECTORY_SEPARATOR)));
-        $isProtectedAppFolder = $protectedRoot !== false
-            && strcasecmp($realDirectory, $protectedRoot) === 0
-            && is_file($protectedRoot . DIRECTORY_SEPARATOR . '.htaccess');
-        if ($insideDocumentRoot && !$isProtectedAppFolder) return;
+        if ($documentRoot === false) return;
+        $insideDocumentRoot = $realDirectory === $documentRoot
+            || str_starts_with(strtolower($realDirectory), strtolower($documentRoot . DIRECTORY_SEPARATOR));
+        if ($insideDocumentRoot) return;
 
         $reason = preg_replace('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i', '[email]', $reason) ?? 'Mail failure';
         $reason = preg_replace('/(?i)\b(?:password|token)\b\s*[:=]\s*\S+/', '[credential redacted]', $reason) ?? 'Mail failure';
@@ -90,7 +93,7 @@ function notifyAdminsOfNewRequest(PDO $pdo, string $trackingCode, string $reques
  * Returns true if the message was accepted by the SMTP server, false otherwise.
  * Failures are logged via error_log() and never throw, so callers can treat
  * the boolean result as "was the email sent?".
- */
+  */
 function sendPortalEmail(string $recipient, string $subject, string $message, ?string &$error = null, ?string $htmlMessage = null): bool
 {
     $error = null;
@@ -137,6 +140,15 @@ function sendPortalEmail(string $recipient, string $subject, string $message, ?s
         $mail->Subject = $subject;
         $mail->isHTML($htmlMessage !== null);
         $mail->Body    = $htmlMessage ?? $message;
+        if ($htmlMessage !== null) {
+            $sealPath = dirname(__DIR__) . '/Barangay San Jose, Biringan City.png';
+            $sealBytes = @file_get_contents($sealPath);
+            if ($sealBytes !== false) {
+                $mail->addStringEmbeddedImage($sealBytes, 'barangay-seal', 'barangay-san-jose-seal.png', 'base64', 'image/png');
+            } else {
+                $mail->Body = preg_replace('/<img src="cid:barangay-seal"[^>]*>/i', '', $mail->Body, 1) ?? $mail->Body;
+            }
+        }
         $mail->CharSet = 'UTF-8';
         // Keep a readable fallback for clients that do not display HTML.
         $mail->AltBody = $message;
@@ -152,31 +164,32 @@ function sendPortalEmail(string $recipient, string $subject, string $message, ?s
     }
 }
 
-/** Build an email-client-safe template that matches the Barangay San Jose portal design. */
+/** Build an email-client-safe template matching the Barangay San Jose portal. */
 function portalEmailTemplate(string $eyebrow, string $title, array $paragraphs, ?string $buttonLabel = null, ?string $buttonUrl = null, ?string $note = null): string
 {
     $escape = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
     // Colour tokens matching the portal's shared stylesheet palette
     $green       = '#0c5700';   // --color-logo-green
-    $greenHover  = '#084500';   // --color-accent-hover
-    $canvas      = '#f6f7f4';   // --color-canvas
+    $yellow      = '#e5f200';   // --color-logo-yellow
+    $canvas      = '#f1f6ec';   // --color-panel-warm
     $surface     = '#ffffff';   // --color-surface
     $ink         = '#1c1917';   // --color-ink
     $textMuted   = '#57534e';   // --color-text
-    $quiet       = '#78716c';   // --color-muted
-    $border      = '#e7e5e4';   // --color-border
+    $quiet       = '#566059';   // --color-muted
+    $border      = '#dce6d8';   // soft green-tinted border
     $softGreen   = '#f2f8ef';   // --color-accent-soft
     $softBorder  = '#b8d5b3';   // --color-accent-border
     $eyebrowClr  = $green;
 
-    // Font stack — Plus Jakarta Sans with safe fallbacks
-    $font = "'Plus Jakarta Sans','Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,Arial,sans-serif";
+    // Use the website's Plus Jakarta Sans from Google Fonts where supported;
+    // preserve the portal's CSS fallback stack for clients that block web fonts.
+    $font = "'Plus Jakarta Sans','Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,sans-serif";
 
     // Body paragraphs
     $body = '';
     foreach ($paragraphs as $paragraph) {
-        $body .= '<p style="margin:0 0 14px;color:' . $textMuted . ';font-size:15px;line-height:1.7;font-family:' . $font . '">'
+        $body .= '<p style="margin:0 0 11px;color:' . $textMuted . ';font-size:15px;line-height:1.6;font-family:' . $font . '">'
                . nl2br($escape((string) $paragraph))
                . '</p>';
     }
@@ -184,9 +197,9 @@ function portalEmailTemplate(string $eyebrow, string $title, array $paragraphs, 
     // CTA button
     $button = '';
     if ($buttonLabel !== null && $buttonUrl !== null && filter_var($buttonUrl, FILTER_VALIDATE_URL)) {
-        $button = '<tr><td style="padding:6px 32px 24px">'
+        $button = '<tr><td style="padding:2px 28px 15px">'
                 . '<a href="' . $escape($buttonUrl) . '" '
-                . 'style="display:inline-block;padding:13px 24px;border-radius:10px;background:' . $green . ';color:#ffffff;'
+                . 'style="display:inline-block;padding:13px 22px;border-radius:8px;background:' . $green . ';color:#ffffff;'
                 . 'font-family:' . $font . ';font-size:14px;font-weight:700;text-decoration:none;letter-spacing:.01em">'
                 . $escape($buttonLabel)
                 . '</a>'
@@ -196,19 +209,18 @@ function portalEmailTemplate(string $eyebrow, string $title, array $paragraphs, 
     // Note / info box
     $noteHtml = '';
     if ($note !== null) {
-        $noteHtml = '<tr><td style="padding:0 32px 24px">'
-                  . '<div style="padding:14px 18px;border-radius:10px;border:1px solid ' . $softBorder . ';background:' . $softGreen . ';'
+        $noteHtml = '<tr><td style="padding:0 28px 15px">'
+                  . '<div style="padding:10px 14px;border-radius:8px;border:1px solid ' . $softBorder . ';background:' . $softGreen . ';'
                   . 'color:' . $textMuted . ';font-family:' . $font . ';font-size:13px;line-height:1.6">'
                   . nl2br($escape($note))
                   . '</div>'
                   . '</td></tr>';
     }
 
-    // Logo seal as inline SVG circle placeholder (fallback for email clients that block external images)
-    // We embed the seal via a hosted URL so it works in external inboxes too.
-    $config  = portalConfig();
-    $appBase = $config['app_url'];
-    $sealUrl = $appBase . '/Barangay%20San%20Jose%2C%20Biringan%20City.png';
+    // Remote font loading stays small, unlike embedding the full TTF in each
+    // email. Gmail supports the font-family property; clients that don't load
+    // Google Fonts still get a close system sans-serif fallback.
+    $fontStyle = '<style type="text/css">@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");</style>';
 
     return '<!doctype html>'
          . '<html lang="en"><head>'
@@ -216,35 +228,36 @@ function portalEmailTemplate(string $eyebrow, string $title, array $paragraphs, 
          . '<meta name="viewport" content="width=device-width,initial-scale=1">'
          . '<meta name="color-scheme" content="light">'
          . '<title>' . $escape($title) . '</title>'
+         . $fontStyle
+         . '<!--[if mso]><style type="text/css">body,table,td,h1,p,a{font-family:"Segoe UI",Arial,sans-serif!important}</style><![endif]-->'
          . '</head>'
-         . '<body style="margin:0;padding:0;background:' . $canvas . ';-webkit-text-size-adjust:100%">'
+         . '<body style="margin:0;padding:0;background:' . $canvas . ';font-family:' . $font . ';-webkit-text-size-adjust:100%">'
 
          // Outer wrapper
          . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">'
-         . '<tr><td style="padding:32px 16px;background:' . $canvas . '">'
+         . '<tr><td style="padding:16px 12px;background:' . $canvas . '">'
 
          // Card
          . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" '
-         . 'style="max-width:600px;margin:0 auto;border-radius:16px;border:1px solid ' . $border . ';background:' . $surface . ';overflow:hidden">'
+         . 'style="max-width:600px;margin:0 auto;border-radius:12px;border:1px solid ' . $border . ';background:' . $surface . ';overflow:hidden">'
 
          // ── Header ─────────────────────────────────────────────────────────
          . '<tr><td style="padding:0">'
          . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">'
          . '<tr>'
-         // Green accent strip on the left
-         . '<td style="width:6px;background:' . $green . ';border-radius:16px 0 0 0">&nbsp;</td>'
-         . '<td style="padding:24px 28px 24px 22px;background:' . $surface . ';border-radius:0 16px 0 0">'
+         // Strong green brand band with the portal's bright seal accent
+         . '<td style="padding:15px 24px;background:' . $green . ';border-top:4px solid ' . $yellow . ';border-radius:12px 12px 0 0">'
          . '<table role="presentation" cellspacing="0" cellpadding="0" border="0">'
          . '<tr>'
          // Seal logo
          . '<td style="padding-right:14px;vertical-align:middle">'
-         . '<img src="' . $escape($sealUrl) . '" alt="Barangay San Jose seal" width="44" height="44" '
-         . 'style="width:44px;height:44px;border-radius:50%;display:block;object-fit:cover">'
+         . '<img src="cid:barangay-seal" alt="Barangay San Jose seal" width="52" height="52" '
+         . 'style="width:52px;height:52px;border-radius:50%;display:block">'
          . '</td>'
          // Brand name + subtitle
-         . '<td style="vertical-align:middle">'
-         . '<div style="font-family:' . $font . ';font-size:15px;font-weight:800;color:' . $ink . ';letter-spacing:-.01em;line-height:1.2">Barangay San Jose</div>'
-         . '<div style="font-family:' . $font . ';font-size:11px;color:' . $quiet . ';margin-top:2px;letter-spacing:.01em">Digital services and public records</div>'
+         . '<td style="padding-left:14px;vertical-align:middle">'
+         . '<div style="font-family:' . $font . ';font-size:17px;font-weight:800;color:#ffffff;letter-spacing:-.02em;line-height:1.2">Barangay San Jose</div>'
+         . '<div style="font-family:' . $font . ';font-size:12px;color:#e3efdd;margin-top:4px;letter-spacing:.01em">Digital services and public records</div>'
          . '</td>'
          . '</tr>'
          . '</table>'
@@ -253,17 +266,17 @@ function portalEmailTemplate(string $eyebrow, string $title, array $paragraphs, 
          . '</table>'
          . '</td></tr>'
 
-         // Divider
-         . '<tr><td style="height:1px;background:' . $border . ';font-size:0;line-height:0">&nbsp;</td></tr>'
+         // Yellow accent divider
+         . '<tr><td style="height:3px;background:' . $yellow . ';font-size:0;line-height:0">&nbsp;</td></tr>'
 
          // ── Body ───────────────────────────────────────────────────────────
-         . '<tr><td style="padding:28px 32px 8px">'
+         . '<tr><td style="padding:20px 28px 4px;background:' . $surface . '">'
          // Eyebrow
-         . '<div style="font-family:' . $font . ';font-size:10px;font-weight:800;color:' . $eyebrowClr . ';'
+         . '<div style="font-family:' . $font . ';font-size:11px;font-weight:800;color:' . $eyebrowClr . ';'
          . 'letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">' . $escape($eyebrow) . '</div>'
          // Title
-         . '<h1 style="margin:0 0 18px;font-family:' . $font . ';font-size:22px;font-weight:800;'
-         . 'color:' . $ink . ';line-height:1.25;letter-spacing:-.025em">' . $escape($title) . '</h1>'
+         . '<h1 style="margin:0 0 14px;font-family:' . $font . ';font-size:22px;font-weight:800;'
+         . 'color:' . $ink . ';line-height:1.25;letter-spacing:-.035em">' . $escape($title) . '</h1>'
          // Paragraphs
          . $body
          . '</td></tr>'
@@ -276,10 +289,10 @@ function portalEmailTemplate(string $eyebrow, string $title, array $paragraphs, 
 
          // ── Footer ─────────────────────────────────────────────────────────
          . '<tr><td style="height:1px;background:' . $border . ';font-size:0;line-height:0">&nbsp;</td></tr>'
-         . '<tr><td style="padding:18px 32px 20px;background:' . $canvas . ';border-radius:0 0 16px 16px">'
-         . '<p style="margin:0 0 2px;font-family:' . $font . ';font-size:12px;font-weight:700;color:' . $textMuted . '">'
+         . '<tr><td style="padding:12px 28px 14px;background:' . $canvas . ';border-radius:0 0 12px 12px">'
+         . '<p style="margin:0 0 4px;font-family:' . $font . ';font-size:12px;font-weight:800;color:' . $green . '">'
          . 'Barangay San Jose Digital Portal</p>'
-         . '<p style="margin:0;font-family:' . $font . ';font-size:11px;color:' . $quiet . ';line-height:1.5">'
+         . '<p style="margin:0;font-family:' . $font . ';font-size:10px;color:' . $quiet . ';line-height:1.4">'
          . 'This is an automated message. Please do not reply to this email.</p>'
          . '</td></tr>'
 

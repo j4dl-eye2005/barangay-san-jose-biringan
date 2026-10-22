@@ -16,20 +16,24 @@ ErrorDocument 404 /index.php?error=404
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
     Header always set Strict-Transport-Security "max-age=31536000" env=HTTPS
-    <FilesMatch "\.(?:css|js|png|jpe?g|gif|webp|svg|ico|woff2?)$">
+    <FilesMatch "\.(?:css|js)$">
+        Header set Cache-Control "public, max-age=86400"
+    </FilesMatch>
+    <FilesMatch "\.(?:png|jpe?g|gif|webp|svg|ico|woff2?|ttf)$">
         Header set Cache-Control "public, max-age=2592000, immutable"
     </FilesMatch>
 </IfModule>
 
 <IfModule mod_expires.c>
     ExpiresActive On
-    ExpiresByType text/css "access plus 30 days"
-    ExpiresByType application/javascript "access plus 30 days"
+    ExpiresByType text/css "access plus 1 day"
+    ExpiresByType application/javascript "access plus 1 day"
     ExpiresByType image/png "access plus 30 days"
     ExpiresByType image/jpeg "access plus 30 days"
     ExpiresByType image/webp "access plus 30 days"
     ExpiresByType image/svg+xml "access plus 30 days"
     ExpiresByType font/woff2 "access plus 30 days"
+    ExpiresByType font/ttf "access plus 30 days"
 </IfModule>
 
 <IfModule mod_deflate.c>
@@ -45,6 +49,8 @@ ErrorDocument 404 /index.php?error=404
 </FilesMatch>
 
 <IfModule mod_rewrite.c>
+    RewriteRule ^robots\.txt$ robots.php [L]
+    RewriteRule ^sitemap\.xml$ sitemap.php [L]
     RewriteRule ^includes/ - [F,L,NC]
     RewriteRule ^uploads/ - [F,L,NC]
     RewriteRule ^(?:private|private_storage|storage)/ - [F,L,NC]

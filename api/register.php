@@ -21,6 +21,7 @@ try {
     $phone = trim(is_string($_POST['phone'] ?? null) ? $_POST['phone'] : '');
     $address = trim(is_string($_POST['address'] ?? null) ? $_POST['address'] : '');
     $termsAccepted = ($_POST['termsAccepted'] ?? '') === '1';
+    $privacyNoticeAcknowledged = ($_POST['privacyNoticeAcknowledged'] ?? '') === '1';
     if (!$email || !$password || !$firstName || !$lastName || !$address || !$termsAccepted) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Registration could not be completed. Check your details and try again.']);
@@ -75,9 +76,9 @@ try {
 
     $passwordHash = password_hash($password, PASSWORD_DEFAULT);
     $stmt = $pdo->prepare(
-        "INSERT INTO resident (first_name, middle_name, last_name, email, phone_number, address, password_hash, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)"
+        "INSERT INTO resident (first_name, middle_name, last_name, email, phone_number, address, password_hash, is_active, terms_accepted_at, terms_version, privacy_notice_acknowledged_at, privacy_notice_version) VALUES (?, ?, ?, ?, ?, ?, ?, 1, UTC_TIMESTAMP(), '2026-10-21', ?, ?)"
     );
-    $stmt->execute([$firstName, $middleName, $lastName, $email, $phone, $address, $passwordHash]);
+    $stmt->execute([$firstName, $middleName, $lastName, $email, $phone, $address, $passwordHash, $privacyNoticeAcknowledged ? gmdate('Y-m-d H:i:s') : null, $privacyNoticeAcknowledged ? '2026-10-21' : null]);
     $residentId = (int) $pdo->lastInsertId();
 
     $rawToken = bin2hex(random_bytes(32));

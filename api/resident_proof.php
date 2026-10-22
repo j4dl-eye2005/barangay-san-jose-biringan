@@ -12,8 +12,8 @@ $storedPath = (string) ($stmt->fetchColumn() ?: '');
 $file = resolveStoredUpload($storedPath);
 if (!$file) { http_response_code(404); exit; }
 
-$audit = $pdo->prepare("INSERT INTO audit_log (user_id, action, details) VALUES (?, 'proof_viewed', ?)");
-$audit->execute([$_SESSION['user_id'], 'Resident ID ' . $residentId]);
+$audit = $pdo->prepare("INSERT INTO audit_log (user_id, subject_resident_id, action, details) VALUES (?, ?, 'proof_viewed', ?)");
+$audit->execute([$_SESSION['user_id'], $residentId, 'Resident ID ' . $residentId]);
 $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file) ?: 'application/octet-stream';
 if (!in_array($mime, ['application/pdf', 'image/jpeg', 'image/png'], true)) $mime = 'application/octet-stream';
 header('Content-Type: ' . $mime);

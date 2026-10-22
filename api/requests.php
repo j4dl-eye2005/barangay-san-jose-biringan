@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     
     if ($_SESSION['role'] === 'Admin') {
         requireAdminAccess();
-        $page = max(1, min(100000, filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT) ?: 1));
+        $page = max(1, min(1000, filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT) ?: 1));
         $perPage = 25;
         $offset = ($page - 1) * $perPage;
         $status = is_string($_GET['status'] ?? null) ? $_GET['status'] : 'All';

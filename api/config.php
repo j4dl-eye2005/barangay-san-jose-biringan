@@ -1,15 +1,50 @@
 <?php
 declare(strict_types=1);
 
-/** Load deployment secrets from a protected project-root .env when the host has no env UI. */
+/** Resolve the application’s protected data directory beside the public web root. */
+function portalPrivateDataRoot(): string
+{
+    $documentRoot = realpath((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''));
+    $base = $documentRoot !== false ? dirname($documentRoot) : dirname(__DIR__, 2);
+    if ($documentRoot === false
+        && in_array(strtolower(basename(str_replace('\\', '/', $base))), ['htdocs', 'public_html', 'www', 'wwwroot'], true)) {
+        $base = dirname($base);
+    }
+    return rtrim($base, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'barangay_portal_private';
+}
+
+/** Load deployment secrets from an env file outside the web root when needed. */
 function loadPortalEnvFile(): void
 {
     static $loaded = false;
     if ($loaded) return;
     $loaded = true;
-    $envFile = dirname(__DIR__) . DIRECTORY_SEPARATOR . '.env';
-    if (!is_file($envFile)) return;
-    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    $configuredEnvFile = trim((string) ($_ENV['PORTAL_ENV_FILE'] ?? getenv('PORTAL_ENV_FILE') ?: ''));
+    if ($configuredEnvFile !== ''
+        && !str_starts_with($configuredEnvFile, DIRECTORY_SEPARATOR)
+        && !preg_match('/^[A-Za-z]:[\\\\\/]/', $configuredEnvFile)) {
+        error_log('PORTAL_ENV_FILE must be an absolute path outside the web root.');
+        return;
+    }
+    $envFile = $configuredEnvFile !== ''
+        ? $configuredEnvFile
+        : portalPrivateDataRoot() . DIRECTORY_SEPARATOR . '.env';
+    $realEnvFile = realpath($envFile);
+    if ($realEnvFile === false || !is_file($realEnvFile)) return;
+    $documentRoot = realpath((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''));
+    $applicationRoot = realpath(dirname(__DIR__));
+    $isWithin = static function (string $candidate, string $root): bool {
+        $candidate = rtrim(str_replace('\\', '/', $candidate), '/');
+        $root = rtrim(str_replace('\\', '/', $root), '/');
+        return strcasecmp($candidate, $root) === 0
+            || strncasecmp($candidate, $root . '/', strlen($root) + 1) === 0;
+    };
+    if (($documentRoot !== false && $isWithin($realEnvFile, $documentRoot))
+        || ($applicationRoot !== false && $isWithin($realEnvFile, $applicationRoot))) {
+        error_log('PORTAL_ENV_FILE must be outside the application and web roots.');
+        return;
+    }
+    $lines = file($realEnvFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     if (!is_array($lines)) return;
     foreach ($lines as $line) {
         $line = trim($line);
@@ -42,7 +77,7 @@ function portalConfig(): array
     $appUrl = $env('APP_URL');
     $privateStorage = $env('APP_PRIVATE_STORAGE');
     if ($privateStorage === '') {
-        $privateStorage = dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'barangay_portal_private';
+        $privateStorage = portalPrivateDataRoot() . DIRECTORY_SEPARATOR . 'storage';
     } elseif (!str_starts_with($privateStorage, DIRECTORY_SEPARATOR)
         && !preg_match('/^[A-Za-z]:[\\\\\/]/', $privateStorage)) {
         // Relative paths are resolved from the application root, which lets

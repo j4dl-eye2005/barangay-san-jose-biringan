@@ -9,7 +9,7 @@
                             </div>
                         </div>
                         <div class="overview-lower-grid">
-                            <section class="card overview-widget" aria-labelledby="requests-by-document-title"><div class="overview-widget-heading"><p class="eyebrow">Requests</p><h3 id="requests-by-document-title">By document type</h3></div><div id="overview-document-chart" class="overview-document-chart"><p class="empty-state">Loading request totals…</p></div></section>
+                            <section class="card overview-widget" aria-labelledby="requests-by-document-title"><div class="overview-widget-heading"><div><p class="eyebrow">Requests</p><h3 id="requests-by-document-title">By document type</h3></div><button class="overview-view-all" type="button" data-action-click="openOverviewDestination('all-requests')">View all</button></div><div id="overview-document-chart" class="overview-document-chart"><p class="empty-state">Loading request totals…</p></div></section>
                             <section class="card overview-widget" aria-labelledby="oldest-waiting-title"><div class="overview-widget-heading"><div><p class="eyebrow">Needs attention</p><h3 id="oldest-waiting-title">Oldest waiting</h3></div><button class="overview-view-all" type="button" data-action-click="openOverviewDestination('all-requests')">View all</button></div><div id="overview-oldest-list" class="overview-oldest-list"><p class="empty-state">Loading requests…</p></div></section>
                         </div>
                     </div>

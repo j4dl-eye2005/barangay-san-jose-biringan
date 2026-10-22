@@ -45,24 +45,34 @@ For an existing database, run `admin_workspace_migration.sql`, `resident_payment
 
 For an older local database that does not have `resident.archived_at`, run `resident_archive_migration.sql` once. The current login and account APIs expect this nullable column.
 
+For an existing database, run `database/audit_search_migration.sql` once to add the full-text activity search indexes and the structured resident reference used by the admin activity log.
+
+For an existing database, run `database/public_records_migration.sql` once to add the indexes used by paginated public disclosure listings and attachment lookup.
+
+For an existing database, run `database/query_performance_migration.sql` once to support request-list ordering and indexed weekly admin overview counts.
+
+For an existing database, run `database/policy_acceptance_migration.sql` once before deploying the updated registration endpoint. It adds nullable fields to record the Terms version accepted and Privacy Notice version acknowledged at registration. Existing accounts remain blank because the earlier version did not retain this evidence.
+
+The migrations under `database/` use MariaDB's `IF NOT EXISTS` syntax and are compatible with the MariaDB 10.4.32 server shown in the supplied database dump. They can be re-imported without duplicate-column or duplicate-index errors.
+
 ## Main areas
 
 - **Resident portal:** registration, login, document requests, and request status tracking.
 - **Admin workspace:** overview, requests queue and detail, pending resident review, disclosure publishing, and activity log.
 - **Public records:** bulletin categories and published disclosures (`bulletin.html`).
 
-The main interface and routing are in `index.php` and `script.js`. Admin sections have direct PHP routes at the project root (`admin_overview.php`, `admin_requests.php`, `admin_residents.php`, `admin_disclosures.php`, and `admin_activity.php`). Styles are split under `css/` into shared, home, authentication, admin, public-records, and responsive files. Shared page markup and admin sections are organized under `includes/shared/` and `includes/admin/`. API endpoints are in `api/`; database setup is in `schema.sql` and `admin_workspace_migration.sql`.
+The main interface and routing are in `index.php` and `script.js`. Admin sections have direct PHP routes at the project root (`admin_overview.php`, `admin_requests.php`, `admin_residents.php`, `admin_disclosures.php`, and `admin_activity.php`). Styles are split under `css/` into shared, home, authentication, admin, public-records, and responsive files. Shared page markup and admin sections are organized under `includes/shared/` and `includes/admin/`. API endpoints are in `api/`; the base schema is in `schema.sql`, and the new performance and policy migrations are grouped under `database/`.
 
 ## Database tables
 
-The schema defines administrator and resident accounts, document types and requests, request status history, admin-only request notes, disclosure categories and posts, attachments, email verification, rate limits, and an audit log. Uploaded proofs and disclosure attachments are stored outside the web root by default in a sibling `barangay_portal_private` directory. Set `APP_PRIVATE_STORAGE` to another directory outside the public web root when deploying.
+The schema defines administrator and resident accounts, document types and requests, request status history, admin-only request notes, disclosure categories and posts, attachments, email verification, rate limits, and an audit log. Uploaded proofs, disclosure attachments, and profile photos are stored outside the web root by default in a sibling `barangay_portal_private` directory. Set `APP_PRIVATE_STORAGE` to another directory outside the public web root when deploying.
 
 ## Configuration and security
 
 - Set `APP_ENV=production`, `APP_URL` (HTTPS), `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASS` in the host environment. Give the database account only the permissions the application needs, including the migration-created tables.
 - Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_ENCRYPTION` (`tls` or `ssl`), `MAIL_FROM_EMAIL`, and optionally `MAIL_FROM_NAME` for verification and notification email.
-- Keep `APP_PRIVATE_STORAGE` outside the web root and writable by PHP. Do not expose `.env`, SQL files, upload directories, or configuration files.
+- Keep `APP_PRIVATE_STORAGE` and the deployment `.env` outside the web root and writable by PHP as needed. The app reads `.env` from a sibling `barangay_portal_private` directory by default; set the server environment variable `PORTAL_ENV_FILE` to an absolute protected path if your layout differs. Do not put secrets in the project root.
 - Use HTTPS at the host/proxy. Apache rules redirect HTTP and set transport/security headers; confirm the host supports `.htaccess` rewrite and header modules.
 - Existing account passwords are not forcibly reset by the migration. Reset any legacy passwords that do not meet the 12-character policy, and rotate any database or SMTP credential that has ever been committed or shared.
-- The `lib/PHPMailer` directory is vendored (currently 6.9.1); there is no Composer or npm manifest. Review and update this copy through a trusted release process when network access is available.
+- PHPMailer is pinned in `composer.json` and `composer.lock`; keep the checked-in `lib/PHPMailer` source synchronized with that locked release. Run `composer audit` during releases.
 

@@ -6,8 +6,10 @@ requireAdminAccess();
 
 $needsActionRequests = (int) $pdo->query("SELECT COUNT(*) FROM document_request WHERE current_status = 'Approved'")->fetchColumn();
 $readyForPickup = (int) $pdo->query("SELECT COUNT(*) FROM document_request WHERE current_status = 'Ready for Pickup'")->fetchColumn();
-$completedThisWeek = (int) $pdo->query("SELECT COUNT(*) FROM request_status_log WHERE status = 'Completed' AND YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)")->fetchColumn();
-$newResidentsThisWeek = (int) $pdo->query("SELECT COUNT(*) FROM resident WHERE YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)")->fetchColumn();
+$weekStart = 'DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)';
+$weekEnd = "DATE_ADD($weekStart, INTERVAL 7 DAY)";
+$completedThisWeek = (int) $pdo->query("SELECT COUNT(*) FROM request_status_log WHERE status = 'Completed' AND created_at >= $weekStart AND created_at < $weekEnd")->fetchColumn();
+$newResidentsThisWeek = (int) $pdo->query("SELECT COUNT(*) FROM resident WHERE created_at >= $weekStart AND created_at < $weekEnd")->fetchColumn();
 
 $byDocument = $pdo->query("SELECT dt.name AS document_type, COUNT(dr.request_id) AS request_count
     FROM document_type dt LEFT JOIN document_request dr ON dr.document_type_id = dt.document_type_id

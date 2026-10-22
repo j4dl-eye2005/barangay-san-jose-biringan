@@ -78,7 +78,7 @@ async function loadCategory() {
     document.getElementById('category-description').textContent = category.description;
 
     try {
-        const response = await fetch('api/disclosures.php');
+        const response = await fetch(`api/disclosures.php?category=${categoryId}&limit=100`);
         if (!response.ok) throw new Error('Unable to load bulletin posts');
         renderPosts(await response.json(), categoryId);
     } catch (error) {

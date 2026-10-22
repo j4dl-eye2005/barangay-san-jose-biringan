@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS user (
     notification_new_requests TINYINT(1) NOT NULL DEFAULT 0,
     notification_payment_verification TINYINT(1) NOT NULL DEFAULT 0,
     password_changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FULLTEXT INDEX ft_user_name (first_name, last_name)
 ) ENGINE=InnoDB;
 
 -- Resident accounts
@@ -44,7 +45,12 @@ CREATE TABLE IF NOT EXISTS resident (
     email_verified_at DATETIME     DEFAULT NULL,
     is_active     TINYINT(1)   NOT NULL DEFAULT 1,
     archived_at   DATETIME    DEFAULT NULL,
+    terms_accepted_at DATETIME DEFAULT NULL,
+    terms_version VARCHAR(32) DEFAULT NULL,
+    privacy_notice_acknowledged_at DATETIME DEFAULT NULL,
+    privacy_notice_version VARCHAR(32) DEFAULT NULL,
     created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_resident_created (created_at),
     INDEX idx_residents_active_verified_created (is_active, email_verified_at, created_at)
 ) ENGINE=InnoDB;
 
@@ -94,6 +100,7 @@ CREATE TABLE IF NOT EXISTS document_request (
     rejection_reason TEXT         DEFAULT NULL,
     created_at       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_requests_status_created (current_status, created_at),
+    INDEX idx_requests_created (created_at, request_id),
     INDEX idx_requests_resident_created (resident_id, created_at),
     CONSTRAINT fk_request_resident FOREIGN KEY (resident_id)
         REFERENCES resident (resident_id) ON DELETE SET NULL,
@@ -109,6 +116,7 @@ CREATE TABLE IF NOT EXISTS request_status_log (
     status             VARCHAR(50)  NOT NULL,
     notes              TEXT         DEFAULT NULL,
     created_at         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_status_created (status, created_at, log_id),
     INDEX idx_status_request_status_date (request_id, status, created_at, log_id),
     CONSTRAINT fk_log_request FOREIGN KEY (request_id)
         REFERENCES document_request (request_id) ON DELETE CASCADE,
@@ -144,6 +152,7 @@ CREATE TABLE IF NOT EXISTS disclosure (
     is_archived          TINYINT(1)   NOT NULL DEFAULT 0,
     timestamp_posted     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_disclosure_archived_posted (is_archived, timestamp_posted),
+    INDEX idx_disclosure_public_listing (is_archived, category_id, timestamp_posted, disclosure_id),
     CONSTRAINT fk_disclosure_category FOREIGN KEY (category_id)
         REFERENCES disclosure_category (category_id),
     CONSTRAINT fk_disclosure_user FOREIGN KEY (published_by_user_id)
@@ -157,6 +166,7 @@ CREATE TABLE IF NOT EXISTS disclosure_attachment (
     file_name     VARCHAR(255) NOT NULL,
     file_path     VARCHAR(500) NOT NULL,
     file_type     VARCHAR(50)  DEFAULT NULL,
+    INDEX idx_attachment_disclosure_id (disclosure_id, attachment_id),
     CONSTRAINT fk_attachment_disclosure FOREIGN KEY (disclosure_id)
         REFERENCES disclosure (disclosure_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
@@ -165,11 +175,14 @@ CREATE TABLE IF NOT EXISTS disclosure_attachment (
 CREATE TABLE IF NOT EXISTS audit_log (
     audit_id   INT AUTO_INCREMENT PRIMARY KEY,
     user_id    INT          DEFAULT NULL,
+    subject_resident_id INT DEFAULT NULL,
     action     VARCHAR(100) NOT NULL,
     details    TEXT         DEFAULT NULL,
     created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_audit_action_created (action, created_at),
     INDEX idx_audit_created (created_at, audit_id),
+    INDEX idx_audit_resident_created (subject_resident_id, created_at),
+    FULLTEXT INDEX ft_audit_search (action, details),
     CONSTRAINT fk_audit_user FOREIGN KEY (user_id)
         REFERENCES user (user_id) ON DELETE SET NULL
 ) ENGINE=InnoDB;

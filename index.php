@@ -32,20 +32,25 @@ if (isset($_GET['admin_access_form'])) {
     $appBasePath = rtrim(dirname($scriptName), '/.');
     $appBasePath = $appBasePath === '' ? '' : $appBasePath;
     $formAction = htmlspecialchars($appBasePath . '/index.php?admin_access_form=1', ENT_QUOTES, 'UTF-8');
-    $logoUrl = htmlspecialchars($appBasePath . '/Barangay%20San%20Jose%2C%20Biringan%20City.png', ENT_QUOTES, 'UTF-8');
-    $faviconUrl = htmlspecialchars($appBasePath . '/favicon.png?v=20261016-favicon-mint', ENT_QUOTES, 'UTF-8');
-    $baseCssUrl = htmlspecialchars($appBasePath . '/css/base.css?v=20261021-sticky-header-shadow-v1', ENT_QUOTES, 'UTF-8');
-    $homeCssUrl = htmlspecialchars($appBasePath . '/css/home.css?v=20261015-performance-queue', ENT_QUOTES, 'UTF-8');
+    $logoUrl = htmlspecialchars($appBasePath . '/assets/barangay-seal.svg', ENT_QUOTES, 'UTF-8');
+    $faviconUrl = htmlspecialchars($appBasePath . '/assets/favicon-optimized.png', ENT_QUOTES, 'UTF-8');
+    $baseCssUrl = htmlspecialchars($appBasePath . '/css/base.css?v=20261021-route-css-loading-v1', ENT_QUOTES, 'UTF-8');
+    $homeCssUrl = htmlspecialchars($appBasePath . '/css/home.css?v=20261021-square-policy-rail', ENT_QUOTES, 'UTF-8');
     $componentsCssUrl = htmlspecialchars($appBasePath . '/css/components.css?v=20261016-admin-mfa-step', ENT_QUOTES, 'UTF-8');
     $publicCssUrl = htmlspecialchars($appBasePath . '/css/public.css?v=20261016-sticky-menu-stable', ENT_QUOTES, 'UTF-8');
-    $responsiveCssUrl = htmlspecialchars($appBasePath . '/css/shared-responsive.css?v=20261021-resident-tabs-segmented-v1', ENT_QUOTES, 'UTF-8');
-    $cssUrl = htmlspecialchars($appBasePath . '/css/admin-access.css?v=20261019-compact-shared-header', ENT_QUOTES, 'UTF-8');
-    $portalCssUrl = htmlspecialchars($appBasePath . '/css/portal-public.css?v=20261021-admin-shared-header-v1', ENT_QUOTES, 'UTF-8');
+    $responsiveCssUrl = htmlspecialchars($appBasePath . '/css/shared-responsive.css?v=20261022-activity-actor-label-v1', ENT_QUOTES, 'UTF-8');
+    $cssUrl = htmlspecialchars($appBasePath . '/css/admin-access.css?v=20261021-admin-access-panel-contrast-v3', ENT_QUOTES, 'UTF-8');
+    $portalCssUrl = htmlspecialchars($appBasePath . '/css/portal-public.css?v=20261022-admin-nav-spacing-v1', ENT_QUOTES, 'UTF-8');
     $jsUrl = htmlspecialchars($appBasePath . '/admin-access.js?v=20261021-shared-mobile-shell-v1', ENT_QUOTES, 'UTF-8');
     $adminInitialSection = null;
     ob_start();
     require __DIR__ . '/includes/shared/site-header.php';
     $siteHeaderMarkup = ob_get_clean();
+    $siteHeaderMarkup = str_replace(
+        'src="assets/barangay-seal.svg"',
+        'src="' . $logoUrl . '"',
+        $siteHeaderMarkup
+    );
     $suppressSiteDisclaimer = true;
     ob_start();
     require __DIR__ . '/includes/shared/site-footer.php';
@@ -61,6 +66,7 @@ if (isset($_GET['admin_access_form'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="referrer" content="no-referrer">
     <meta name="theme-color" content="#f1f6ec">
+    <link rel="preload" as="image" href="__HERO_IMAGE_URL__" type="image/webp" fetchpriority="high">
     <title>Administrator access | Barangay San Jose Digital Portal</title>
     <link rel="icon" type="image/png" href="__FAVICON_URL__">
     <link rel="stylesheet" href="__BASE_CSS_URL__" media="(max-width: 767px)">
@@ -70,6 +76,7 @@ if (isset($_GET['admin_access_form'])) {
     <link rel="stylesheet" href="__RESPONSIVE_CSS_URL__" media="(max-width: 767px)">
     <link rel="stylesheet" href="__CSS_URL__">
     <link rel="stylesheet" href="__PORTAL_CSS_URL__" media="(max-width: 767px)">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="(max-width: 767px)">
     <script src="__JS_URL__" defer></script>
 </head>
@@ -79,7 +86,7 @@ if (isset($_GET['admin_access_form'])) {
         <main class="split-screen access-stage">
             <aside class="left-panel" aria-hidden="true">
                 <div class="panel-content">
-                    <img src="__LOGO_URL__" alt="" class="panel-logo">
+                    <img src="__LOGO_URL__" alt="" class="panel-logo" width="128" height="128">
                     <span class="badge">Restricted access</span>
                     <h1>Authorized personnel only.</h1>
                     <p>Secure access for barangay administration.</p>
@@ -122,8 +129,8 @@ if (isset($_GET['admin_access_form'])) {
 </html>
 HTML;
     $document = str_replace(
-        ['__BASE_CSS_URL__', '__HOME_CSS_URL__', '__COMPONENTS_CSS_URL__', '__PUBLIC_CSS_URL__', '__RESPONSIVE_CSS_URL__', '__CSS_URL__', '__PORTAL_CSS_URL__', '__JS_URL__', '__LOGO_URL__', '__FAVICON_URL__', '__FORM_ACTION__', '__CSRF__', '__ERROR_INVALID__', '__ERROR_HIDDEN__', '__PUBLIC_URL__', '__CONTACT_URL__', '__YEAR__', '__HEADER_MARKUP__', '__FOOTER_MARKUP__'],
-        [$baseCssUrl, $homeCssUrl, $componentsCssUrl, $publicCssUrl, $responsiveCssUrl, $cssUrl, $portalCssUrl, $jsUrl, $logoUrl, $faviconUrl, $formAction, $csrf, $errorInvalid, $errorHidden, htmlspecialchars($appBasePath . '/index.php#landing', ENT_QUOTES, 'UTF-8'), htmlspecialchars($appBasePath . '/index.php#contact-info', ENT_QUOTES, 'UTF-8'), $year, $siteHeaderMarkup, $siteFooterMarkup],
+        ['__BASE_CSS_URL__', '__HOME_CSS_URL__', '__COMPONENTS_CSS_URL__', '__PUBLIC_CSS_URL__', '__RESPONSIVE_CSS_URL__', '__CSS_URL__', '__PORTAL_CSS_URL__', '__JS_URL__', '__LOGO_URL__', '__FAVICON_URL__', '__HERO_IMAGE_URL__', '__FORM_ACTION__', '__CSRF__', '__ERROR_INVALID__', '__ERROR_HIDDEN__', '__PUBLIC_URL__', '__CONTACT_URL__', '__YEAR__', '__HEADER_MARKUP__', '__FOOTER_MARKUP__'],
+        [$baseCssUrl, $homeCssUrl, $componentsCssUrl, $publicCssUrl, $responsiveCssUrl, $cssUrl, $portalCssUrl, $jsUrl, $logoUrl, $faviconUrl, htmlspecialchars($appBasePath . '/assets/barangay-hall-background.webp', ENT_QUOTES, 'UTF-8'), $formAction, $csrf, $errorInvalid, $errorHidden, htmlspecialchars($appBasePath . '/index.php#landing', ENT_QUOTES, 'UTF-8'), htmlspecialchars($appBasePath . '/index.php#contact-info', ENT_QUOTES, 'UTF-8'), $year, $siteHeaderMarkup, $siteFooterMarkup],
         $document
     );
     echo $document;
@@ -141,6 +148,7 @@ if (array_key_exists('reset', $_GET) && (!is_string($_GET['reset']) || !preg_mat
     renderUnavailablePage();
 }
 $portalSettings = portalConfig();
+$canonicalUrl = !empty($portalSettings['app_url']) ? rtrim($portalSettings['app_url'], '/') . '/index.php' : '';
 $recaptchaSiteKey = $portalSettings['recaptcha_site_key'] ?? '';
 $localCaptchaBypass = portalLocalCaptchaBypass();
 // Section routes set this before including the shared portal shell.
@@ -174,10 +182,17 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#f5f8f2">
+    <meta name="description" content="Request barangay documents, track applications, and browse public records from Barangay San Jose.">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Barangay San Jose Digital Portal">
+    <meta property="og:description" content="Request barangay documents, track applications, and browse public records from Barangay San Jose.">
+    <?php if (!empty($portalSettings['app_url'])): ?><meta property="og:image" content="<?= htmlspecialchars(rtrim((string) $portalSettings['app_url'], '/') . '/assets/barangay-seal.svg', ENT_QUOTES, 'UTF-8') ?>"><?php endif; ?>
+    <?php if ($canonicalUrl !== ''): ?><meta property="og:url" content="<?= htmlspecialchars($canonicalUrl, ENT_QUOTES, 'UTF-8') ?>"><?php endif; ?>
+    <?php if ($canonicalUrl !== ''): ?><link rel="canonical" href="<?= htmlspecialchars($canonicalUrl, ENT_QUOTES, 'UTF-8') ?>"><?php endif; ?>
     <meta name="csrf-token" content="<?= htmlspecialchars(csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
     <meta name="recaptcha-site-key" content="<?= htmlspecialchars($recaptchaSiteKey, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="recaptcha-local-bypass" content="<?= $localCaptchaBypass ? 'true' : 'false' ?>">
-    <link rel="icon" type="image/png" href="favicon.png?v=20261016-favicon-mint">
+    <link rel="icon" type="image/png" href="assets/favicon-optimized.png">
     <?php if (!$localCaptchaBypass): ?><script src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&amp;render=explicit" defer></script><?php endif; ?>
     <?php if ($verifyToken !== ''): ?>
     <meta name="email-verify-token" content="<?= htmlspecialchars($verifyToken, ENT_QUOTES, 'UTF-8') ?>">
@@ -188,21 +203,22 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <meta name="password-reset-return-to-profile" content="<?= $resetReturnToProfile ? 'true' : 'false' ?>">
     <?php endif; ?>
     <title>Barangay San Jose Digital Portal</title>
-    <link rel="stylesheet" href="css/base.css?v=20261021-sticky-header-shadow-v1">
-    <link rel="stylesheet" href="css/home.css?v=20261019-portal-hero">
+    <link rel="stylesheet" href="css/base.css?v=20261021-route-css-loading-v1">
+    <link rel="stylesheet" href="css/home.css?v=20261021-square-policy-rail">
     <link rel="stylesheet" href="css/components.css?v=20261017-direct-password-change">
-    <link rel="stylesheet" href="css/auth.css?v=20261018-admin-profile-workspace">
-    <link rel="stylesheet" href="css/admin.css?v=20261018-sitewide-consistency">
+    <link data-portal-route-css="auth" data-portal-css-href="css/auth.css?v=20261022-profile-role-visibility-v1">
+    <link data-portal-route-css="admin" data-portal-css-href="css/admin.css?v=20261022-admin-rail-desktop-hidden-v1">
     <link rel="stylesheet" href="css/public.css?v=20261016-sticky-menu-stable">
-    <link rel="stylesheet" href="css/admin-tables.css?v=20261018-sitewide-consistency">
-    <link rel="stylesheet" href="css/shared-responsive.css?v=20261021-resident-tabs-segmented-v1">
-    <link rel="stylesheet" href="css/admin-responsive.css?v=20261018-staff-mfa-six-box-layout">
-    <link rel="stylesheet" href="css/unavailable.css?v=20261021-404-header-container-v2">
-    <link rel="stylesheet" href="css/portal-public.css?v=20261021-admin-shared-header-v1">
+    <link data-portal-route-css="admin" data-portal-css-href="css/admin-tables.css?v=20261022-readable-activity-details-v1">
+    <link rel="stylesheet" href="css/shared-responsive.css?v=20261022-activity-actor-label-v1">
+    <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261022-mobile-admin-account-nav-v1">
+    <link data-portal-route-css="unavailable" data-portal-css-href="css/unavailable.css?v=20261021-404-header-container-v2">
+    <link rel="stylesheet" href="css/portal-public.css?v=20261022-admin-nav-spacing-v1">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body data-initial-admin-section="<?= htmlspecialchars((string) $adminInitialSection, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>" data-entry-route="<?= $verifyToken !== '' ? 'verification' : ($resetToken !== '' ? 'password-reset' : '') ?>" data-admin-entry-authorized="<?= $adminEntryAuthorized ? '1' : '0' ?>">
-    <script src="route-boot.js?v=20261021-shared-mobile-shell-v1"></script>
+<body data-initial-admin-section="<?= htmlspecialchars((string) $adminInitialSection, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>" data-entry-route="<?= $verifyToken !== '' ? 'verification' : ($resetToken !== '' ? 'password-reset' : '') ?>" data-admin-entry-authorized="<?= $adminEntryAuthorized ? '1' : '0' ?>" data-account-role="<?= htmlspecialchars((string) ($_SESSION['role'] ?? 'Guest'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
+    <script src="route-boot.js?v=20261022-route-css-cascade-v1"></script>
     <a class="skip-link" href="#app-container">Skip to main content</a>
 
     <?php require __DIR__ . '/includes/shared/site-header.php'; ?>
@@ -262,7 +278,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     </li>
                     <li class="step-item doc-item">
                         <button class="doc-card-btn" type="button" data-action-click="requestDoc('Certificate of Indigency')" aria-label="Request Certificate of Indigency">
-                            <span class="doc-item-fee free">No fee</span>
+                            <span class="doc-item-fee free">Free</span>
                             <h3>Certificate of Indigency</h3>
                             <p>For residents who need proof of financial need for government programs.</p>
                             <span class="doc-item-action">Start request <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
@@ -377,7 +393,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         <p class="eyebrow" id="bulletin-eyebrow">Transparency center</p>
                         <div class="bulletin-title-row">
                             <h1 id="bulletin-title">SK Public Bulletin Board</h1>
-                            <img src="assets/Sangguniang_Kabataan_logo.svg" alt="Sangguniang Kabataan" class="bulletin-sk-logo">
+                            <img src="assets/Sangguniang_Kabataan_logo.svg" alt="Sangguniang Kabataan" class="bulletin-sk-logo" width="256" height="256" loading="lazy" decoding="async">
                         </div>
                         <p id="bulletin-description">Browse official announcements, financial records, projects, and meeting minutes.</p>
                     </div>
@@ -479,7 +495,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
             <div class="split-screen">
                 <div class="left-panel" aria-hidden="true">
                     <div class="panel-content">
-                        <img src="Barangay San Jose, Biringan City.png" alt="" class="panel-logo" loading="lazy">
+                        <img src="assets/barangay-seal.svg" alt="" class="panel-logo" width="128" height="128" loading="lazy" decoding="async">
                         <span class="badge">Secure resident services</span>
                         <h1>Digital Disclosure &amp; Document Request Portal</h1>
                         <p>Use your verified account to request documents and monitor their status.</p>
@@ -517,7 +533,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
             <div class="split-screen">
                 <div class="left-panel" aria-hidden="true">
                     <div class="panel-content">
-                        <img src="Barangay San Jose, Biringan City.png" alt="" class="panel-logo" loading="lazy">
+                        <img src="assets/barangay-seal.svg" alt="" class="panel-logo" width="128" height="128" loading="lazy" decoding="async">
                         <span class="badge">Administrator access</span>
                         <h1>Digital Disclosure &amp; Document Request Portal</h1>
                         <p>Restricted area for barangay administrators managing requests and records.</p>
@@ -543,9 +559,17 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         <div id="admin-mfa-step" class="hidden" aria-live="polite">
                             <h2 id="admin-mfa-title">Verify your identity</h2>
                             <p class="form-subtitle" id="admin-mfa-instructions">Enter the 6-digit code from your authenticator app.</p>
-                            <div id="admin-mfa-secret-wrap" class="hidden"><p>In your authenticator app, add an account manually using this key. Choose a time-based code (TOTP), 6 digits:</p><p><code id="admin-mfa-secret"></code></p><p>Keep this key private. It will only be shown during setup.</p></div>
+                            <div id="admin-mfa-secret-wrap" class="hidden">
+                                <section class="admin-mfa-step admin-mfa-key-step" aria-labelledby="admin-mfa-key-step-title">
+                                    <h3 class="admin-mfa-step-title" id="admin-mfa-key-step-title"><span class="admin-mfa-step-number">1.</span> Add the key to your authenticator app</h3>
+                                    <p class="admin-mfa-step-description">Choose to add an account manually, then pick a time-based code (TOTP) with 6 digits.</p>
+                                    <div id="admin-mfa-secret-unit" class="admin-mfa-secret-copy"><code id="admin-mfa-secret" aria-label="Authenticator setup key"></code><span class="admin-mfa-copy-control"><button type="button" class="btn-outline admin-mfa-copy-button" aria-label="Copy key" title="Copy key" data-action-click="copyAuthenticatorSetupKey('admin-mfa-secret', this)"><i class="fas fa-copy" aria-hidden="true"></i></button><span class="admin-mfa-copy-tooltip" aria-hidden="true" hidden>Copied</span></span></div>
+                                    <p class="admin-mfa-private-note"><i class="fas fa-lock" aria-hidden="true"></i><span>Keep this key private. It will only be shown during setup.</span></p>
+                                </section>
+                                <span id="admin-mfa-copy-live" class="visually-hidden" aria-live="polite" aria-atomic="true"></span>
+                            </div>
                             <form id="admin-mfa-form" data-action-submit="handleAdminMfaSubmit(event)">
-                                <div class="input-group admin-mfa-code-group"><label id="admin-mfa-code-label">Authenticator code</label><div class="admin-mfa-code-fields" id="admin-mfa-code-fields" role="group" aria-labelledby="admin-mfa-code-label" aria-describedby="admin-mfa-error"><input class="admin-mfa-digit" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="6" aria-label="Digit 1 of 6" data-code-index="0" data-action-input="updateAdminMfaDigits(event)" data-action-keydown="handleAdminMfaDigitKeydown(event)" data-action-paste="handleAdminMfaPaste(event)" required><input class="admin-mfa-digit" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" aria-label="Digit 2 of 6" data-code-index="1" data-action-input="updateAdminMfaDigits(event)" data-action-keydown="handleAdminMfaDigitKeydown(event)" data-action-paste="handleAdminMfaPaste(event)" required><input class="admin-mfa-digit" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" aria-label="Digit 3 of 6" data-code-index="2" data-action-input="updateAdminMfaDigits(event)" data-action-keydown="handleAdminMfaDigitKeydown(event)" data-action-paste="handleAdminMfaPaste(event)" required><input class="admin-mfa-digit" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" aria-label="Digit 4 of 6" data-code-index="3" data-action-input="updateAdminMfaDigits(event)" data-action-keydown="handleAdminMfaDigitKeydown(event)" data-action-paste="handleAdminMfaPaste(event)" required><input class="admin-mfa-digit" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" aria-label="Digit 5 of 6" data-code-index="4" data-action-input="updateAdminMfaDigits(event)" data-action-keydown="handleAdminMfaDigitKeydown(event)" data-action-paste="handleAdminMfaPaste(event)" required><input class="admin-mfa-digit" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" aria-label="Digit 6 of 6" data-code-index="5" data-action-input="updateAdminMfaDigits(event)" data-action-keydown="handleAdminMfaDigitKeydown(event)" data-action-paste="handleAdminMfaPaste(event)" required></div><input type="hidden" id="admin-mfa-code" value=""></div>
+                                <div class="input-group admin-mfa-code-group admin-mfa-step admin-mfa-code-step"><label class="admin-mfa-step-title" id="admin-mfa-code-label"><span class="admin-mfa-step-number" id="admin-mfa-code-step-number">2.</span><span id="admin-mfa-code-step-text">Enter the 6-digit code</span></label><div class="admin-mfa-code-fields" id="admin-mfa-code-fields" role="group" aria-labelledby="admin-mfa-code-label" aria-describedby="admin-mfa-error"><input class="admin-mfa-digit" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="6" aria-label="Digit 1 of 6" data-code-index="0" data-action-input="updateAdminMfaDigits(event)" data-action-keydown="handleAdminMfaDigitKeydown(event)" data-action-paste="handleAdminMfaPaste(event)" required><input class="admin-mfa-digit" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" aria-label="Digit 2 of 6" data-code-index="1" data-action-input="updateAdminMfaDigits(event)" data-action-keydown="handleAdminMfaDigitKeydown(event)" data-action-paste="handleAdminMfaPaste(event)" required><input class="admin-mfa-digit" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" aria-label="Digit 3 of 6" data-code-index="2" data-action-input="updateAdminMfaDigits(event)" data-action-keydown="handleAdminMfaDigitKeydown(event)" data-action-paste="handleAdminMfaPaste(event)" required><input class="admin-mfa-digit" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" aria-label="Digit 4 of 6" data-code-index="3" data-action-input="updateAdminMfaDigits(event)" data-action-keydown="handleAdminMfaDigitKeydown(event)" data-action-paste="handleAdminMfaPaste(event)" required><input class="admin-mfa-digit" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" aria-label="Digit 5 of 6" data-code-index="4" data-action-input="updateAdminMfaDigits(event)" data-action-keydown="handleAdminMfaDigitKeydown(event)" data-action-paste="handleAdminMfaPaste(event)" required><input class="admin-mfa-digit" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" aria-label="Digit 6 of 6" data-code-index="5" data-action-input="updateAdminMfaDigits(event)" data-action-keydown="handleAdminMfaDigitKeydown(event)" data-action-paste="handleAdminMfaPaste(event)" required></div><input type="hidden" id="admin-mfa-code" value=""></div>
                                 <p class="admin-mfa-error hidden" id="admin-mfa-error" role="alert" aria-live="polite"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i><span id="admin-mfa-error-message"></span></p>
                                 <button type="submit" class="btn-solid full-width mt-3" id="admin-mfa-submit" disabled><span class="admin-mfa-submit-label">Verify code</span><span class="admin-mfa-submit-progress hidden"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i> Verifying...</span></button>
                             </form>
@@ -560,7 +584,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
 
         <section id="forgot-password" class="section auth-section<?= $resetReturnToProfile ? ' profile-password-flow' : '' ?>" aria-labelledby="forgot-password-title">
             <div class="split-screen">
-                <div class="left-panel" aria-hidden="true"><div class="panel-content"><img src="Barangay San Jose, Biringan City.png" alt="" class="panel-logo" loading="lazy"><span class="badge">Account security</span><h1>Secure access to your portal account.</h1><p>Use a private reset link to choose a new password.</p><div class="panel-footer">Barangay San Jose</div></div></div>
+                <div class="left-panel" aria-hidden="true"><div class="panel-content"><img src="assets/barangay-seal.svg" alt="" class="panel-logo" width="128" height="128" loading="lazy" decoding="async"><span class="badge">Account security</span><h1>Secure access to your portal account.</h1><p>Use a private reset link to choose a new password.</p><div class="panel-footer">Barangay San Jose</div></div></div>
                 <div class="right-panel"><div class="form-wrapper">
                     <button class="back-button" type="button" data-action-click="returnFromPasswordReset()"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to log in</button>
                     <p class="eyebrow" id="password-reset-eyebrow">Account recovery</p>
@@ -587,7 +611,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
             <div class="split-screen reg-split-screen">
                 <div class="left-panel reg-left-panel" aria-hidden="true">
                     <div class="panel-content">
-                        <img src="Barangay San Jose, Biringan City.png" alt="" class="panel-logo" loading="lazy">
+                        <img src="assets/barangay-seal.svg" alt="" class="panel-logo" width="128" height="128" loading="lazy" decoding="async">
                         <span class="badge">Resident verification</span>
                         <h1>Skip the trip to the hall.</h1>
                         <p>Register once, then track all your requests online.</p>
@@ -697,10 +721,10 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                                 </div>
                                 <div class="reg-consent-row">
                                     <label class="register-consent" id="register-consent-label">
-                                        <input type="checkbox" id="register-terms-accepted" name="termsAccepted" value="1" required disabled aria-describedby="register-policy-read-hint">
-                                        <span>I agree to the <button type="button" class="text-button" data-action-click="openRegisterPolicy('terms')">Terms &amp; Conditions</button> and <button type="button" class="text-button" data-action-click="openRegisterPolicy('privacy-policy')">Privacy Policy</button></span>
+                                        <input type="checkbox" id="register-terms-accepted" name="termsAccepted" value="1" required>
+                                        <span>I agree to the <button type="button" class="text-button" data-action-click="openRegisterPolicy('terms')">Terms &amp; Conditions</button> and <button type="button" class="text-button" data-action-click="openRegisterPolicy('privacy-policy')">Privacy Policy</button>.</span>
                                     </label>
-                                    <p class="register-policy-read-hint" id="register-policy-read-hint" aria-live="polite">Read both documents to enable agreement.</p>
+                                    <input type="hidden" name="privacyNoticeAcknowledged" value="1">
                                 </div>
                                 <div class="reg-error-summary hidden" id="reg-error-summary" role="alert"></div>
                                 <?php if (!$localCaptchaBypass): ?><div class="g-recaptcha recaptcha-widget" data-sitekey="<?= htmlspecialchars($recaptchaSiteKey, ENT_QUOTES, 'UTF-8') ?>" data-size="invisible" id="recaptcha-register"></div><?php endif; ?>
@@ -722,7 +746,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                 </aside>
                 <div class="dashboard-header">
                     <div><p class="eyebrow">Resident workspace</p><h1 id="resident-dashboard-title">Document requests</h1><div class="resident-request-tabs" role="tablist" aria-label="Document request sections"><button type="button" id="resident-request-tab-new" role="tab" aria-selected="true" aria-controls="resident-request-panel-new" class="active" data-action-click="selectResidentRequestTab('new')">New request</button><button type="button" id="resident-request-tab-list" role="tab" aria-selected="false" aria-controls="resident-request-panel-list" data-action-click="selectResidentRequestTab('list')">My requests</button></div><p class="dashboard-welcome">Welcome back, <strong id="resident-name"></strong>. Submit a request or review its progress.</p></div>
-                    <button class="btn-outline" type="button" data-action-click="showSection('bulletin')"><i class="fas fa-bullhorn" aria-hidden="true"></i> View public records</button>
+                    <button class="btn-outline" type="button" data-action-click="showSection('bulletin')"><i class="fas fa-folder-open" aria-hidden="true"></i> View public records</button>
                 </div>
                 <div class="dashboard-grid resident-grid">
                     <div class="card active" id="resident-request-panel-new" data-request-panel="new" role="tabpanel" aria-labelledby="resident-request-tab-new">
@@ -763,10 +787,10 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                                     <div class="request-proof-actions"><button type="button" data-action-click="removeRequestProof()">Remove</button><button type="button" data-action-click="openRequestProofPicker()">Replace</button></div>
                                 </div>
                                 <span class="reg-field-error request-proof-error" id="request-proof-error" role="alert"></span>
-                                <p class="request-proof-privacy"><i class="fas fa-lock" aria-hidden="true"></i><span>Your ID is only used to verify that you live in the barangay. It is not shown on public records.</span></p>
+                                <p class="request-proof-privacy" id="request-proof-privacy"><i class="fas fa-lock" aria-hidden="true"></i><span class="request-proof-privacy-desktop">This uploaded proof may contain <strong>sensitive information</strong>. It is stored for the sample request workflow and available to project administrators; this prototype is not an official barangay service.</span><span class="request-proof-privacy-mobile">Your ID is only used to verify that you live in the barangay. It is not shown on public records.</span></p>
                             </fieldset>
                             <button id="request-submit" type="submit" class="btn-solid full-width" aria-describedby="request-submit-guidance request-verification-note">Submit request</button>
-                            <p id="request-submit-guidance" class="request-submit-guidance">You can track this request on your Dashboard.<span id="request-processing-guidance"></span></p>
+                            <p id="request-submit-guidance" class="request-submit-guidance"><span class="request-guidance-desktop">You can track this request under <a href="#resident-dashboard" data-action-click="openResidentProfileQuickLink('track'); return false">Track Request</a>.</span><span class="request-guidance-mobile">You can track this request under <a href="#resident-request-tab-list" data-action-click="selectResidentRequestTab('list'); return false">Track Request</a>.</span><span id="request-processing-guidance"></span></p>
                             <p id="request-verification-note" class="request-verification-note" hidden>Verify your email to submit a request.</p>
                             <p id="request-submit-error" class="reg-field-error request-submit-error" role="alert" hidden></p>
                         </form>
@@ -774,7 +798,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     </div>
                     <div class="card" id="resident-request-panel-list" data-request-panel="list" role="tabpanel" aria-labelledby="resident-request-tab-list">
                         <div class="card-heading"><span class="step-label">Request history</span><h2>Track my requests</h2><div class="request-filter-tabs" role="tablist" aria-label="Filter requests"><button type="button" id="request-filter-active" role="tab" aria-selected="true" aria-controls="request-list" class="active" data-action-click="selectResidentRequestStatusTab('active')">Active</button><button type="button" id="request-filter-completed" role="tab" aria-selected="false" aria-controls="request-list" data-action-click="selectResidentRequestStatusTab('completed')">Completed</button></div></div>
-                        <div id="request-list" class="request-list" aria-live="polite"><div class="request-empty-state"><p>No active requests</p></div></div>
+                        <div id="request-list" class="request-list" aria-live="polite"></div>
                     </div>
                 </div>
             </div>
@@ -790,11 +814,11 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                 <div class="resident-profile-identity" aria-label="Profile account">
                     <button type="button" class="resident-profile-avatar" id="resident-profile-avatar" aria-label="Change profile photo" data-action-click="openProfilePhotoPicker()"><span id="resident-profile-initials" aria-hidden="true"></span><img id="resident-profile-photo-image" alt="" hidden><span class="resident-profile-camera" aria-hidden="true"><i class="fas fa-camera"></i></span></button>
                     <div class="resident-profile-identity-copy">
-                        <small id="resident-profile-account-label" class="admin-profile-account-pill">Barangay San Jose portal account</small>
                         <strong id="resident-profile-header-name"></strong>
                         <span id="resident-profile-header-email"></span>
-                        <div class="resident-profile-photo-actions"><input id="resident-profile-photo-input" type="file" accept="image/jpeg,image/png,image/webp" hidden><button type="button" class="profile-text-action" data-action-click="openProfilePhotoPicker()">Change photo</button><button type="button" class="profile-text-action" id="resident-profile-photo-remove" data-action-click="removeProfilePhoto()" hidden>Remove photo</button><span id="resident-profile-photo-error" role="status" aria-live="polite"></span><div id="resident-profile-photo-preview-actions" hidden><button type="button" class="btn-solid" data-action-click="saveProfilePhoto()">Save photo</button><button type="button" class="btn-outline" data-action-click="cancelProfilePhotoPreview()">Cancel</button></div></div>
                     </div>
+                    <small id="resident-profile-account-label" class="admin-profile-account-pill">Barangay San Jose Resident Account</small>
+                    <div class="resident-profile-photo-actions"><input id="resident-profile-photo-input" type="file" accept="image/jpeg,image/png,image/webp" hidden><button type="button" class="profile-text-action" data-action-click="openProfilePhotoPicker()">Change photo</button><button type="button" class="profile-text-action" id="resident-profile-photo-remove" data-action-click="removeProfilePhoto()" hidden>Remove photo</button><span id="resident-profile-photo-error" role="status" aria-live="polite"></span><div id="resident-profile-photo-preview-actions" hidden><button type="button" class="btn-solid" data-action-click="saveProfilePhoto()">Save photo</button><button type="button" class="btn-outline" data-action-click="cancelProfilePhotoPreview()">Cancel</button></div></div>
                 </div>
                 <div class="resident-profile-columns">
                     <section class="card resident-profile-card resident-profile-details-card" aria-labelledby="resident-profile-details-title">
@@ -818,7 +842,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                             <section class="resident-security-row admin-profile-mfa-row admin-profile-only" aria-labelledby="admin-profile-mfa-title" hidden>
                                 <div class="resident-security-summary"><div class="resident-security-leading"><span class="resident-profile-item-icon"><i class="fas fa-shield-halved" aria-hidden="true"></i></span><div class="resident-security-copy"><div class="admin-profile-subheading"><h3 id="admin-profile-mfa-title">Two-factor authentication</h3><span class="admin-profile-enabled-badge" id="admin-profile-mfa-enabled-badge" hidden>Enabled</span></div><p id="admin-profile-mfa-status">Loading status…</p></div></div></div>
                                 <div class="admin-profile-actions"><button type="button" class="btn-outline" id="admin-profile-mfa-setup" data-action-click="beginAdminProfileMfa()">Set up authenticator</button><button type="button" class="btn-outline admin-profile-danger-button" id="admin-profile-mfa-reset" data-action-click="beginAdminProfileMfa()" hidden>Reset authenticator</button></div>
-                                <div id="admin-profile-mfa-setup-box" hidden><p id="admin-profile-mfa-secret-hint">Add this key to your authenticator app:</p><code id="admin-profile-mfa-secret"></code><form id="admin-profile-mfa-confirm-form" data-action-submit="confirmAdminProfileMfa(event)"><label>Current 6-digit code<input id="admin-profile-mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required></label><button type="submit" class="btn-solid">Confirm authenticator</button><button type="button" class="btn-outline" data-action-click="cancelAdminProfileMfa()">Cancel</button></form></div>
+                                <div id="admin-profile-mfa-setup-box" hidden><p id="admin-profile-mfa-secret-hint">Add this key to your authenticator app:</p><div class="admin-mfa-secret-copy"><code id="admin-profile-mfa-secret"></code><button type="button" class="btn-outline admin-mfa-copy-button" data-action-click="copyAuthenticatorSetupKey('admin-profile-mfa-secret')"><i class="fas fa-copy" aria-hidden="true"></i> Copy key</button></div><form id="admin-profile-mfa-confirm-form" data-action-submit="confirmAdminProfileMfa(event)"><label>Current 6-digit code<input id="admin-profile-mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required></label><button type="submit" class="btn-solid">Confirm authenticator</button><button type="button" class="btn-outline" data-action-click="cancelAdminProfileMfa()">Cancel</button></form></div>
                             </section>
                         </div>
                     </section>
@@ -856,7 +880,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
             <div class="split-screen">
                 <div class="left-panel" aria-hidden="true">
                     <div class="panel-content">
-                        <img src="Barangay San Jose, Biringan City.png" alt="" class="panel-logo" loading="lazy">
+                        <img src="assets/barangay-seal.svg" alt="" class="panel-logo" width="128" height="128" loading="lazy" decoding="async">
                         <span class="badge">Secure resident services</span>
                         <h1>Digital Disclosure &amp; Document Request Portal</h1>
                         <p>Manage your account email and keep your document requests up to date.</p>
@@ -884,7 +908,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
             <div class="split-screen">
                 <div class="left-panel" aria-hidden="true">
                     <div class="panel-content">
-                        <img src="Barangay San Jose, Biringan City.png" alt="" class="panel-logo" loading="lazy">
+                        <img src="assets/barangay-seal.svg" alt="" class="panel-logo" width="128" height="128" loading="lazy" decoding="async">
                         <span class="badge">Account security</span>
                         <h1>Secure access to your portal account.</h1>
                         <p>Choose a new password for your Barangay San Jose account.</p>
@@ -936,6 +960,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('pp-cookies')">Cookies</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('pp-rights')">Your rights</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('pp-changes')">Changes</button></li>
+                        <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('pp-project-contact')">Responsible project contact</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('pp-contact')">Contact</button></li>
                     </ol>
                 </nav>
@@ -943,47 +968,53 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <header class="policy-header policy-privacy">
                         <p class="eyebrow">Legal</p>
                         <h1 id="privacy-policy-title">Privacy Policy</h1>
-                        <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 17, 2026</span></p></header>
-                    <p class="policy-lead">This Privacy Policy explains how the Barangay San Jose Digital Portal collects, uses, stores, and shares personal information when residents create accounts, submit proof of residency, request documents, or contact the portal. We handle personal information under the Philippine Data Privacy Act of 2012 (Republic Act No. 10173) and its applicable rules.</p>
+                    <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 21, 2026</span></p></header>
+                    <p class="policy-lead">This is an academic prototype, not an official barangay service. It may process information entered into its forms as described below. This notice models the protections expected for real personal information under the Philippine Data Privacy Act of 2012 (Republic Act No. 10173); the academic-project notice does not mean submitted data is fictional or automatically deleted.</p>
 
                     <h2 id="pp-collect">Information we collect</h2>
                     <p>Depending on the features you use, the portal may collect:</p>
                     <ul>
-                        <li>Identity and account details, such as your name, email address, phone number, and residential address</li>
-                        <li>Proof-of-residency documents and other files you choose to upload</li>
+                        <li>Identity and account details, including your name, email address, optional phone number, residential address, and password hash</li>
+                        <li>Profile photos you choose to upload</li>
+                        <li>Proof-of-residency files required for online requests, which may contain information from a government-issued ID</li>
                         <li>Document request information, including the document type, stated purpose, tracking number, status, and related processing or payment status</li>
                         <li>Registration, verification, request, and account activity dates and records</li>
-                        <li>Technical and security information, such as IP address, browser or device details, session information, and server or error logs</li>
-                        <li>Messages and contact details you send to the barangay through the portal or the listed contact email</li>
+                        <li>Technical and security information, such as IP address, browser or device details, session information, rate-limit records, audit entries, and server or error logs</li>
+                        <li>Browser storage: a language preference in local storage and a temporary administrator disclosure draft in session storage</li>
+                        <li>Messages and contact details you send to the project through the portal or listed email</li>
                     </ul>
-                    <p>Please provide only information needed for your account or request. Do not upload another person's personal information unless you are authorized to do so.</p>
+                    <p>Information entered into the forms is handled as potentially real personal information. Do not provide another person's information unless you are authorized to do so. The academic-project label does not guarantee that submissions are test data.</p>
 
                     <h2 id="pp-use">How we use it</h2>
-                    <p>We use your information to manage and secure your account, confirm your email address and residency, and process document requests. We also use it to send status updates, prevent spam and unauthorized access, maintain the portal, respond to complaints or lawful requests, and meet recordkeeping or legal requirements.</p>
-                    <p>As applicable to the particular processing, the lawful basis may include your consent, a step you request or a service you use, compliance with a legal obligation, protection of vital interests or public order, or a legitimate interest such as portal security, subject to the rights and protections provided by law.</p>
+                    <p>The prototype uses account details to create and secure an account, verify email, and support account recovery. It uses request details and proof files to review and track document requests, and technical records to secure and maintain the application. Email details are used for verification, recovery, and service notifications. The prototype does not offer advertising or analytics features.</p>
+                    <p>This academic prototype has not documented a final lawful-basis assessment for each processing purpose or a specific legal basis for processing government-issued ID information. This notice describes the project’s intended handling but does not by itself establish a lawful basis. Any real operator must complete that assessment before live use. Registration records acceptance of the Terms and acknowledgment of this Privacy Notice with one checkbox; that checkbox is not blanket consent for every use of information.</p>
 
                     <h2 id="pp-accounts">Accounts &amp; uploads</h2>
-                    <p>Residents can create an account and sign in without administrator approval. An unverified account may browse the portal, but a verified email address is required before submitting a document request. For online requests, authorized personnel can access the uploaded National ID or Certificate of Residency needed to review the request. For walk-in requests, staff record the request after checking the resident's identity in person.</p>
-                    <p>Uploaded proof files are used for request processing and stored in the portal's protected storage area. Access is restricted by the portal's technical controls, but no online system can guarantee that information will never be exposed. Do not upload another person's identity document unless authorized to do so.</p>
+                    <p>Residents can create an account and sign in without administrator approval. Email verification is required before submitting an online document request. The request form requires a National ID or Certificate of Residency. Authorized administrators can view uploaded proofs and request details. Walk-in request details are entered by an administrator to demonstrate the in-person workflow.</p>
+                    <p>Request proofs and disclosure attachments are stored outside the public web root by default. Request proofs are served only through an administrator-only endpoint. Published disclosure attachments are intentionally available to the public; administrators should not publish an attachment containing personal information unless disclosure is authorized and necessary.</p>
 
                     <h2 id="pp-retention">Data retention</h2>
-                    <p>Accounts with no verified email and no submitted request are automatically archived after 30 days. Other account, request, and security records are retained only as reasonably needed to administer the service, meet applicable records or legal obligations, resolve disputes, or protect the portal. When information is no longer needed and no lawful reason requires keeping it, it will be securely deleted or de-identified. Expired verification and password-reset tokens are not valid for continued use.</p>
+                    <p>Unverified accounts with no request are marked archived after 30 days. Archiving disables access but does not itself delete the account record. Password-reset tokens expire after one hour and email-verification links after 24 hours; expired tokens may remain in the database until cleanup runs. Successfully sent email bodies are cleared and their queue records are removed after 30 days.</p>
+                    <p>The current prototype does not implement a fixed deletion schedule for resident account records, document requests, uploaded request proofs, profile photos, audit logs, failed email metadata, disclosure attachments, or backups. These records may therefore remain until manually deleted or otherwise removed by the project operator. No retention period for these records has been approved. A real service must set and implement periods consistent with applicable barangay records rules before accepting operational data.</p>
 
                     <h2 id="pp-security">Security</h2>
-                    <p>The portal uses safeguards intended to protect information, including HTTPS, password hashing, access controls, session protections, request protections, and restricted storage for uploaded documents. Access to information is limited to personnel who need it for their duties. We review and improve safeguards as the portal changes. If a personal data breach meets the legal notification requirements, affected individuals and the National Privacy Commission will be notified as required by law. No website or transmission over the internet is completely secure; please use a unique password and report suspected unauthorized access promptly.</p>
+                    <p>The application includes password hashing, role-based access checks, administrator multi-factor authentication, session protections, request protections, and restricted storage for request proofs. These are application controls, not a guarantee about the live host, database permissions, staff practices, or backups. A production operator must verify those controls and maintain an incident-response process. If a breach meets the legal notification requirements, the responsible controller must notify affected people and the National Privacy Commission as required by law. Report suspected exposure to the contact below.</p>
 
                     <h2 id="pp-third">Third-party services</h2>
-                    <p>The portal relies on a website hosting provider to operate and store its data, Mailtrap for transactional email delivery, and Google reCAPTCHA to help detect automated abuse. When these services are used, relevant technical information, account or request messages, or delivery details may be processed by those providers under their own privacy terms. Information may be processed on systems located outside the Philippines. The portal does not use account or request information to build advertising profiles or sell it for advertising. Contact us if you need information about a particular disclosure or service provider.</p>
+                    <p>The application is configured to use a website host and database, an SMTP email-delivery service, and Google reCAPTCHA for automated-abuse checks. Those providers may process the technical information or email content needed for their services. The specific hosting and email providers, their processing locations, and the applicable service agreements depend on deployment settings and are not identified in this codebase. A real operator must identify them and confirm whether information is processed outside the Philippines before launch.</p>
 
                     <h2 id="pp-cookies">Cookies</h2>
-                    <p>The portal uses an essential session cookie to keep you signed in and protect account actions. The login and anti-abuse services may also use cookies or similar technical signals for security. The portal does not currently use optional advertising or analytics cookies. You can block cookies in your browser, but sign-in and other protected features may not work correctly.</p>
+                    <p>The portal uses an essential session cookie to keep you signed in and protect account actions. Google reCAPTCHA may use cookies or similar technical signals when its checks run. The application also saves the selected language in local storage and temporarily saves an administrator's disclosure draft in session storage. The codebase contains no optional advertising or analytics cookies. Blocking cookies may prevent sign-in and protected features from working.</p>
 
                     <h2 id="pp-rights">Your rights</h2>
                     <p>Subject to the conditions and exceptions in RA 10173, you may ask to be informed about processing; access or receive a copy of your personal information; correct inaccurate or incomplete information; object to or withdraw consent from certain processing; request erasure or blocking where allowed; request data portability where applicable; and file a complaint with the National Privacy Commission. You may also seek damages where the law provides that right.</p>
-                    <p>To make a privacy request, email us using the contact details below. Tell us which account or request is involved and what action you are seeking. We may ask for information reasonably needed to verify your identity and protect your account. We will assess the request under applicable law and explain if a legal or operational obligation prevents us from completing it.</p>
+                    <p>To make a privacy request or report suspected misuse, email the project contact below. Identify the account or request and explain what you are asking us to do. We may request reasonable information to verify your identity. The project contact will review the request and explain any legal or records obligation that limits what can be done. You may also file a complaint with the National Privacy Commission under its applicable process.</p>
 
                     <h2 id="pp-changes">Changes</h2>
                     <p>We may revise this policy when our services, practices, or legal obligations change. The revised version and its effective or last-updated date will be posted on this page. For material changes, we will provide notice through the portal or by email when reasonably practicable.</p>
+
+                    <h2 id="pp-project-contact">Responsible project contact</h2>
+                    <p>Barangay San Jose Digital Portal academic project. Send privacy questions or requests to <a href="mailto:deleonjuliusakeem@gmail.com">deleonjuliusakeem@gmail.com</a>. A formally designated Data Protection Officer or real barangay personal information controller is not identified by this prototype.</p>
 
                     <h2 id="pp-contact">Contact</h2>
                     <div class="policy-contact-card">
@@ -1030,14 +1061,14 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <header class="policy-header policy-terms">
                         <p class="eyebrow">Legal</p>
                         <h1 id="terms-title">Terms &amp; Conditions</h1>
-                    <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 17, 2026</span></p></header>
-                    <p class="policy-lead">By using this portal, you agree to these Terms and Conditions. Please read them before registering or submitting any request.</p>
+                    <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 21, 2026</span></p></header>
+                    <p class="policy-lead">This is an academic prototype, not an official barangay service. By creating an account or using its account features, you agree to these Terms. The separate Privacy Notice explains how information entered into the prototype is handled.</p>
 
                     <h2 id="tc-acceptance">Acceptance</h2>
-                    <p>By creating an account, submitting a request, or using portal features, you agree to these Terms. If you do not agree, do not use the account or request features. These Terms apply together with the Privacy Policy and any instructions shown for a particular service.</p>
+                    <p>By creating an account or using account features, you agree to these Terms. If you do not agree, do not create an account. These Terms apply together with the Privacy Policy and any instructions shown for a feature. Registration uses one checkbox to record agreement to these Terms and acknowledgment of the Privacy Policy; that acknowledgment is not consent to optional uses of personal information.</p>
 
                     <h2 id="tc-accounts">Accounts &amp; services</h2>
-                    <p>The portal allows residents to register, submit proof of residency with an online request, track requests, and request available barangay documents. Residents may sign in and browse before verifying their email, but must verify it before submitting an online request. Account creation does not guarantee that a document request will be approved or issued. Provide accurate, current information and keep your password, access key, and authenticator codes confidential. You are responsible for activity performed through your account unless you promptly report suspected unauthorized use.</p>
+                    <p>The prototype allows users to register, submit proof of residency with an online request, track requests, and view sample public disclosures. Users may sign in and browse before verifying their email, but must verify it before submitting an online request. This academic prototype cannot issue an official barangay document or guarantee a real barangay service. Provide accurate information for the exercise and keep your password and authenticator codes confidential.</p>
 
                     <h2 id="tc-responsibilities">Your responsibilities</h2>
                     <p>You agree not to:</p>
@@ -1052,16 +1083,16 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     </ul>
 
                     <h2 id="tc-fees">Fees and pickup</h2>
-                    <p>Any applicable document fee will be shown during the request process or confirmed by the barangay office. Fees may differ by document type and may change. Where the portal indicates payment is due at pickup, payment is collected through the barangay office when the document is claimed; the portal does not promise online payment unless that option is expressly shown.</p>
+                    <p>Document types and payment-status fields in this prototype are examples for the academic exercise. The prototype does not collect payment or issue official documents. Any fee or pickup process for a real barangay service must be confirmed directly with that barangay.</p>
 
                     <h2 id="tc-admin">Administration rights</h2>
-                    <p>Authorized personnel may review online proof-of-residency files and requests for completeness, eligibility, authenticity, and compliance with these Terms and applicable requirements. Walk-in requests are recorded by staff after an in-person identity check. A request may be declined or returned for more information. Where reasonably practicable, the portal or office will provide the decision or next steps through the contact details on the account. If you believe a decision was made in error, contact the barangay office with your tracking number or account email.</p>
+                    <p>Project administrators may review submitted files and requests to demonstrate a review workflow. Walk-in records are sample entries. No decision in this prototype is an official eligibility determination, and no request can result in an official document. If you have a concern about a project account or sample request, contact the project email below.</p>
 
                     <h2 id="tc-warranties">No warranties</h2>
-                    <p>The portal is provided as an online service and may be unavailable, delayed, or changed for maintenance, security, connectivity, or operational reasons. We work to keep information and features useful but do not warrant uninterrupted or error-free access. A portal status or confirmation is not a substitute for a final decision or official document issued by the barangay office.</p>
+                    <p>This academic prototype may be unavailable, delayed, or changed for maintenance, security, connectivity, or project reasons. We do not warrant uninterrupted or error-free access. A portal status or confirmation is not an official decision or government document.</p>
 
                     <h2 id="tc-liability">Liability</h2>
-                    <p>To the extent permitted by Philippine law, the portal operator is not responsible for losses caused by a user's failure to protect account credentials, inaccurate information supplied by a user, third-party services outside the portal's control, or interruptions beyond reasonable control. Nothing in these Terms excludes liability or a remedy that cannot lawfully be excluded, limits rights provided by law, or excuses a party from its legal duties.</p>
+                    <p>To the extent permitted by Philippine law, the project operator is not responsible for losses caused by a user's failure to protect account credentials, inaccurate information supplied by a user, third-party services outside the project's control, or interruptions beyond reasonable control. Nothing in these Terms excludes liability or a remedy that cannot lawfully be excluded, limits rights provided by law, or excuses a party from its legal duties.</p>
 
                     <h2 id="tc-third">Third-party content</h2>
                     <p>User-submitted content remains the responsibility of the person who submits it. External websites and third-party services are governed by their own terms and privacy notices; we do not control their availability or practices. We may review or remove portal content as described in the Moderation Policy.</p>
@@ -1079,7 +1110,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <div class="policy-contact-card">
                         <span class="policy-contact-icon"><i class="fas fa-envelope" aria-hidden="true"></i></span>
                         <div class="policy-contact-body">
-                            <strong>Barangay San Jose Digital Portal</strong>
+                            <strong>Barangay San Jose Digital Portal academic project</strong>
                             <a href="mailto:deleonjuliusakeem@gmail.com">deleonjuliusakeem@gmail.com</a>
                         </div>
                     </div>
@@ -1116,36 +1147,34 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <header class="policy-header policy-moderation">
                         <p class="eyebrow">Legal</p>
                         <h1 id="moderation-title">Moderation Policy</h1>
-                        <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 17, 2026</span></p></header>
-                    <p class="policy-lead">We aim to keep this portal safe and useful for the community. This policy explains how submissions are reviewed and how to report problems.</p>
+                        <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 21, 2026</span></p></header>
+                    <p class="policy-lead">This academic prototype is not an official barangay service. This policy explains how project administrators handle account, request, and sample disclosure submissions.</p>
 
                     <h2 id="mod-prohibited">Prohibited content</h2>
                     <p>We may reject or remove submissions that include:</p>
                     <ul>
-                        <li>Threats, harassment, or abusive language</li>
-                        <li>Hate speech or discriminatory statements</li>
+                        <li>Threats, harassment, abusive language, hate speech, or discriminatory statements</li>
                         <li>Spam, repeated junk submissions, or attempts to disrupt the service</li>
                         <li>Fraudulent, forged, altered, or misleading registration details or supporting documents</li>
-                        <li>Threats, harassment, discriminatory abuse, or content that appears unlawful</li>
                         <li>Instructions or files intended to facilitate illegal activity or compromise the portal</li>
                         <li>Personal or sensitive information about another person shared without authority or a lawful purpose</li>
                         <li>Material that infringes copyright or another person's rights</li>
                     </ul>
 
                     <h2 id="mod-review">How we review</h2>
-                    <p>Authorized personnel review proof-of-residency files submitted with online document requests. Reviews may consider completeness, eligibility, whether the file supports the stated request, and compliance with applicable requirements. Walk-in identity is checked by staff in person. The portal does not guarantee approval or issuance. We may ask for clarification or a replacement file when more information is needed.</p>
+                    <p>Project administrators can review online proof-of-residency files and requests to demonstrate a review workflow. They may ask for clarification or reject a sample submission. No review is an official government decision, and no document is issued by this prototype. Published disclosure content and attachments are public; administrators should not post personal information unless its publication is authorized and necessary.</p>
 
                     <h2 id="mod-reporting">Reporting problems</h2>
                     <p>To report harmful content, suspected fraud, unauthorized disclosure, or a moderation concern, email <a href="mailto:deleonjuliusakeem@gmail.com">deleonjuliusakeem@gmail.com</a>. Include the relevant tracking number or page, describe the concern, and tell us how we can contact you. Do not email passwords, authenticator codes, or unrelated sensitive documents.</p>
 
                     <h2 id="mod-removal">Removal &amp; rejection</h2>
-                    <p>Depending on the issue, we may ask for more information, restrict access to a file, return a request for correction, or reject or remove content that violates this policy or applicable law. We will provide a reason or next step when reasonably practicable, while protecting other people's privacy and the integrity of an investigation.</p>
+                    <p>Depending on the issue, project administrators may restrict access to a file, return a sample request for correction, or reject, unpublish, or remove content. They should provide a reason or next step when reasonably practicable while protecting other people's privacy.</p>
 
                     <h2 id="mod-repeat">Repeat violations</h2>
                     <p>Repeated or serious violations may lead to additional review, temporary restrictions, account suspension, or account closure. The response will take into account the nature and seriousness of the conduct and any applicable legal or safety needs.</p>
 
                     <h2 id="mod-approval">Decisions and review</h2>
-                    <p>Submitting a registration or request does not guarantee approval, processing by a particular date, or issuance of a document. If a registration, upload, or request is rejected or restricted, contact the barangay office at the email below with your account email or tracking number to ask for clarification or a review. There is no in-portal appeal feature or guaranteed response time; applicable legal rights remain unaffected.</p>
+                    <p>Submitting a registration or sample request does not guarantee review by a particular date or any real-world service. If a submission is rejected or content is removed, contact the project email below with your account email or tracking number to ask for clarification. There is no in-portal appeal feature or guaranteed response time.</p>
 
                     <h2 id="mod-responsibility">User responsibility</h2>
                     <p>Check information and files before submitting them, use the portal only for your own authorized account and requests, and respect the privacy and rights of other people. Report suspected account compromise or an incorrect moderation action promptly.</p>
@@ -1154,7 +1183,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <div class="policy-contact-card">
                         <span class="policy-contact-icon"><i class="fas fa-envelope" aria-hidden="true"></i></span>
                         <div class="policy-contact-body">
-                            <strong>Barangay San Jose Digital Portal</strong>
+                            <strong>Barangay San Jose Digital Portal academic project</strong>
                             <a href="mailto:deleonjuliusakeem@gmail.com">deleonjuliusakeem@gmail.com</a>
                         </div>
                     </div>
@@ -1188,8 +1217,8 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <header class="policy-header policy-copyright">
                         <p class="eyebrow">Legal</p>
                         <h1 id="copyright-title">Copyright Notice</h1>
-                        <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 17, 2026</span></p></header>
-                    <p class="policy-lead">We respect intellectual property rights under Philippine law, including the Intellectual Property Code of the Philippines (Republic Act No. 8293). This page explains how portal materials and resident uploads may be used, and how to report a suspected infringement.</p>
+                        <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 21, 2026</span></p></header>
+                    <p class="policy-lead">We respect intellectual property rights under Philippine law, including the Intellectual Property Code of the Philippines (Republic Act No. 8293). This academic prototype explains how project materials and submissions may be used, and how to report a suspected infringement.</p>
 
                     <h2 id="cr-policy">Copyright policy</h2>
                     <p>Text, graphics, software, photographs, and other materials on the portal may be protected by copyright or other rights. Those rights remain with the relevant owner. You may not copy or reuse protected portal material except with permission or as allowed by law. Nothing on this page transfers ownership of a government seal, third-party work, or other protected material.</p>
@@ -1216,7 +1245,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <div class="policy-contact-card">
                         <span class="policy-contact-icon"><i class="fas fa-envelope" aria-hidden="true"></i></span>
                         <div class="policy-contact-body">
-                            <strong>Barangay San Jose Digital Portal</strong>
+                            <strong>Barangay San Jose Digital Portal academic project</strong>
                             <a href="mailto:deleonjuliusakeem@gmail.com">deleonjuliusakeem@gmail.com</a>
                         </div>
                     </div>
@@ -1234,7 +1263,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <?php require __DIR__ . '/includes/shared/site-footer.php'; ?>
 
     <?php require __DIR__ . '/includes/shared/dialogs.php'; ?>    <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true">Message</div>
-    <script src="script.js?v=20261021-public-record-archive-grid-v1" defer></script>
+    <script src="script.js?v=20261022-resident-table-cells-v1" defer></script>
 </body>
 </html>
 

@@ -90,6 +90,7 @@
     padding: 0;
 }
 .admin-workspace {
+    display: grid;
     width: 100%;
     min-height: calc(100vh - var(--topbar-height));
     grid-template-columns: var(--rail-width) minmax(0, 1fr);
@@ -287,5 +288,11 @@ html.modal-open-root { overflow-y: hidden; scrollbar-width: none !important; }
 html.modal-open-root::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
 @media (prefers-reduced-motion: reduce) {
     .info-notice-overlay, .info-notice-overlay .modal-box { transition: none; }
+}
+
+/* Use the top admin navigation on larger screens; retain the rail on phones. */
+@media (min-width: 768px) {
+    #admin-dashboard .admin-workspace { grid-template-columns: minmax(0, 1fr); }
+    #admin-dashboard .admin-workspace > .admin-rail { display: none; }
 }
 

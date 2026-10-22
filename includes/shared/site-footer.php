@@ -2,7 +2,7 @@
 
     <?php if (empty($suppressSiteDisclaimer)): ?>
     <aside class="site-disclaimer-bar" aria-label="Site disclaimer">
-        <p class="site-disclaimer"><strong>Disclaimer:</strong> This website is for demonstration and academic purposes only as part of an SIA subject project. It does not represent a real company, official service, or legal government entity. No real government operations or claims are made.</p>
+        <p class="site-disclaimer"><strong>Disclaimer:</strong> This website is created for demonstration and academic purposes only as part of an SIA subject project. It is not a real company, official service, registered business, or commercial website. No claims are made regarding actual business operations, legal standing, or real-world services.</p>
     </aside>
     <?php endif; ?>
 
@@ -12,7 +12,7 @@
                 <div class="site-footer-public-columns">
                     <div class="site-footer-contact-column">
                         <div class="site-footer-brand">
-                            <img src="Barangay San Jose, Biringan City.png" alt="" class="site-footer-seal" aria-hidden="true">
+                            <img src="assets/barangay-seal.svg" alt="" class="site-footer-seal" width="128" height="128" loading="lazy" decoding="async" aria-hidden="true">
                             <div class="site-footer-brand-copy">
                                 <strong>Barangay San Jose</strong>
                                 <span>Digital services and public records</span>
@@ -47,7 +47,7 @@
             </div>
             <div class="site-footer-legacy-layout">
                 <div class="site-footer-brand">
-                    <img src="Barangay San Jose, Biringan City.png" alt="" class="site-footer-seal" aria-hidden="true">
+                    <img src="assets/barangay-seal.svg" alt="" class="site-footer-seal" width="128" height="128" loading="lazy" decoding="async" aria-hidden="true">
                     <div class="site-footer-brand-copy">
                         <strong>Barangay San Jose</strong>
                         <span>Digital services and public records</span>

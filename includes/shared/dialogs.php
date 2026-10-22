@@ -41,25 +41,3 @@
         </div>
     </div>
 
-    <div id="register-terms-dialog" class="modal-overlay register-terms-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="register-dialog-title" aria-describedby="register-dialog-instructions">
-        <div class="modal-box register-terms-modal">
-            <div class="modal-heading"><p class="eyebrow">Before you register</p><h2 id="register-dialog-title">Terms &amp; Conditions</h2><p id="register-dialog-instructions">Please scroll through the terms. Once you reach the end, you can close this window and agree on the registration form.</p></div>
-            <div class="register-terms-scroll" id="register-terms-scroll" tabindex="0" role="region" aria-label="Terms and Conditions for registration">
-                <p class="policy-updated">Last updated October 3, 2026 · Academic project — no real data collected</p>
-                <h3>Acceptance</h3><p>You agree to use this portal only for lawful purposes and in a way that does not harm others or violate these rules.</p>
-                <h3>Accounts &amp; services</h3><p>This portal lets residents register accounts, submit proof of residency, and request barangay documents. Access is granted after administrator verification. You are responsible for keeping your login secure and for the accuracy of what you submit.</p>
-                <h3>Your responsibilities</h3><p>You agree not to:</p><ul><li>Provide false, misleading, or fraudulent registration details</li><li>Upload forged or altered proof-of-residency documents</li><li>Impersonate another person or submit requests on their behalf without authority</li><li>Use the portal for illegal activity or to harm others</li><li>Upload copyrighted material without permission</li><li>Share sensitive data about other people without their consent</li></ul>
-                <h3>Administration rights</h3><p>We may review, approve, reject, or remove any registration, request, or upload that violates these terms or appears fraudulent. Accounts that repeatedly misuse the portal may be suspended.</p>
-                <h3>No warranties</h3><p>This portal is provided “as is.” We do not guarantee uninterrupted, secure, or error-free access.</p>
-                <h3>Liability</h3><p>We are not liable for damages arising from the use of this portal, including issues from user-submitted content, downtime, or security events.</p>
-                <h3>Third-party content</h3><p>We are not responsible for content submitted by users or for third-party links or services that appear on this portal.</p>
-                <h3>Changes</h3><p>We may update, change, or remove features at any time without notice.</p>
-                <h3>Termination</h3><p>We may suspend or remove access if we believe a user has violated these Terms.</p>
-                <h3>Governing law</h3><p>These Terms are governed by the laws of the Republic of the Philippines.</p>
-                <h3>Contact</h3><p>Barangay San Jose Digital Portal: <a href="mailto:deleonjuliusakeem@gmail.com">deleonjuliusakeem@gmail.com</a></p>
-            </div>
-            <p class="register-terms-hint" id="register-dialog-hint" aria-live="polite">Scroll to the bottom to finish reading.</p>
-            <div class="modal-actions register-terms-actions"><button class="btn-outline" type="button" id="register-terms-close" disabled>Close</button></div>
-        </div>
-    </div>
-

@@ -52,8 +52,8 @@ try {
     $authVersion = $version->fetchColumn();
     if ($authVersion === false) throw new RuntimeException('Account disappeared during password update.');
 
-    $audit = $pdo->prepare("INSERT INTO audit_log (user_id, action, details) VALUES (?, ?, ?)");
-    $audit->execute([$isAdmin ? $accountId : null, $isAdmin ? 'admin_password_changed' : 'resident_password_changed', $isAdmin ? 'Administrator changed their password' : 'Resident ID ' . $accountId]);
+    $audit = $pdo->prepare("INSERT INTO audit_log (user_id, subject_resident_id, action, details) VALUES (?, ?, ?, ?)");
+    $audit->execute([$isAdmin ? $accountId : null, $isAdmin ? null : $accountId, $isAdmin ? 'admin_password_changed' : 'resident_password_changed', $isAdmin ? 'Administrator changed their password' : 'Resident ID ' . $accountId]);
     $pdo->commit();
 
     $oldSessionKey = hash('sha256', session_id());

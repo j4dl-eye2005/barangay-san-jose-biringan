@@ -2,6 +2,59 @@
 // This prevents the default landing section from flashing during startup.
 (() => {
     const body = document.body;
+    const routeCssPromises = new Map();
+    const routeCssLoaded = new Set();
+    const authRoutes = new Set([
+        'login', 'admin-login', 'forgot-password', 'register', 'resident-dashboard',
+        'resident-profile', 'resident-change-email', 'resident-change-password'
+    ]);
+
+    function routeCssGroupsFor(route) {
+        const groups = [];
+        const role = body.dataset.accountRole || 'Guest';
+        if (authRoutes.has(route)) groups.push('auth');
+        if (route === 'admin-dashboard' || (role === 'Admin' && ['bulletin', 'resident-profile'].includes(route))) groups.push('admin');
+        if (route === 'page-unavailable') groups.push('unavailable');
+        return groups;
+    }
+
+    function loadRouteCssGroup(group) {
+        if (routeCssLoaded.has(group)) return Promise.resolve();
+        if (routeCssPromises.has(group)) return routeCssPromises.get(group);
+        const placeholders = [...document.querySelectorAll(`link[data-portal-route-css="${group}"]`)];
+        if (!placeholders.length) {
+            routeCssLoaded.add(group);
+            return Promise.resolve();
+        }
+        const pending = Promise.all(placeholders.map(placeholder => new Promise(resolve => {
+            const link = document.createElement('link');
+            let finished = false;
+            let timeoutId;
+            const finish = () => {
+                if (finished) return;
+                finished = true;
+                if (timeoutId) window.clearTimeout(timeoutId);
+                resolve();
+            };
+            link.rel = 'stylesheet';
+            link.href = placeholder.dataset.portalCssHref;
+            link.addEventListener('load', finish, { once: true });
+            link.addEventListener('error', finish, { once: true });
+            // Keep route styles at their placeholder position in the cascade.
+            // Appending them to the end lets admin-responsive.css override the
+            // shared portal header and footer rules that intentionally follow it.
+            placeholder.parentNode.insertBefore(link, placeholder);
+            placeholder.remove();
+            timeoutId = window.setTimeout(finish, 5000);
+        }))).then(() => {
+            routeCssLoaded.add(group);
+        });
+        routeCssPromises.set(group, pending);
+        return pending;
+    }
+
+    window.ensurePortalRouteStyles = route => Promise.all(routeCssGroupsFor(route).map(loadRouteCssGroup));
+    window.portalRouteStylesAreReady = route => routeCssGroupsFor(route).every(group => routeCssLoaded.has(group));
     const adminSections = ['overview', 'requests', 'residents', 'disclosures', 'activity'];
     const sections = [
         'landing', 'bulletin', 'login', 'admin-login', 'forgot-password', 'register',
@@ -45,6 +98,15 @@
     }
 
     body.dataset.routeStart = route || 'landing';
+    if (['landing', 'login', 'admin-login', 'forgot-password', 'register'].includes(body.dataset.routeStart)) {
+        const heroImagePreload = document.createElement('link');
+        heroImagePreload.rel = 'preload';
+        heroImagePreload.as = 'image';
+        heroImagePreload.href = new URL('assets/barangay-hall-background.webp', document.baseURI).href;
+        heroImagePreload.type = 'image/webp';
+        heroImagePreload.fetchPriority = 'high';
+        document.head.appendChild(heroImagePreload);
+    }
     body.classList.toggle('public-portal-view', [
         'landing', 'bulletin', 'login', 'admin-login', 'forgot-password', 'register',
         'resident-dashboard', 'resident-change-email', 'resident-change-password',
@@ -58,4 +120,10 @@
     }
     body.classList.toggle('unavailable-view', unavailableView);
     document.documentElement.classList.toggle('hide-unavailable-scrollbar', unavailableView);
+    if (!window.portalRouteStylesAreReady(body.dataset.routeStart)) {
+        body.dataset.routeStylesPending = '1';
+        void window.ensurePortalRouteStyles(body.dataset.routeStart).finally(() => {
+            delete body.dataset.routeStylesPending;
+        });
+    }
 })();

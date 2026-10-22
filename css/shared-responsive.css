@@ -285,6 +285,20 @@
     .proof-preview-actions { padding: var(--space-2); }
 }
 
+/* Mobile legal pages do not use the desktop section rail or mobile pill row. */
+@media (max-width: 900px) {
+    :is(#privacy-policy, #terms, #moderation, #copyright) .policy-toc {
+        display: none !important;
+        position: static !important;
+        width: 0 !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        visibility: hidden !important;
+    }
+}
+
 /* Mobile fit and touch targets */
 @media (max-width: 720px) {
     body { font-size: 16px; line-height: 1.55; }
@@ -1393,7 +1407,7 @@
         line-height: 1.4;
     }
     .activity-detail-cell > strong,
-    .activity-admin-table td[data-label="Admin"] > strong {
+    .activity-admin-table td[data-label="Actor"] > strong {
         font-size: 17px;
         font-weight: 600;
         line-height: 1.3;
@@ -1462,7 +1476,7 @@
     .request-detail-card h3,
     .request-timeline-item strong,
     .activity-detail-cell > strong,
-    .activity-admin-table td[data-label="Admin"] > strong,
+    .activity-admin-table td[data-label="Actor"] > strong,
     .resident-admin-table .resident-admin-name,
     .proof-preview-title,
     .reg-file-name,
@@ -1692,19 +1706,8 @@
     }
     :is(#privacy-policy, #terms, #moderation, #copyright) .policy-toc,
     :is(#privacy-policy, #terms, #moderation, #copyright) .policy-toc {
-        position: sticky;
-        top: calc(var(--topbar-height) + 3px);
-        z-index: 200;
-        min-width: 0;
-        margin: 0 -14px;
-        padding: 4px 14px;
-        overflow: visible;
-        border: 0;
-        border-radius: 0;
-        background: var(--color-canvas);
+        display: none;
     }
-    :is(#privacy-policy, #terms, #moderation, #copyright) .policy-toc,
-    :is(#privacy-policy, #terms, #moderation, #copyright) .policy-toc { display: none; }
     :is(#privacy-policy, #terms, #moderation, #copyright) .policy-toc::after,
     :is(#privacy-policy, #terms, #moderation, #copyright) .policy-toc::after {
         position: absolute;
@@ -1874,23 +1877,6 @@
     .policy-back-top { transition: none; animation: none; }
     #privacy-policy .policy-toc-list,
     #terms .policy-toc-list { scroll-behavior: auto; }
-}
-
-@media (max-width: 720px) {
-    #moderation .policy-toc,
-    #copyright .policy-toc {
-        position: static;
-        padding: 0;
-        border: 0;
-        border-radius: 0;
-        background: transparent;
-    }
-    #moderation .policy-toc-label,
-    #moderation .policy-toc-list,
-    #copyright .policy-toc-label,
-    #copyright .policy-toc-list { display: none; }
-    #moderation .policy-toc .policy-back,
-    #copyright .policy-toc .policy-back { min-height: 44px; margin: 0; }
 }
 
 .resident-request-tabs { display: none; }
@@ -2471,7 +2457,7 @@
     }
 
     #register.auth-section.active .reg-right-panel {
-        padding: 24px 24px calc(96px + env(safe-area-inset-bottom, 0px));
+        padding: 12px 24px calc(96px + env(safe-area-inset-bottom, 0px));
     }
 
     #register.auth-section.active .reg-form-container {
@@ -2482,7 +2468,7 @@
     }
 
     #register.auth-section.active .reg-form-container > .back-button {
-        margin: 0 0 24px;
+        margin: 0 0 12px;
     }
 
     #register.auth-section.active .reg-form-container > .eyebrow {

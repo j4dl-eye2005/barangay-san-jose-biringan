@@ -248,8 +248,8 @@
 .activity-admin-table th { color:#514b47; }
 .activity-detail-cell { color:#514b47 !important; }
 .activity-detail-cell strong,.activity-detail-cell small,.activity-detail-cell a { display:block; }
-.activity-detail-cell > strong,.activity-admin-table td[data-label="Admin"] > strong { display:block; color:var(--color-text); font-weight:700; line-height:1.3; }
-.activity-admin-table td[data-label="Admin"] strong,.activity-admin-role { display:block; }
+.activity-detail-cell > strong,.activity-admin-table td[data-label="Actor"] > strong { display:block; color:var(--color-text); font-weight:700; line-height:1.3; }
+.activity-admin-table td[data-label="Actor"] strong,.activity-admin-role { display:block; }
 .activity-detail-cell small,.activity-admin-role { color:#4e4944; font-size:10px; font-weight:400; line-height:1.3; margin-top:3px; }
 .activity-detail-cell .activity-request-meta { display:block; }
 .activity-detail-cell .activity-request-meta .activity-tracking { display:inline; }
@@ -259,6 +259,7 @@
 .activity-date-group th { background:#faf9f7; color:var(--color-muted); text-align:left; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding-top:6px; padding-bottom:6px; }
 .activity-name-missing { color:#566059 !important; font-style:italic; }
 .activity-edit-details { margin-top:6px; }.activity-edit-details summary { cursor:pointer; color:#5b5550; font-size:10px; font-weight:400; }
+.activity-edit-details p { margin:5px 0 0; color:#5b5550; font-size:10px; font-weight:400; line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere; }
 .activity-empty-state { display:flex; align-items:center; gap:12px; padding:18px; color:#514b47; }
 .admin-table-scroll { width: 100%; overflow-x: auto; }
 @media (max-width: 1000px) {
