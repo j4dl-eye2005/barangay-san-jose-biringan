@@ -4714,8 +4714,8 @@ body:has(#resident-profile.active) #resident-profile .resident-profile-quick-lin
     }
 }
 
-/* Keep the admin's name beside the avatar in the profile header. */
-body.admin-profile-view:has(#resident-profile.active) #resident-profile .resident-profile-identity-copy {
+/* Keep resident and admin names beside the avatar in the profile header. */
+body:has(#resident-profile.active) #resident-profile .resident-profile-identity-copy {
     justify-self: start;
     width: fit-content;
     max-width: 100%;
