@@ -34,7 +34,7 @@ if (isset($_GET['admin_access_form'])) {
     $formAction = htmlspecialchars($appBasePath . '/index.php?admin_access_form=1', ENT_QUOTES, 'UTF-8');
     $logoUrl = htmlspecialchars($appBasePath . '/assets/barangay-seal.svg', ENT_QUOTES, 'UTF-8');
     $faviconUrl = htmlspecialchars($appBasePath . '/assets/favicon-optimized.png', ENT_QUOTES, 'UTF-8');
-    $baseCssUrl = htmlspecialchars($appBasePath . '/css/base.css?v=20261021-route-css-loading-v1', ENT_QUOTES, 'UTF-8');
+    $baseCssUrl = htmlspecialchars($appBasePath . '/css/base.css?v=20261023-universal-custom-scrollbar-v1', ENT_QUOTES, 'UTF-8');
     $homeCssUrl = htmlspecialchars($appBasePath . '/css/home.css?v=20261023-static-request-arrows-v1', ENT_QUOTES, 'UTF-8');
     $componentsCssUrl = htmlspecialchars($appBasePath . '/css/components.css?v=20261016-admin-mfa-step', ENT_QUOTES, 'UTF-8');
     $publicCssUrl = htmlspecialchars($appBasePath . '/css/public.css?v=20261016-sticky-menu-stable', ENT_QUOTES, 'UTF-8');
@@ -203,7 +203,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <meta name="password-reset-return-to-profile" content="<?= $resetReturnToProfile ? 'true' : 'false' ?>">
     <?php endif; ?>
     <title>Barangay San Jose Digital Portal</title>
-    <link rel="stylesheet" href="css/base.css?v=20261021-route-css-loading-v1">
+    <link rel="stylesheet" href="css/base.css?v=20261023-universal-custom-scrollbar-v1">
     <link rel="stylesheet" href="css/home.css?v=20261023-static-request-arrows-v1">
     <link rel="stylesheet" href="css/components.css?v=20261017-direct-password-change">
     <link data-portal-route-css="auth" data-portal-css-href="css/auth.css?v=20261022-profile-role-visibility-v1">
@@ -213,7 +213,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <link rel="stylesheet" href="css/shared-responsive.css?v=20261023-mobile-account-actions-v1">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261023-disclosure-desktop-layout-v1">
     <link data-portal-route-css="unavailable" data-portal-css-href="css/unavailable.css?v=20261023-mobile-404-wrap-v2">
-    <link rel="stylesheet" href="css/portal-public.css?v=20261023-mobile-auth-actions-v1">
+    <link rel="stylesheet" href="css/portal-public.css?v=20261023-landing-custom-scrollbar-v1">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>

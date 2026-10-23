@@ -576,7 +576,10 @@
 
     .nav-menu.open #mobile-account-actions:not([hidden]),
     .nav-menu.closing #mobile-account-actions:not([hidden]) {
-        display: block;
+        display: flex;
+        flex: 0 0 auto;
+        flex-direction: column;
+        align-items: stretch;
         width: 100%;
         margin-top: 8px;
         padding-top: 10px;

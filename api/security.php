@@ -247,8 +247,8 @@ function renderUnavailablePage(int $statusCode = 404): void
     $siteFooter = ob_get_clean();
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f1f6ec"><base href="' . $pageBase . '"><title>Page unavailable</title>'
         . '<link rel="icon" type="image/png" href="' . $assetPrefix . '/assets/favicon-optimized.png">'
-        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/base.css?v=20261021-route-css-loading-v1">'
-        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/home.css?v=20261021-square-policy-rail">'
+        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/base.css?v=20261023-universal-custom-scrollbar-v1">'
+        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/home.css?v=20261023-static-request-arrows-v1">'
         . '<link rel="stylesheet" href="' . $assetPrefix . '/css/components.css?v=20261015-performance-queue">'
         . '<link rel="stylesheet" href="' . $assetPrefix . '/css/public.css?v=20261016-sticky-menu-stable">'
         . '<link rel="stylesheet" href="' . $assetPrefix . '/css/shared-responsive.css?v=20261017-profile-security-columns">'

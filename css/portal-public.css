@@ -736,8 +736,10 @@ body.public-portal-view #bulletin .attachment-link { color: var(--color-logo-gre
     body.public-portal-view .nav-menu .nav-links,
     body.public-portal-view .nav-menu .nav-auth-actions { width: 100%; }
     body.public-portal-view .nav-menu .nav-auth-actions { height: auto; flex-direction: column; gap: 10px; margin: 12px 0 0; padding: 16px 0 0; border-top: 1px solid var(--color-border); }
-    body.public-portal-view .nav-menu .nav-register-menu-btn,
-    body.public-portal-view .nav-menu .nav-login-button { width: 100%; min-height: 48px; }
+    body.public-portal-view .guest-user-view .nav-menu.open #guest-auth-actions:not(.hidden),
+    body.public-portal-view .guest-user-view .nav-menu.closing #guest-auth-actions:not(.hidden) { display: flex !important; }
+    body.public-portal-view .guest-user-view .nav-menu .nav-register-menu-btn,
+    body.public-portal-view .guest-user-view .nav-menu .nav-login-button { display: flex !important; width: 100%; min-height: 48px; }
     body.public-portal-view .nav-menu .user-info { width: 100%; min-height: 48px; justify-content: flex-start; margin: 0; }
     body.public-portal-view #welcome-user { padding-left: 12px; }
     body.public-portal-view #welcome-user .account-greeting { display: inline; }
