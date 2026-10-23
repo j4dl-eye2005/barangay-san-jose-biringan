@@ -52,6 +52,8 @@ For an existing database, run `database/public_records_migration.sql` once to ad
 
 For an existing database, run `database/disclosure_category_alignment_migration.sql` once so stored disclosure category names match the categories shown by the portal.
 
+For an existing database, run `database/disclosure_drafts_migration.sql` to enable disclosure drafts saved to each administrator account.
+
 For an existing database, apply `database/mail_queue_migration.sql` before enabling email delivery through the queued worker.
 
 For an existing database, run `database/query_performance_migration.sql` once to support request-list ordering and indexed weekly admin overview counts.

@@ -80,6 +80,11 @@ let requestSubmitting = false;
 let editingDisclosureId = null;
 let editingDisclosureAttachment = null;
 let disclosureSavedSnapshot = '';
+let disclosureDraft = null;
+let disclosureDraftPersisted = false;
+let disclosureDraftLoading = false;
+let disclosureDraftOwnerId = null;
+let disclosureDraftLoadSequence = 0;
 let disclosureFileObjectUrl = null;
 let adminRequestRows = [];
 let adminRequestStatusFilter = 'All';
@@ -3803,6 +3808,16 @@ async function logout() {
     clearTimeout(adminAbsoluteLogoutTimer);
     try { void fetch('api/logout.php', { method: 'POST', keepalive: true }).catch(() => {}); }
     catch (_) { /* The page still returns to the public landing page if logout cannot reach the server. */ }
+    const departingAdminId = Number(currentUser?.id) || 0;
+    const legacyDraft = departingAdminId ? readLegacyDisclosureDraft(departingAdminId) : null;
+    if (legacyDraft) storeLegacyDisclosureDraft(legacyDraft, departingAdminId);
+    disclosureDraftLoadSequence += 1;
+    disclosureDraftOwnerId = null;
+    disclosureDraft = null;
+    disclosureDraftPersisted = false;
+    disclosureDraftLoading = false;
+    editingDisclosureId = null;
+    editingDisclosureAttachment = null;
     currentUser = null;
     updateNavBar();
     window.location.replace('index.php#landing');
@@ -5302,6 +5317,7 @@ function formatActivityAction(action) {
         request_completed: 'Request completed',
         disclosure_published: 'Disclosure posted',
         disclosure_draft_saved: 'Draft saved',
+        disclosure_draft_deleted: 'Draft deleted',
         disclosure_edited: 'Disclosure edited',
         disclosure_unpublished: 'Disclosure unpublished',
         admin_login: 'Admin sign-in',
@@ -6293,6 +6309,8 @@ function switchAdminTab(tab, options = {}) {
         if (tab === 'residents' && adminPanelNeedsRefresh('residents')) loadResidentAccounts();
         if (tab === 'disclosures') {
             initDisclosureComposer();
+            const adminId = Number(currentUser?.id) || 0;
+            if (adminId && disclosureDraftOwnerId !== adminId) void loadDisclosureDraft();
             if (adminPanelNeedsRefresh('disclosures')) loadRecentDisclosures();
         }
         requestAnimationFrame(refreshAdminTableScrollFades);
@@ -6311,6 +6329,7 @@ function openDisclosureComposer() {
    ============================================================ */
 async function handlePostDisclosure(e) {
     e.preventDefault();
+    if (disclosureDraftLoading) return;
     const form = document.getElementById('disclosure-form');
     if (!validateDisclosureForm()) return;
     const categoryId = document.getElementById('disc-category').value;
@@ -6343,14 +6362,14 @@ async function handlePostDisclosure(e) {
         if (!res.ok || !data.success) throw new Error(data.message || 'Disclosure could not be saved.');
 
         const wasEditing = Boolean(editingDisclosureId);
-        document.getElementById('disclosure-form').reset();
-        clearDisclosureFile();
-        updateDisclosureCharacterCount();
+        if (!wasEditing) {
+            disclosureDraft = null;
+            disclosureDraftPersisted = false;
+            try { sessionStorage.removeItem('disclosure-draft'); } catch { /* Ignore unavailable browser storage. */ }
+        }
         cancelDisclosureEdit();
-        updateDisclosureComposerPreview();
-        resizeDisclosureDescription();
+        updateDisclosureDraftControls();
         updateDisclosureComposerState();
-        try { sessionStorage.removeItem('disclosure-draft'); } catch { /* Ignore unavailable browser storage. */ }
         if (wasEditing) {
             setDisclosureStatus('Disclosure updated successfully.');
             showToast('Disclosure updated successfully.', 'success');
@@ -6370,6 +6389,276 @@ async function handlePostDisclosure(e) {
     }
 }
 
+function normalizeDisclosureDraft(draft) {
+    if (!draft || typeof draft !== 'object') return null;
+    return {
+        categoryId: draft.categoryId ?? draft.category_id ?? '',
+        title: typeof draft.title === 'string' ? draft.title : '',
+        content: typeof draft.content === 'string' ? draft.content : '',
+        updatedAt: draft.updatedAt || draft.savedAt || ''
+    };
+}
+
+function readLegacyDisclosureDraft(ownerId) {
+    try {
+        const value = sessionStorage.getItem('disclosure-draft');
+        if (!value) return null;
+        const stored = JSON.parse(value);
+        const storedOwnerId = Number(stored?.ownerId) || 0;
+        if (storedOwnerId && storedOwnerId !== ownerId) {
+            clearLegacyDisclosureDraft();
+            return null;
+        }
+        const draft = normalizeDisclosureDraft(stored);
+        return draft ? { ...draft, ownerId, savedAt: draft.updatedAt } : null;
+    } catch {
+        return null;
+    }
+}
+
+function storeLegacyDisclosureDraft(draft, ownerId) {
+    try { sessionStorage.setItem('disclosure-draft', JSON.stringify({ ...draft, ownerId })); } catch { /* Keep the recovered draft in memory if browser storage is unavailable. */ }
+}
+
+function clearLegacyDisclosureDraft() {
+    try { sessionStorage.removeItem('disclosure-draft'); } catch { /* Ignore unavailable browser storage. */ }
+}
+
+function applyDisclosureDraftFields(draft) {
+    if (!draft) return;
+    document.getElementById('disc-category').value = draft.categoryId ? String(draft.categoryId) : '';
+    document.getElementById('disc-title').value = draft.title;
+    document.getElementById('disc-content').value = draft.content;
+    ['disc-category', 'disc-title', 'disc-content'].forEach(clearDisclosureFieldError);
+    updateDisclosureCharacterCount();
+    resizeDisclosureDescription();
+    updateDisclosureComposerPreview();
+    updateDisclosureComposerState();
+}
+
+function updateDisclosureDraftSavedLabel() {
+    const label = document.getElementById('disclosure-draft-saved');
+    if (!label) return;
+    if (disclosureDraftLoading) {
+        label.textContent = 'Loading saved draft…';
+        label.hidden = false;
+        return;
+    }
+    if (editingDisclosureId || !disclosureDraft) {
+        label.hidden = true;
+        return;
+    }
+    const categoryId = document.getElementById('disc-category')?.value || '';
+    const title = document.getElementById('disc-title')?.value || '';
+    const content = document.getElementById('disc-content')?.value || '';
+    const matchesDraft = String(disclosureDraft.categoryId || '') === categoryId
+        && disclosureDraft.title === title
+        && disclosureDraft.content === content;
+    if (!disclosureDraftPersisted) {
+        label.textContent = matchesDraft
+            ? 'Recovered from this browser. Save to your account to keep it.'
+            : 'Unsaved changes to the recovered draft.';
+    } else if (!matchesDraft) {
+        label.textContent = 'Unsaved changes since the last draft save.';
+    } else {
+        const savedAt = disclosureDraft.updatedAt ? new Date(disclosureDraft.updatedAt) : null;
+        const savedTime = savedAt && !Number.isNaN(savedAt.getTime())
+            ? ` · ${savedAt.toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}`
+            : '';
+        label.textContent = `Saved to your account${savedTime}`;
+    }
+    label.hidden = false;
+}
+
+function updateDisclosureDraftControls() {
+    const saveButton = document.getElementById('save-disclosure-draft');
+    const deleteButton = document.getElementById('discard-disclosure-draft');
+    const note = document.getElementById('disclosure-draft-note');
+    const editing = Boolean(editingDisclosureId);
+    document.querySelector('.disclosure-form-actions')?.classList.toggle('has-saved-disclosure-draft', !editing && Boolean(disclosureDraft));
+    if (saveButton) {
+        saveButton.hidden = editing;
+        saveButton.disabled = disclosureDraftLoading || saveButton.getAttribute('aria-busy') === 'true';
+    }
+    if (deleteButton) {
+        deleteButton.hidden = editing || disclosureDraftLoading || !disclosureDraft;
+        deleteButton.disabled = disclosureDraftLoading || deleteButton.getAttribute('aria-busy') === 'true';
+    }
+    if (note) note.hidden = editing;
+    updateDisclosureDraftSavedLabel();
+}
+
+function setDisclosureDraftLoading(loading) {
+    disclosureDraftLoading = loading;
+    ['disc-category', 'disc-title', 'disc-content', 'disc-file'].forEach(id => {
+        const field = document.getElementById(id);
+        if (field) field.disabled = loading;
+    });
+    document.getElementById('disc-dropzone')?.setAttribute('aria-disabled', String(loading));
+    updateDisclosureDraftControls();
+    updateDisclosureComposerState();
+}
+
+async function saveDisclosureDraftRecord(draft) {
+    const response = await fetch('api/disclosure_draft.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            categoryId: draft.categoryId || null,
+            title: draft.title,
+            content: draft.content
+        })
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success || !result.draft) {
+        throw new Error(result.message || 'Draft could not be saved to your account. Try again.');
+    }
+    return normalizeDisclosureDraft(result.draft);
+}
+
+async function loadDisclosureDraft() {
+    const ownerId = Number(currentUser?.id) || 0;
+    if (!ownerId || (disclosureDraftLoading && disclosureDraftOwnerId === ownerId)) return;
+    const previousOwnerId = disclosureDraftOwnerId;
+    const ownerChanged = previousOwnerId !== ownerId;
+    const legacyDraft = previousOwnerId === null ? readLegacyDisclosureDraft(ownerId) : null;
+    const sequence = ++disclosureDraftLoadSequence;
+    const isCurrentLoad = () => sequence === disclosureDraftLoadSequence && Number(currentUser?.id) === ownerId;
+
+    if (ownerChanged) {
+        if (previousOwnerId !== null) clearLegacyDisclosureDraft();
+        editingDisclosureId = null;
+        editingDisclosureAttachment = null;
+        const publishButton = document.getElementById('publish-disclosure-button');
+        if (publishButton) publishButton.textContent = 'Publish disclosure';
+        document.getElementById('disclosure-edit-actions')?.classList.add('hidden');
+        document.getElementById('disclosure-attachment-edit-note')?.classList.add('hidden');
+        disclosureDraft = null;
+        disclosureDraftPersisted = false;
+        document.getElementById('disclosure-form')?.reset();
+        clearDisclosureFile();
+        clearDisclosureStatus();
+        updateDisclosureCharacterCount();
+        resizeDisclosureDescription();
+        updateDisclosureComposerPreview();
+        updateDisclosureSavedSnapshot();
+    }
+    disclosureDraftOwnerId = ownerId;
+    setDisclosureDraftLoading(true);
+    try {
+        const response = await fetch('api/disclosure_draft.php', { cache: 'no-store' });
+        const result = await response.json();
+        if (!isCurrentLoad()) return;
+        if (!response.ok || !result.success) throw new Error(result.message || 'Saved drafts are temporarily unavailable.');
+        const serverDraft = normalizeDisclosureDraft(result.draft);
+        const legacyTime = legacyDraft?.savedAt ? Date.parse(legacyDraft.savedAt) : NaN;
+        const serverTime = serverDraft?.updatedAt ? Date.parse(serverDraft.updatedAt) : NaN;
+        const useLegacyDraft = Boolean(legacyDraft && (!serverDraft || (Number.isFinite(legacyTime) && (!Number.isFinite(serverTime) || legacyTime > serverTime))));
+
+        if (useLegacyDraft) {
+            disclosureDraft = legacyDraft;
+            disclosureDraftPersisted = false;
+            applyDisclosureDraftFields(legacyDraft);
+            try {
+                const migratedDraft = await saveDisclosureDraftRecord(legacyDraft);
+                if (!isCurrentLoad()) return;
+                disclosureDraft = migratedDraft;
+                disclosureDraftPersisted = true;
+                clearLegacyDisclosureDraft();
+            } catch {
+                if (!isCurrentLoad()) return;
+                storeLegacyDisclosureDraft(legacyDraft, ownerId);
+                setDisclosureStatus('A previous browser draft was restored but could not be saved to your account. Click Save as draft to retry.', null, true);
+            }
+        } else {
+            disclosureDraft = serverDraft;
+            disclosureDraftPersisted = Boolean(serverDraft);
+            if (serverDraft) applyDisclosureDraftFields(serverDraft);
+            clearLegacyDisclosureDraft();
+        }
+    } catch (error) {
+        if (!isCurrentLoad()) return;
+        if (legacyDraft) {
+            disclosureDraft = legacyDraft;
+            disclosureDraftPersisted = false;
+            applyDisclosureDraftFields(legacyDraft);
+            storeLegacyDisclosureDraft(legacyDraft, ownerId);
+            setDisclosureStatus('A previous browser draft was restored. Save it to your account when the connection is available.', null, true);
+        } else {
+            setDisclosureStatus(error.message || 'Saved drafts are temporarily unavailable.', null, true);
+        }
+    } finally {
+        if (!isCurrentLoad()) return;
+        setDisclosureDraftLoading(false);
+        updateDisclosureDraftControls();
+        updateDisclosureComposerState();
+        updateDisclosureSavedSnapshot(true);
+    }
+}
+
+async function saveDisclosureDraft() {
+    if (disclosureDraftLoading || editingDisclosureId) return;
+    const button = document.getElementById('save-disclosure-draft');
+    const draft = {
+        categoryId: document.getElementById('disc-category').value,
+        title: document.getElementById('disc-title').value,
+        content: document.getElementById('disc-content').value
+    };
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    button.textContent = 'Saving…';
+    try {
+        disclosureDraft = await saveDisclosureDraftRecord(draft);
+        disclosureDraftPersisted = true;
+        clearLegacyDisclosureDraft();
+        updateDisclosureSavedSnapshot(true);
+        clearDisclosureStatus();
+        showToast('Draft saved to your account.', 'success');
+    } catch (error) {
+        setDisclosureStatus(error.message || 'Draft could not be saved to your account. Try again.', null, true);
+        showToast(error.message || 'Draft could not be saved to your account. Try again.', 'error');
+    } finally {
+        button.textContent = 'Save as draft';
+        button.removeAttribute('aria-busy');
+        updateDisclosureDraftControls();
+        updateDisclosureComposerState();
+    }
+}
+
+async function deleteDisclosureDraft() {
+    if (!disclosureDraft || disclosureDraftLoading || editingDisclosureId) return;
+    if (!window.confirm('Delete the saved draft and clear its text from the composer? This cannot be undone.')) return;
+    const button = document.getElementById('discard-disclosure-draft');
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    button.textContent = 'Deleting…';
+    try {
+        const response = await fetch('api/disclosure_draft.php', { method: 'DELETE' });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'Draft could not be deleted. Try again.');
+        disclosureDraft = null;
+        disclosureDraftPersisted = false;
+        clearLegacyDisclosureDraft();
+        document.getElementById('disclosure-form')?.reset();
+        clearDisclosureFile();
+        ['disc-category', 'disc-title', 'disc-content'].forEach(clearDisclosureFieldError);
+        updateDisclosureCharacterCount();
+        resizeDisclosureDescription();
+        updateDisclosureComposerPreview();
+        updateDisclosureSavedSnapshot();
+        clearDisclosureStatus();
+        showToast('Draft deleted.', 'success');
+    } catch (error) {
+        setDisclosureStatus(error.message || 'Draft could not be deleted. Try again.', null, true);
+        showToast(error.message || 'Draft could not be deleted. Try again.', 'error');
+    } finally {
+        button.textContent = 'Discard draft';
+        button.removeAttribute('aria-busy');
+        updateDisclosureDraftControls();
+        updateDisclosureComposerState();
+    }
+}
+
 function initDisclosureComposer() {
     const form = document.getElementById('disclosure-form');
     if (!form || form.dataset.initialized === 'true') return;
@@ -6379,15 +6668,6 @@ function initDisclosureComposer() {
     const input = document.getElementById('disc-file');
     const title = document.getElementById('disc-title');
     const description = document.getElementById('disc-content');
-    try {
-        const savedDraft = sessionStorage.getItem('disclosure-draft');
-        if (savedDraft) {
-            const draft = JSON.parse(savedDraft);
-            if (draft.categoryId) document.getElementById('disc-category').value = String(draft.categoryId);
-            if (draft.title) document.getElementById('disc-title').value = draft.title;
-            if (draft.content) description.value = draft.content;
-        }
-    } catch { /* Draft storage is optional when browser storage is unavailable. */ }
     updateDisclosureCharacterCount();
     resizeDisclosureDescription();
     updateDisclosureComposerPreview();
@@ -6399,6 +6679,7 @@ function initDisclosureComposer() {
             updateDisclosureComposerPreview();
             resizeDisclosureDescription();
             updateDisclosureComposerState();
+            updateDisclosureDraftControls();
             if (field.value.trim()) clearDisclosureFieldError(field.id);
             clearDisclosureStatus();
         });
@@ -6406,12 +6687,14 @@ function initDisclosureComposer() {
             updateDisclosureCharacterCount();
             updateDisclosureComposerPreview();
             updateDisclosureComposerState();
+            updateDisclosureDraftControls();
             if (field.value.trim()) clearDisclosureFieldError(field.id);
             clearDisclosureStatus();
         });
         field.addEventListener('blur', () => validateDisclosureField(field));
     });
     document.getElementById('save-disclosure-draft').addEventListener('click', saveDisclosureDraft);
+    document.getElementById('discard-disclosure-draft').addEventListener('click', deleteDisclosureDraft);
     document.getElementById('cancel-disclosure-composer').addEventListener('click', cancelDisclosureComposer);
     document.getElementById('cancel-disclosure-edit').addEventListener('click', () => cancelDisclosureEdit());
     document.querySelectorAll('[data-disclosure-mobile-tab]').forEach(button => {
@@ -6425,10 +6708,12 @@ function initDisclosureComposer() {
         clearDisclosureStatus();
     });
     zone.addEventListener('click', event => {
+        if (disclosureDraftLoading) return;
         if (event.target.closest('.disclosure-browse')) return;
         input.click();
     });
     zone.addEventListener('keydown', event => {
+        if (disclosureDraftLoading) return;
         if (event.target !== zone || !['Enter', ' '].includes(event.key)) return;
         event.preventDefault();
         input.click();
@@ -6440,6 +6725,7 @@ function initDisclosureComposer() {
     zone.addEventListener('drop', event => {
         event.preventDefault();
         zone.classList.remove('drag-over');
+        if (disclosureDraftLoading) return;
         const file = event.dataTransfer.files?.[0];
         if (!file) return;
         const transfer = new DataTransfer();
@@ -6455,6 +6741,8 @@ function initDisclosureComposer() {
         event.preventDefault();
         event.returnValue = '';
     });
+    updateDisclosureDraftControls();
+    void loadDisclosureDraft();
 }
 
 function updateDisclosureCharacterCount() {
@@ -6550,7 +6838,7 @@ function updateDisclosureComposerState() {
     const category = document.getElementById('disc-category')?.value;
     const title = document.getElementById('disc-title')?.value.trim();
     const description = document.getElementById('disc-content')?.value.trim();
-    button.disabled = !(category && title && description) || button.getAttribute('aria-busy') === 'true';
+    button.disabled = disclosureDraftLoading || !(category && title && description) || button.getAttribute('aria-busy') === 'true';
 }
 
 function validateDisclosureField(field) {
@@ -6703,38 +6991,6 @@ function validateDisclosureForm() {
     return true;
 }
 
-async function saveDisclosureDraft() {
-    const draft = {
-        categoryId: document.getElementById('disc-category').value,
-        title: document.getElementById('disc-title').value,
-        content: document.getElementById('disc-content').value,
-        savedAt: new Date().toISOString()
-    };
-    try {
-        sessionStorage.setItem('disclosure-draft', JSON.stringify(draft));
-        updateDisclosureSavedSnapshot(true);
-        const savedTime = new Date(draft.savedAt).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
-        const savedLabel = document.getElementById('disclosure-draft-saved');
-        if (savedLabel) { savedLabel.textContent = `Draft saved · ${savedTime}`; savedLabel.hidden = false; }
-        clearDisclosureStatus();
-        showToast('Draft saved.', 'success');
-        try {
-            const response = await fetch('api/log_disclosure_draft.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: draft.title })
-            });
-            const result = await response.json();
-            if (!response.ok || !result.success) throw new Error(result.message || 'Activity entry could not be saved.');
-        } catch (error) {
-            showToast('Draft saved here, but the Activity log entry could not be saved.', 'error');
-        }
-    } catch {
-        setDisclosureStatus('Draft could not be saved in this browser.', null, true);
-        showToast('Draft could not be saved in this browser.', 'error');
-    }
-}
-
 async function loadRecentDisclosures() {
     const list = document.getElementById('recent-disclosures-list');
     if (!list) return;
@@ -6773,6 +7029,8 @@ async function loadRecentDisclosures() {
 }
 
 function editDisclosure(item) {
+    if (disclosureDraftLoading) return;
+    if (!confirmLeavingDisclosureComposer()) return;
     editingDisclosureId = Number(item.disclosure_id);
     editingDisclosureAttachment = item.file_path ? { name: item.file_name || 'Open attached file', path: item.file_path } : null;
     document.getElementById('disc-category').value = String(item.category_id);
@@ -6787,6 +7045,7 @@ function editDisclosure(item) {
     updateDisclosureComposerState();
     document.getElementById('publish-disclosure-button').textContent = 'Save changes';
     document.getElementById('disclosure-edit-actions').classList.remove('hidden');
+    updateDisclosureDraftControls();
     clearDisclosureStatus();
     updateDisclosureSavedSnapshot();
     document.getElementById('disc-title').focus();
@@ -6808,7 +7067,9 @@ function cancelDisclosureEdit() {
     resizeDisclosureDescription();
     updateDisclosureComposerPreview();
     updateDisclosureComposerState();
-    updateDisclosureSavedSnapshot();
+    if (disclosureDraft) applyDisclosureDraftFields(disclosureDraft);
+    updateDisclosureDraftControls();
+    updateDisclosureSavedSnapshot(Boolean(disclosureDraft));
 }
 
 async function unpublishDisclosure(id, title) {

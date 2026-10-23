@@ -51,6 +51,7 @@
                         <p class="disclosure-attachment-note hidden" id="disclosure-attachment-edit-note">The existing attachment stays unchanged while editing.</p>
                     </div>
                 </div>
+                <p class="field-help disclosure-draft-note" id="disclosure-draft-note">Drafts save the category and text to your account. Attachments are not saved with drafts, so add them again before publishing.</p>
                 <p class="disclosure-status" id="disclosure-status" role="status" aria-live="polite" hidden></p>
             </form>
         </div>
@@ -59,6 +60,7 @@
             <span class="disclosure-draft-saved" id="disclosure-draft-saved" role="status" hidden></span>
             <span class="disclosure-edit-actions hidden" id="disclosure-edit-actions"><button type="button" class="btn-outline" id="cancel-disclosure-edit">Cancel edit</button></span>
             <button type="button" class="btn-outline" id="save-disclosure-draft">Save as draft</button>
+            <button type="button" class="btn-outline" id="discard-disclosure-draft" hidden>Discard draft</button>
             <button type="submit" class="btn-solid" id="publish-disclosure-button" form="disclosure-form" disabled>Publish disclosure</button>
         </div>
         <aside class="disclosure-live-preview card" id="disclosure-live-preview" aria-labelledby="disclosure-live-preview-title">

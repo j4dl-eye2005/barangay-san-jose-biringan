@@ -145,6 +145,9 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $audit = $pdo->prepare('INSERT INTO audit_log (user_id, action, details) VALUES (?, ?, ?)');
         $audit->execute([$_SESSION['user_id'], 'disclosure_published', "Disclosure #$disclosureId: $title"]);
 
+        // Publishing a new disclosure consumes this administrator's saved draft.
+        $pdo->prepare('DELETE FROM disclosure_draft WHERE admin_user_id = ?')->execute([$_SESSION['user_id']]);
+
         $pdo->commit();
         echo json_encode(['success' => true]);
     } catch (Throwable $e) {

@@ -1264,6 +1264,7 @@ body.admin-profile-view #admin-profile-signins .admin-profile-event-time { grid-
 #admin-disclosures-panel #disclosure-form { display: block; margin: 0; }
 .disclosure-form-fields { display: grid; gap: 20px; padding: 24px; }
 .disclosure-form-fields > .input-group { min-width: 0; margin: 0; }
+.disclosure-draft-note { margin: 0 24px 18px; color: #566059; font-size: 12px; line-height: 1.5; }
 #admin-disclosures-panel #disclosure-form .input-group > label { display: block; margin: 0 0 8px; color: #3f4a43; font-size: 14px; font-weight: 600; letter-spacing: 0; text-transform: none; }
 .disclosure-label-optional { color: #566059; font-weight: 400; }
 .disclosure-form-fields .req-star { color: #b42318; }
@@ -1310,7 +1311,7 @@ body.admin-profile-view #admin-profile-signins .admin-profile-event-time { grid-
 .disclosure-attachment-note { margin: 8px 0 0; color: #566059; font-size: 13px; }
 #admin-disclosures-panel .disclosure-form-actions { position: sticky; z-index: 5; bottom: 0; display: flex; grid-area: actions; align-items: center; gap: 10px; margin: 0; padding: 14px 16px; border: 1px solid #e2e7e1; border-radius: 0; background: #fff; box-shadow: 0 4px 14px rgba(28, 25, 23, .07); }
 .disclosure-cancel-link { margin-right: auto; padding: 8px 0; border: 0; border-radius: 0; background: transparent; color: #176b2c; font: inherit; font-size: 14px; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
-.disclosure-draft-saved { color: #566059; font-size: 12px; white-space: nowrap; }
+.disclosure-draft-saved { color: #566059; font-size: 12px; line-height: 1.35; white-space: normal; }
 .disclosure-form-actions .btn-outline, .disclosure-form-actions .btn-solid { min-height: 44px; padding: 0 14px; border-radius: 8px; white-space: nowrap; }
 .disclosure-form-actions #publish-disclosure-button { min-width: 180px; }
 .disclosure-form-actions #publish-disclosure-button:disabled { border: 1px solid #c5dbc0; background: #e4eedf; color: #145b25; box-shadow: none; cursor: not-allowed; opacity: 1; transform: none; }
@@ -1347,6 +1348,7 @@ body.admin-profile-view #admin-profile-signins .admin-profile-event-time { grid-
     .disclosure-composer-layout[data-mobile-tab="preview"] { grid-template-areas: "preview" "actions"; }
     .disclosure-composer-layout { gap: 16px; }
     .disclosure-form-fields { gap: 18px; padding: 18px 16px; }
+    .disclosure-draft-note { margin: 0 16px 16px; }
     .disclosure-live-preview { padding: 18px 16px; }
     .disclosure-file-preview { flex-wrap: wrap; }
     .disclosure-dropzone-desktop-copy { display: none; }
@@ -1356,7 +1358,9 @@ body.admin-profile-view #admin-profile-signins .admin-profile-event-time { grid-
     #admin-dashboard #admin-disclosures-panel .disclosure-form-actions .disclosure-draft-saved { grid-column: 2; grid-row: 1; align-self: center; }
     #admin-dashboard #admin-disclosures-panel .disclosure-form-actions #publish-disclosure-button { grid-column: 1 / -1; grid-row: 2; width: 100%; }
     #admin-dashboard #admin-disclosures-panel .disclosure-form-actions #save-disclosure-draft { grid-column: 1 / -1; grid-row: 3; width: 100%; }
-    #admin-dashboard #admin-disclosures-panel .disclosure-form-actions #disclosure-edit-actions { grid-column: 1 / -1; grid-row: 4; }
+    #admin-dashboard #admin-disclosures-panel .disclosure-form-actions #discard-disclosure-draft { grid-column: 2; grid-row: 3; width: 100%; }
+    #admin-dashboard #admin-disclosures-panel .disclosure-form-actions.has-saved-disclosure-draft #save-disclosure-draft { grid-column: 1; }
+    #admin-dashboard #admin-disclosures-panel .disclosure-form-actions #disclosure-edit-actions { grid-column: 1 / -1; grid-row: 3; }
     #admin-dashboard #admin-disclosures-panel .disclosure-form-actions #disclosure-edit-actions > button { width: 100%; }
 }
 
