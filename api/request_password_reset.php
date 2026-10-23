@@ -34,7 +34,7 @@ if (strlen($email) > 190 || !isAllowedEmailProvider($email)) resetResponse($gene
 
 try {
     // Keep this idempotent for existing installations; the same table is also
-    // included in schema.sql for clean installs.
+    // included in database/schema.sql for clean installs.
     $pdo->exec("CREATE TABLE IF NOT EXISTS password_reset_token (
         token_hash CHAR(64) NOT NULL PRIMARY KEY,
         account_type VARCHAR(10) NOT NULL,

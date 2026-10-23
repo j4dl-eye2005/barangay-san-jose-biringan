@@ -1028,10 +1028,11 @@ function setMobileMenuScrollLock(locked) {
 function updateStickyHeader() {
     const mainNav = document.getElementById('main-nav');
     if (!mainNav || mobileMenuLockedScrollY !== null) return;
-    const isMobilePublic = document.body.classList.contains('public-portal-view')
+    const usesMobileCompactHeader = (document.body.classList.contains('public-portal-view')
+        || document.body.classList.contains('admin-user-view'))
         && window.matchMedia('(max-width: 767px)').matches;
     const mobileThreshold = mainNav.querySelector('.portal-utility-bar')?.offsetHeight || 40;
-    const isScrolled = isMobilePublic ? window.scrollY >= mobileThreshold : window.scrollY > 0;
+    const isScrolled = usesMobileCompactHeader ? window.scrollY >= mobileThreshold : window.scrollY > 0;
     mainNav.classList.toggle('is-scrolled', isScrolled);
 }
 
@@ -4279,7 +4280,13 @@ async function loadEnhancedProfile() {
         if (requestsToggle) { requestsToggle.checked = Boolean(data.notifications?.newRequests); requestsToggle.dataset.savedValue = String(requestsToggle.checked); }
         if (paymentsToggle) { paymentsToggle.checked = Boolean(data.notifications?.paymentVerification); paymentsToggle.dataset.savedValue = String(paymentsToggle.checked); }
         updateAdminNotificationSaveState();
-    } catch (error) { showToast(error.message || 'Could not load profile details.', 'error'); }
+    } catch (error) {
+        const mfaStatus = document.getElementById('admin-profile-mfa-status');
+        if (currentUser?.role === 'Admin' && mfaStatus?.textContent === 'Loading status…') {
+            mfaStatus.textContent = 'Could not load status. Refresh to try again.';
+        }
+        showToast(error.message || 'Could not load profile details.', 'error');
+    }
 }
 
 function formatProfileDate(value) {
@@ -4807,13 +4814,45 @@ async function loadResidentData() {
     renderResidentRequestList(residentRequestItems);
 }
 
-function createResidentRequestPlaceholder(showMessage = false) {
+function createResidentRequestEmptyState() {
+    const completed = residentRequestStatusFilter === 'completed';
+    const panel = el('div', {
+        className: `request-list-empty-state${completed ? ' is-completed' : ''}`,
+        attrs: { role: 'status' }
+    }, [
+        el('span', { className: 'request-list-empty-icon' }, [
+            el('i', { className: `fas ${completed ? 'fa-clock' : 'fa-file-lines'}`, attrs: { 'aria-hidden': 'true' } })
+        ]),
+        el('strong', { className: 'request-list-empty-title', text: completed ? 'No completed requests yet' : 'No active requests' }),
+        el('p', { className: 'request-list-empty-copy', text: completed
+            ? 'Requests that are ready or finished will appear here.'
+            : 'Requests you submit will appear here so you can follow their progress.' })
+    ]);
+    if (!completed) {
+        panel.appendChild(el('button', {
+            className: 'request-list-empty-action',
+            text: 'Request a document',
+            attrs: { type: 'button' },
+            on: { click: openResidentRequestFormFromEmptyState }
+        }));
+    }
+    return panel;
+}
+
+function openResidentRequestFormFromEmptyState() {
+    const isMobile = window.matchMedia('(max-width: 767px)').matches;
+    if (isMobile) selectResidentRequestTab('new');
+    const form = document.getElementById('request-form');
+    const firstField = document.getElementById('doc-type');
+    if (!form || !firstField) return;
+    form.scrollIntoView({ behavior: 'smooth', block: isMobile ? 'start' : 'center' });
+    requestAnimationFrame(() => firstField.focus({ preventScroll: true }));
+}
+
+function createResidentRequestPlaceholder() {
     const headingChildren = [
         el('span', { className: 'request-placeholder-title' })
     ];
-    if (showMessage) {
-        headingChildren.push(el('span', { className: 'request-placeholder-message', text: 'Your requests will appear here.' }));
-    }
     headingChildren.push(el('span', { className: 'request-placeholder-status' }));
 
     return el('article', {
@@ -4839,11 +4878,12 @@ function createResidentRequestPlaceholder(showMessage = false) {
 }
 
 function fillResidentRequestListWithPlaceholders(list, visibleRequestCount) {
+    if (visibleRequestCount < 1) return;
     const isMobile = window.matchMedia('(max-width: 767px)').matches;
     if (isMobile) {
-        const count = Math.max(0, 2 - visibleRequestCount);
+        const count = Math.min(2, Math.max(0, 2 - visibleRequestCount));
         for (let index = 0; index < count; index += 1) {
-            list.appendChild(createResidentRequestPlaceholder(visibleRequestCount === 0 && index === 0));
+            list.appendChild(createResidentRequestPlaceholder());
         }
         return;
     }
@@ -4857,7 +4897,7 @@ function fillResidentRequestListWithPlaceholders(list, visibleRequestCount) {
     const layoutAvailable = panelRect?.height > 0 && formRect?.height > 0;
     if (!layoutAvailable) {
         for (let index = 0; index < minimumCount; index += 1) {
-            list.appendChild(createResidentRequestPlaceholder(visibleRequestCount === 0 && index === 0));
+            list.appendChild(createResidentRequestPlaceholder());
         }
         return;
     }
@@ -4867,8 +4907,8 @@ function fillResidentRequestListWithPlaceholders(list, visibleRequestCount) {
     const availableHeight = Math.max(0, formRect.height - listOffset - panelPaddingBottom);
     let remainingHeight = availableHeight - list.scrollHeight;
     let count = 0;
-    while (count < 30) {
-        const placeholder = createResidentRequestPlaceholder(visibleRequestCount === 0 && count === 0);
+    while (count < 2) {
+        const placeholder = createResidentRequestPlaceholder();
         const beforeHeight = list.scrollHeight;
         list.appendChild(placeholder);
         const addedHeight = list.scrollHeight - beforeHeight;
@@ -4905,6 +4945,11 @@ function renderResidentRequestList(requests = residentRequestItems) {
         const terminal = ['Completed', 'Rejected'].includes(String(request.current_status || ''));
         return residentRequestStatusFilter === 'completed' ? terminal : !terminal;
     });
+
+    if (visibleRequests.length === 0) {
+        list.appendChild(createResidentRequestEmptyState());
+        return;
+    }
 
     visibleRequests.forEach(r => {
         const tracking = String(r.tracking_code ?? '');
@@ -5958,16 +6003,38 @@ async function loadResidentAccounts() {
             el('td', { attrs: { 'data-label': 'Status' } }, [status]),
             el('td', { attrs: { 'data-label': 'Actions' } }, [actionButtons('desktop')])
         ]));
-        if (mobileList) mobileList.appendChild(el('article', { className: 'resident-mobile-card' }, [
-            el('div', { className: 'resident-mobile-person' }, [
-                el('strong', { className: 'resident-mobile-name', text: name || 'Name not provided' }),
-                el('span', { className: 'resident-mobile-email', text: r.email || 'No email provided', attrs: { title: r.email || '' } })
-            ]),
-            el('p', { className: 'resident-mobile-registered', text: `Phone: ${r.phone_number || 'Not provided'}` }),
-            el('p', { className: 'resident-mobile-registered', text: `Address: ${r.address || 'Not provided'}` }),
-            el('div', { className: 'resident-mobile-status-row' }, [status.cloneNode(true), el('span', { className: 'resident-mobile-registered', text: `Registered ${formatDate(r.created_at)}` })]),
-            actionButtons('mobile')
-        ]));
+        if (mobileList) {
+            mobileList.appendChild(el('article', { className: 'resident-mobile-card resident-mobile-card--legacy' }, [
+                el('div', { className: 'resident-mobile-person' }, [
+                    el('strong', { className: 'resident-mobile-name', text: name || 'Name not provided' }),
+                    el('span', { className: 'resident-mobile-email', text: r.email || 'No email provided', attrs: { title: r.email || '' } })
+                ]),
+                el('p', { className: 'resident-mobile-registered', text: `Phone: ${r.phone_number || 'Not provided'}` }),
+                el('p', { className: 'resident-mobile-registered', text: `Address: ${r.address || 'Not provided'}` }),
+                el('div', { className: 'resident-mobile-status-row' }, [status.cloneNode(true), el('span', { className: 'resident-mobile-registered', text: `Registered ${formatDate(r.created_at)}` })]),
+                actionButtons('mobile')
+            ]));
+            const contactRow = (icon, label, value, title = '') => el('div', { className: 'resident-mobile-contact-row' }, [
+                el('i', { className: `fas ${icon}`, attrs: { 'aria-hidden': 'true' } }),
+                el('span', { className: 'resident-mobile-contact-label', text: `${label}:` }),
+                el('span', { className: 'resident-mobile-contact-value', text: value, attrs: title ? { title } : {} })
+            ]);
+            const mobileStatus = status.cloneNode(true);
+            mobileStatus.classList.add('resident-mobile-card-status');
+            mobileList.appendChild(el('article', { className: 'resident-mobile-card resident-mobile-card--phone' }, [
+                el('div', { className: 'resident-mobile-person' }, [
+                    el('strong', { className: 'resident-mobile-name', text: name || 'Name not provided' }),
+                    mobileStatus
+                ]),
+                el('div', { className: 'resident-mobile-contacts' }, [
+                    contactRow('fa-envelope', 'Email', r.email || 'No email provided', r.email || ''),
+                    contactRow('fa-phone', 'Phone', r.phone_number || 'Not provided'),
+                    contactRow('fa-location-dot', 'Address', r.address || 'Not provided')
+                ]),
+                el('span', { className: 'resident-mobile-registered', text: `Registered ${formatDate(r.created_at)}` }),
+                actionButtons('mobile')
+            ]));
+        }
     });
 }
 
@@ -6315,7 +6382,8 @@ function resizeDisclosureDescription() {
     const field = document.getElementById('disc-content');
     if (!field) return;
     field.style.height = 'auto';
-    const height = Math.min(400, Math.max(220, field.scrollHeight));
+    const minimumHeight = window.matchMedia('(min-width: 768px)').matches ? 140 : 220;
+    const height = Math.min(400, Math.max(minimumHeight, field.scrollHeight));
     field.style.height = `${height}px`;
     field.style.overflowY = field.scrollHeight > 400 ? 'auto' : 'hidden';
 }

@@ -55,8 +55,10 @@
                 <li class="admin-workspace-nav-item"><button class="admin-nav-tab" type="button" id="nav-tab-public-records" data-section="bulletin" data-action-click="showSection('bulletin'); closeMobileMenu();">Public Records</button></li>
                 <li class="admin-workspace-nav-item"><button class="admin-nav-tab <?= $adminInitialSection === 'activity' ? 'active' : '' ?>" type="button" id="nav-tab-activity" data-action-click="switchAdminTab('activity'); closeMobileMenu();">Logs</button></li>
                 <li class="admin-workspace-nav-item admin-mobile-account-item" id="admin-mobile-profile-nav-item" <?= ($_SESSION['role'] ?? '') !== 'Admin' ? 'hidden' : '' ?>><button type="button" data-action-click="showSection('resident-profile'); closeMobileMenu();">My profile</button></li>
-                <li class="admin-workspace-nav-item admin-mobile-account-item" id="admin-mobile-logout-nav-item" <?= ($_SESSION['role'] ?? '') !== 'Admin' ? 'hidden' : '' ?>><button type="button" data-action-click="logout()">Log out</button></li>
             </ul>
+            <div class="admin-mobile-menu-footer" id="admin-mobile-menu-footer" <?= ($_SESSION['role'] ?? '') !== 'Admin' ? 'hidden' : '' ?>>
+                <button class="admin-mobile-menu-action" id="admin-mobile-logout-nav-item" type="button" data-action-click="logout()">Log out</button>
+            </div>
             <div class="user-info hidden" id="user-info">
                 <button id="welcome-user" class="account-menu-toggle" type="button" aria-haspopup="menu" aria-controls="user-account-menu" aria-expanded="false" data-action-click="toggleUserMenu(this)"><span id="welcome-user-name" class="account-greeting"></span><span id="welcome-user-avatar" class="account-avatar" aria-hidden="true"></span><i class="fas fa-chevron-down" aria-hidden="true"></i></button>
                 <div class="user-account-menu" id="user-account-menu" role="menu" hidden>

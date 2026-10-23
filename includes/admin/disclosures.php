@@ -26,7 +26,7 @@
                     </div>
                     <div class="input-group">
                         <label for="disc-content">Description <span class="req-star" aria-hidden="true">*</span></label>
-                        <textarea id="disc-content" maxlength="2000" required rows="8" placeholder="Share the details residents need to know." aria-describedby="disc-content-counter disc-content-error"></textarea>
+                        <textarea id="disc-content" maxlength="2000" required rows="4" placeholder="Share the details residents need to know." aria-describedby="disc-content-counter disc-content-error"></textarea>
                         <span class="disclosure-char-count" id="disc-content-counter" aria-live="polite">0 / 2000</span>
                         <span class="disclosure-field-error" id="disc-content-error" role="alert" hidden></span>
                     </div>

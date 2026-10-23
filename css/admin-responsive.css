@@ -2375,3 +2375,192 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
     }
 }
 
+/* Phone-only resident account card layout. The existing card remains intact
+   for tablet widths, and the resident table remains unchanged on desktop. */
+.resident-mobile-card--phone { display: none; }
+@media (max-width: 767px) {
+    #admin-dashboard #admin-residents-panel .resident-mobile-card--legacy { display: none !important; }
+    #admin-dashboard #admin-residents-panel .resident-mobile-card--phone {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 14px;
+        padding: 16px;
+        border: 1px solid #d9e0d9;
+        border-radius: 8px;
+        background: #fff;
+    }
+    #admin-dashboard #admin-residents-panel .resident-mobile-person {
+        display: flex;
+        min-width: 0;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+    }
+    #admin-dashboard #admin-residents-panel .resident-mobile-name {
+        min-width: 0;
+        flex: 1 1 auto;
+        color: #343a35;
+        font-size: 16px;
+        font-weight: 600;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+    }
+    #admin-dashboard #admin-residents-panel .resident-mobile-card-status {
+        flex: 0 0 auto;
+        margin-top: 1px;
+        white-space: nowrap;
+    }
+    #admin-dashboard #admin-residents-panel .resident-mobile-contacts {
+        display: grid;
+        min-width: 0;
+        gap: 9px;
+    }
+    #admin-dashboard #admin-residents-panel .resident-mobile-contact-row {
+        display: grid;
+        min-width: 0;
+        grid-template-columns: 16px minmax(0, 1fr);
+        align-items: start;
+        column-gap: 9px;
+        color: #59625c;
+        font-size: 14px;
+        line-height: 1.45;
+    }
+    #admin-dashboard #admin-residents-panel .resident-mobile-contact-row > i {
+        grid-column: 1;
+        grid-row: 1;
+        margin-top: 3px;
+        color: #89928b;
+        font-size: 13px;
+        text-align: center;
+    }
+    #admin-dashboard #admin-residents-panel .resident-mobile-contact-label { display: none; }
+    #admin-dashboard #admin-residents-panel .resident-mobile-contact-value {
+        grid-column: 2;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        word-break: normal;
+    }
+    #admin-dashboard #admin-residents-panel .resident-mobile-registered {
+        margin: 0;
+        color: #7a837c;
+        font-size: 12px;
+        line-height: 1.4;
+        overflow-wrap: anywhere;
+    }
+    #admin-dashboard #admin-residents-panel .resident-mobile-card--phone .resident-account-actions {
+        display: flex;
+        width: 100%;
+        margin: 0;
+        padding-top: 12px;
+        border-top: 1px solid #e2e7e2;
+    }
+    #admin-dashboard #admin-residents-panel .resident-mobile-card--phone .resident-account-actions > .resident-account-archive-delete {
+        width: 100% !important;
+        height: 42px;
+        min-height: 42px;
+        flex: 1 1 100%;
+        padding: 0 12px;
+        border: 1px solid #c85a5a !important;
+        border-radius: 4px !important;
+        background: #fff !important;
+        color: #a52b2b !important;
+        font-size: 14px;
+        font-weight: 600;
+    }
+}
+
+/* On phones the admin profile is a standalone page; do not prepend the
+   workspace rail or preserve its full-height spacing above the profile. */
+@media (max-width: 767px) {
+    body.admin-profile-view #admin-dashboard {
+        min-height: 0 !important;
+    }
+    body.admin-profile-view #admin-dashboard .admin-workspace {
+        display: block;
+        min-height: 0 !important;
+    }
+    body.admin-profile-view #admin-dashboard .admin-rail {
+        display: none !important;
+    }
+    body.admin-profile-view #admin-dashboard .admin-content {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 16px 16px 24px;
+    }
+    body.admin-profile-view #admin-dashboard .admin-content > #resident-profile.active {
+        min-height: 0 !important;
+    }
+}
+
+/* Desktop disclosure composer: keep the editor controls inside their card. */
+@media (min-width: 768px) {
+    body.admin-user-view:not(.admin-profile-view) #admin-disclosures-panel .disclosure-composer-layout {
+        grid-template-areas: "editor preview" "actions preview";
+        align-items: start;
+        row-gap: 0;
+    }
+    body.admin-user-view:not(.admin-profile-view) #admin-disclosures-panel .disclosure-composer-layout > .composer-card {
+        align-self: start;
+        border-bottom: 0;
+        border-bottom-right-radius: 0 !important;
+        border-bottom-left-radius: 0 !important;
+    }
+    body.admin-user-view:not(.admin-profile-view) #admin-disclosures-panel #disc-content {
+        min-height: 140px;
+    }
+    body.admin-user-view:not(.admin-profile-view) #admin-disclosures-panel .disclosure-form-actions {
+        position: static !important;
+        z-index: auto;
+        display: flex;
+        grid-area: actions;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        margin: 0;
+        padding: 16px 24px 24px;
+        border-right: 1px solid #d9e0d9;
+        border-bottom: 1px solid #d9e0d9;
+        border-left: 1px solid #d9e0d9;
+        border-top: 1px solid #e2e7e1;
+        border-radius: 0 0 4px 4px !important;
+        background: #fff;
+        box-shadow: none;
+    }
+    body.admin-user-view:not(.admin-profile-view) #admin-disclosures-panel .disclosure-form-actions .disclosure-cancel-link {
+        margin-right: auto;
+    }
+    body.admin-user-view:not(.admin-profile-view) #admin-disclosures-panel .disclosure-live-preview {
+        position: static !important;
+        align-self: start;
+        height: auto;
+        min-height: 0;
+    }
+    body.admin-user-view:not(.admin-profile-view) #admin-disclosures-panel .recent-disclosure-actions > .action-btn {
+        box-sizing: border-box;
+        height: 40px;
+        min-height: 40px;
+        margin: 0;
+        padding: 0 12px;
+        border-radius: 4px !important;
+        font-size: 13px;
+        font-weight: 650;
+    }
+    body.admin-user-view:not(.admin-profile-view) #admin-disclosures-panel .recent-disclosure-actions > .action-btn:not(.btn-reject) {
+        border: 1px solid #145b25;
+        background: #fff;
+        color: #145b25;
+    }
+    body.admin-user-view:not(.admin-profile-view) #admin-disclosures-panel .recent-disclosure-actions > .btn-reject {
+        border: 1px solid #c62828;
+        background: #fff;
+        color: #c62828;
+    }
+    @media (max-width: 1200px) {
+        body.admin-user-view:not(.admin-profile-view) #admin-disclosures-panel .disclosure-composer-layout {
+            grid-template-areas: "editor" "actions" "preview";
+        }
+    }
+}
+

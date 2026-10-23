@@ -13,7 +13,7 @@ A PHP and MySQL web portal for resident account registration, document requests,
 
 1. Place the project in the web root (for example, `C:\xampp\htdocs\barangay_portal_new`).
 2. Start Apache and MySQL from the XAMPP Control Panel.
-3. Open phpMyAdmin and import `schema.sql`. This creates the `barangay_portal` database and its tables.
+3. Open phpMyAdmin and import `database/schema.sql`. This creates the `barangay_portal` database and its tables.
 4. For local development, the defaults expect MySQL at `127.0.0.1:3306`, database `barangay_portal`, and a local `root` account with no password. Production must use environment variables; see Configuration below.
 5. Configure SMTP through environment variables if email notifications are needed. Never store real credentials in PHP source files.
 6. Open `http://localhost/barangay_portal_new/`.
@@ -24,9 +24,9 @@ Admin accounts use the separate administrator login and the `user` database tabl
 
 Admin sign-in is available only after visiting the unguessable path configured by `ADMIN_ENTRY_KEY`. Keep that path private and share it only with administrators. The path is an additional barrier; every administrator must still use an Admin account and complete authenticator-app MFA. MFA seeds are encrypted at rest using `ADMIN_MFA_ENCRYPTION_KEY`, which must remain stable and secret.
 
-For an existing database, apply `admin_mfa_migration.sql` once before deploying the MFA-enabled PHP files. On the first sign-in, each administrator must enroll an authenticator app using the displayed setup key and confirm a current 6-digit code. If an administrator loses their authenticator, a database administrator must reset that account's MFA columns before it can be enrolled again.
+For an existing database, apply `database/admin_mfa_migration.sql` once before deploying the MFA-enabled PHP files. On the first sign-in, each administrator must enroll an authenticator app using the displayed setup key and confirm a current 6-digit code. If an administrator loses their authenticator, a database administrator must reset that account's MFA columns before it can be enrolled again.
 
-For an existing database, also apply `profile_enhancements_migration.sql` once before deploying the expanded My profile features. It adds profile photos, administrator details and notification settings, password-change dates, active-session tracking, and MFA recovery-code storage.
+For an existing database, also apply `database/profile_enhancements_migration.sql` once before deploying the expanded My profile features. It adds profile photos, administrator details and notification settings, password-change dates, active-session tracking, and MFA recovery-code storage.
 
 ```sh
 php -r "echo password_hash('Choose-a-strong-password', PASSWORD_DEFAULT), PHP_EOL;"
@@ -41,9 +41,9 @@ VALUES ('Admin', 'User', 'admin@example.com', 'PASTE_GENERATED_HASH_HERE', 'Admi
 
 Then sign in through `http://localhost/barangay_portal_new/index.php#admin-login`. Use the email and original password you chose. The login checks the stored hash; it does not accept a resident account. The legacy `index.html` URL forwards to `index.php`.
 
-For an existing database, run `admin_workspace_migration.sql`, `resident_payment_migration.sql`, and `security_hardening_migration.sql` once in the `barangay_portal` database. These add request notes, payment status, email verification, and rate-limit storage. Existing residents are marked as previously verified by the security migration; new registrations must verify their email.
+For an existing database, run `database/admin_workspace_migration.sql`, `database/resident_payment_migration.sql`, and `database/security_hardening_migration.sql` once in the `barangay_portal` database. These add request notes, payment status, email verification, and rate-limit storage. Existing residents are marked as previously verified by the security migration; new registrations must verify their email.
 
-For an older local database that does not have `resident.archived_at`, run `resident_archive_migration.sql` once. The current login and account APIs expect this nullable column.
+For an older local database that does not have `resident.archived_at`, run `database/resident_archive_migration.sql` once. The current login and account APIs expect this nullable column.
 
 For an existing database, run `database/audit_search_migration.sql` once to add the full-text activity search indexes and the structured resident reference used by the admin activity log.
 
@@ -61,7 +61,7 @@ The migrations under `database/` use MariaDB's `IF NOT EXISTS` syntax and are co
 - **Admin workspace:** overview, requests queue and detail, pending resident review, disclosure publishing, and activity log.
 - **Public records:** bulletin categories and published disclosures (`bulletin.html`).
 
-The main interface and routing are in `index.php` and `script.js`. Admin sections have direct PHP routes at the project root (`admin_overview.php`, `admin_requests.php`, `admin_residents.php`, `admin_disclosures.php`, and `admin_activity.php`). Styles are split under `css/` into shared, home, authentication, admin, public-records, and responsive files. Shared page markup and admin sections are organized under `includes/shared/` and `includes/admin/`. API endpoints are in `api/`; the base schema is in `schema.sql`, and the new performance and policy migrations are grouped under `database/`.
+The main interface and routing are in `index.php` and `script.js`. Admin sections have direct PHP routes at the project root (`admin_overview.php`, `admin_requests.php`, `admin_residents.php`, `admin_disclosures.php`, and `admin_activity.php`). Styles are split under `css/` into shared, home, authentication, admin, public-records, and responsive files. Shared page markup and admin sections are organized under `includes/shared/` and `includes/admin/`. API endpoints are in `api/`; the base schema is in `database/schema.sql`, and the new performance and policy migrations are grouped under `database/`.
 
 ## Database tables
 
