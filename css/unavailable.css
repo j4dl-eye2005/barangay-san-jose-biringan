@@ -198,34 +198,34 @@ body.unavailable-view:not(.public-portal-view) .navbar > .nav-inner {
     .unavailable-main { width: calc(100% - 40px); }
     body.unavailable-view .unavailable-code,
     #app-container .unavailable-section.active .unavailable-code {
-        margin-bottom: 12px;
-        font-size: clamp(136px, 42vw, 190px) !important;
+        margin-bottom: 14px;
+        font-size: clamp(104px, 31vw, 128px) !important;
         font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
         font-weight: 800;
         letter-spacing: -0.09em;
-        line-height: 0.82;
+        line-height: 0.88;
     }
-    .unavailable-content h1 { font-size: clamp(28px, 8vw, 32px); }
-    .unavailable-description { font-size: 13px; }
+    .unavailable-content h1 { font-size: clamp(25px, 7vw, 30px); }
+    .unavailable-description { max-width: 32ch; margin: 0 auto; font-size: 13px; }
     .unavailable-address {
         display: block;
-        width: fit-content;
+        width: min(100%, 360px);
         max-width: 100%;
-        margin: 16px auto 22px;
+        margin: 16px auto 20px;
         padding: 10px 12px;
         border-radius: 8px;
         font-size: 11px;
         line-height: 1.35;
-        overflow: visible;
+        overflow: hidden;
     }
     .unavailable-address-desktop { display: none; }
     .unavailable-address > span { display: block; margin-bottom: 3px; }
     .unavailable-address-mobile {
         display: block;
         max-width: 100%;
-        overflow-x: auto;
-        white-space: nowrap;
-        overscroll-behavior-x: contain;
+        overflow-wrap: anywhere;
+        white-space: normal;
+        word-break: break-word;
     }
     .unavailable-actions { gap: 10px; }
     .unavailable-home,
@@ -233,7 +233,7 @@ body.unavailable-view:not(.public-portal-view) .navbar > .nav-inner {
     .unavailable-quick-links {
         flex-wrap: nowrap;
         gap: 2px;
-        margin-top: 20px;
+        margin-top: 16px;
         font-size: 11px;
         white-space: nowrap;
     }

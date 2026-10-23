@@ -252,7 +252,7 @@ function renderUnavailablePage(int $statusCode = 404): void
         . '<link rel="stylesheet" href="' . $assetPrefix . '/css/components.css?v=20261015-performance-queue">'
         . '<link rel="stylesheet" href="' . $assetPrefix . '/css/public.css?v=20261016-sticky-menu-stable">'
         . '<link rel="stylesheet" href="' . $assetPrefix . '/css/shared-responsive.css?v=20261017-profile-security-columns">'
-        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/unavailable.css?v=20261021-404-header-container-v2">'
+        . '<link rel="stylesheet" href="' . $assetPrefix . '/css/unavailable.css?v=20261023-mobile-404-wrap-v1">'
         . '<link rel="stylesheet" href="' . $assetPrefix . '/css/portal-public.css?v=20261021-performance-assets-paging-v1">'
         . '<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>'
         . '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></head>'
