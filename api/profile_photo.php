@@ -13,7 +13,7 @@ if ($method === 'GET') {
     $photo = $findPhoto->fetchColumn();
     if (!is_string($photo) || !preg_match('/^[a-f0-9]{32}\.(?:webp|jpg)$/', $photo)) { http_response_code(404); exit; }
     try { $uploadDir = privateStorageDirectory('profile-photos'); }
-    catch (Throwable $e) { http_response_code(503); exit; }
+    catch (Throwable $e) { error_log('Profile photo storage is unavailable: ' . $e->getMessage()); http_response_code(503); exit; }
     $photoPath = $uploadDir . DIRECTORY_SEPARATOR . $photo;
     $photoInfo = is_file($photoPath) ? @getimagesize($photoPath) : false;
     $expectedMime = str_ends_with($photo, '.webp') ? 'image/webp' : 'image/jpeg';
@@ -44,7 +44,7 @@ if ($action === 'remove') {
             $uploadDir = privateStorageDirectory('profile-photos');
             $path = $uploadDir . DIRECTORY_SEPARATOR . $old;
             if (is_file($path) && !@unlink($path)) error_log('Could not delete a removed profile photo from private storage.');
-        } catch (Throwable $e) { error_log('Could not access private storage to clean up a removed profile photo.'); }
+        } catch (Throwable $e) { error_log('Could not access private storage to clean up a removed profile photo: ' . $e->getMessage()); }
     }
     echo json_encode(['success'=>true,'photo'=>null]); exit;
 }
@@ -68,7 +68,7 @@ if ($useWebp) { imagealphablending($target,false); imagesavealpha($target,true);
 else { $background = imagecolorallocate($target,255,255,255); imagefill($target,0,0,$background); imagealphablending($target,true); }
 if (!imagecopyresampled($target,$source,0,0,$sx,$sy,256,256,$side,$side)) { imagedestroy($source); imagedestroy($target); http_response_code(500); echo json_encode(['success'=>false,'message'=>'Could not prepare that image.']); exit; }
 try { $uploadDir = privateStorageDirectory('profile-photos'); }
-catch (Throwable $e) { imagedestroy($source); imagedestroy($target); http_response_code(503); echo json_encode(['success'=>false,'message'=>'Photo storage is unavailable on this site.']); exit; }
+catch (Throwable $e) { error_log('Profile photo storage is unavailable: ' . $e->getMessage()); imagedestroy($source); imagedestroy($target); http_response_code(503); echo json_encode(['success'=>false,'message'=>'Photo storage is unavailable. The site needs a writable private folder outside its public directory.']); exit; }
 $name = bin2hex(random_bytes(16)) . '.' . $extension; $path = $uploadDir . DIRECTORY_SEPARATOR . $name;
 $saved = $useWebp ? @imagewebp($target,$path,85) : @imagejpeg($target,$path,88); imagedestroy($source); imagedestroy($target);
 if (!$saved) { http_response_code(500); echo json_encode(['success'=>false,'message'=>'Could not save that photo.']); exit; }

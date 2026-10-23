@@ -1292,6 +1292,7 @@ body.admin-profile-view #admin-dashboard .admin-rail { top: var(--topbar-height)
 body.admin-profile-view #admin-dashboard .admin-content { box-sizing: border-box; width: 100%; max-width: none; margin: 0; padding: 32px; }
 body.admin-profile-view #admin-dashboard .admin-content > .admin-panel { display: none !important; }
 body.admin-profile-view #admin-dashboard .admin-content > #resident-profile.active { display: block !important; width: 100%; min-height: calc(100vh - var(--topbar-height)); padding: 0; animation: admin-panel-enter .2s ease-out both; }
+body.admin-profile-view:has(#resident-profile.active) #admin-dashboard .admin-content { padding-top: 16px; }
 body.admin-profile-view #resident-profile .resident-profile-page { box-sizing: border-box; width: 100%; max-width: 1200px; margin: 0 auto; padding: 0; }
 body.admin-profile-view #resident-profile .resident-profile-back { display: none !important; }
 body.admin-profile-view #admin-sidebar-account .admin-sidebar-profile.active { border-radius: 5px; background: #e8f2e5; color: #145b25; font-weight: 700; text-decoration: none; }
