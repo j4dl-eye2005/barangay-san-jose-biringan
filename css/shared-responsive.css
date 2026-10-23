@@ -131,40 +131,11 @@
     }
 }
 
-/* ── Admin nav section in hamburger menu ──────────────────────────────────── */
-/* Hidden by default — shown only on mobile when admin is logged in */
-.admin-nav-section { display: none; }
-
 /* Admin-workspace rail: hide on mobile — tabs live in the hamburger instead */
 @media (max-width: 767px) {
     .admin-user-view .admin-rail { display: none; }
     .admin-user-view .admin-workspace { display: block; }
     .admin-user-view .admin-content { padding: var(--space-4) 16px; }
-
-    /* Show the admin nav section inside the open hamburger */
-    .admin-user-view .admin-nav-section {
-        display: block;
-        width: 100%;
-        padding-top: var(--space-2);
-    }
-
-    .admin-nav-label {
-        padding: var(--space-2) 12px var(--space-1);
-        color: var(--color-accent);
-        font-size: var(--text-10);
-        font-weight: 800;
-        letter-spacing: .08em;
-        text-transform: uppercase;
-    }
-
-    .admin-nav-tabs-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0;
-        margin: 0;
-        padding: 0;
-        list-style: none;
-    }
 
     /* Identical to .nav-links buttons — no icons, same padding/font/color */
     .admin-nav-tab {
@@ -282,7 +253,6 @@
     .proof-preview-resident { max-height: 165px; }
     .proof-preview-open-link { font-size: 0; gap: 0; }
     .proof-preview-open-link i { font-size: var(--text-12); }
-    .proof-preview-actions { padding: var(--space-2); }
 }
 
 /* Mobile legal pages do not use the desktop section rail or mobile pill row. */
@@ -302,7 +272,7 @@
 /* Mobile fit and touch targets */
 @media (max-width: 720px) {
     body { font-size: 16px; line-height: 1.55; }
-    main, .section, .page-shell, .category-page, .admin-workspace, .admin-content,
+    main, .section, .page-shell, .admin-workspace, .admin-content,
     .card, .panel-content, .composer-card, .policy-page { min-width: 0; }
     h1, h2, h3, h4, p, a, strong, small, span { overflow-wrap: anywhere; }
     video, iframe, embed, object { display: block; max-width: 100%; }
@@ -342,11 +312,11 @@
     .nav-backdrop.closing { display: block; pointer-events: none; animation: mobile-backdrop-in .18s ease-in reverse both; }
     .nav-links button, .nav-login-button, .nav-menu .user-info button { min-height: 44px; }
 
-    .page-shell, .category-page, .hero, .how-it-works, .landing-sections,
+    .page-shell, .hero, .how-it-works, .landing-sections,
     .policy-layout, .site-footer-inner, .site-disclaimer-bar {
         width: min(100% - 32px, var(--content-width));
     }
-    .page-shell, .category-page { padding-top: var(--space-5-5); }
+    .page-shell { padding-top: var(--space-5-5); }
     .site-disclaimer-bar { padding-top: var(--space-5-5); }
     .site-footer-inner { padding-top: var(--space-4); }
     .hero { padding-top: var(--space-6); }
@@ -390,7 +360,7 @@
     .request-copy-button { display: inline-grid; }
     .reg-field label { white-space: normal; }
     .reg-dropzone { min-height: 120px; }
-    .reg-file-action, .disclosure-remove-file { min-height: 44px; }
+    .reg-file-action { min-height: 44px; }
     .activity-tools { flex-wrap: wrap; white-space: normal; }
     .activity-presets { flex-wrap: wrap; }
     .activity-tools > span { margin-left: 0; }
@@ -998,8 +968,7 @@
     .hero-popular-services,
     .hero-intro #hero-guest-actions,
     .hero-intro #hero-user-actions,
-    .hero-privacy,
-    .hero-steps-card { animation: none; }
+    .hero-privacy { animation: none; }
     .doc-strip,
     .latest-announcements { scroll-behavior: auto; }
 }
@@ -1143,7 +1112,6 @@
         text-align: center;
         animation: hero-mobile-rise .4s ease-out .3s both;
     }
-    .hero-steps-card { animation: hero-mobile-rise .4s ease-out .4s both; }
     .hero-privacy i {
         margin-top: 0;
     }
@@ -1209,7 +1177,6 @@
     }
 
     h2,
-    .hero-steps-card h2,
     .how-it-works > h2,
     .how-head h2,
     .block-head h2,
@@ -1376,7 +1343,6 @@
     .proof-preview-info-row > span,
     .proof-preview-info-row > strong,
     .proof-preview-zoom-label,
-    .resident-admin-table .resident-registered-time,
     .resident-admin-table .resident-admin-name,
     .disclosure-char-count,
     .disclosure-file-preview > small,
@@ -1487,8 +1453,6 @@
     }
     .request-item p,
     .disclosure-dropzone p { font-size: var(--mobile-body); line-height: 1.5; }
-    .resident-admin-table .resident-registered-date,
-    .resident-admin-table .resident-registered-time,
     .completed-label,
     .unavailable-label,
     .request-summary-label,
@@ -1511,7 +1475,6 @@
     .overview-summary-links button,
     .overview-view-all,
     .reg-file-action,
-    .disclosure-remove-file,
     .login-forgot-link,
     .policy-contact-body a,
     #login .login-forgot-link,

@@ -663,36 +663,6 @@ body.public-portal-view #bulletin button.records-search-result:hover { border-co
 body.public-portal-view #bulletin .records-search-result small { display: block; margin-bottom: 4px; color: var(--color-logo-green); font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 body.public-portal-view #bulletin .records-search-empty { margin: 0; padding: 20px; border: 1px solid var(--color-border); border-radius: var(--radius-card); background: #fff; color: var(--color-text); }
 body.public-portal-view #bulletin .bulletin-grid { align-items: start; align-content: start; gap: 16px; }
-body.public-portal-view #bulletin .bulletin-card {
-    align-self: start;
-    min-height: 0;
-    height: auto;
-    padding: 20px;
-    border: 1px solid #e1e5e1;
-    border-radius: 10px;
-    background: #fff;
-    box-shadow: none;
-    cursor: pointer;
-    transition: none;
-}
-body.public-portal-view #bulletin .bulletin-card:hover,
-body.public-portal-view #bulletin .bulletin-card.selected { border-color: #9db89f; background: #fff; }
-body.public-portal-view #bulletin .bulletin-card:focus-visible { outline: 2px solid var(--color-logo-green); outline-offset: 3px; }
-body.public-portal-view #bulletin .category-heading {
-    min-height: 44px;
-    align-items: center;
-    padding: 0 0 12px;
-    border-bottom: 1px solid #e5e8e5;
-    color: #252a26;
-    font-size: 15px;
-    font-weight: 600;
-    line-height: 1.4;
-}
-body.public-portal-view #bulletin .category-heading span { gap: 10px; }
-body.public-portal-view #bulletin .category-heading span i { color: var(--color-logo-green); font-size: 14px; }
-body.public-portal-view #bulletin .category-heading > i { color: #536258; font-size: 14px; }
-body.public-portal-view #bulletin .category-heading:hover > i { color: var(--color-logo-green); }
-body.public-portal-view #bulletin .category-heading:focus-visible { outline: 2px solid var(--color-logo-green); outline-offset: 3px; }
 body.public-portal-view #bulletin .bulletin-list { margin: 0; padding: 0; }
 body.public-portal-view #bulletin .bulletin-list li { padding: 14px 0; border-bottom-color: #e8ebe8; }
 body.public-portal-view #bulletin .bulletin-list li:last-child { border-bottom: 0; }
@@ -839,7 +809,6 @@ body.public-portal-view #bulletin .attachment-link { color: var(--color-logo-gre
     body.public-portal-view #bulletin .bulletin-title-row { gap: 8px; }
     body.public-portal-view #bulletin .bulletin-sk-logo { width: 40px; height: 40px; flex-basis: 40px; }
     body.public-portal-view #bulletin .bulletin-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-    body.public-portal-view #bulletin .bulletin-card { padding: 16px; }
     body.public-portal-view #bulletin .public-records-search { width: 100%; }
     body.public-portal-view #bulletin .public-records-search form { min-width: 0; min-height: 52px; }
     body.public-portal-view #bulletin .records-search-grid { grid-template-columns: 1fr; }
@@ -1396,8 +1365,6 @@ body.public-portal-view #bulletin .bulletin-text-link,
 body.public-portal-view #bulletin .bulletin-category-badge,
 body.public-portal-view #bulletin .bulletin-filter-icon,
 body.public-portal-view #bulletin .bulletin-filter-count,
-body.public-portal-view #bulletin .category-heading span i,
-body.public-portal-view #bulletin .category-heading:hover > i,
 body.public-portal-view #bulletin .records-search-result small,
 body.public-portal-view #bulletin .bulletin-record-title:hover,
 body.public-portal-view #bulletin .bulletin-record-type,
@@ -1413,8 +1380,6 @@ body.public-portal-view #bulletin .bulletin-record-type { background-color: #edf
 body.public-portal-view #bulletin .bulletin-filter-card:hover { border-color: #b7c8ed; background: #f6f8fe; }
 body.public-portal-view #bulletin .bulletin-filter-card.is-active { border-color: #dfe5df; border-left: 1px solid #dfe5df; background: #edf2fc; }
 body.public-portal-view #bulletin .bulletin-filter-card:focus-visible,
-body.public-portal-view #bulletin .category-heading:focus-visible,
-body.public-portal-view #bulletin .bulletin-card:focus-visible,
 body.public-portal-view #bulletin .bulletin-breadcrumb button:focus-visible,
 body.public-portal-view #bulletin .bulletin-text-link:focus-visible,
 body.public-portal-view #bulletin .bulletin-record-title:focus-visible,
@@ -3618,8 +3583,6 @@ body:has(.policy-section.active) .site-disclaimer strong { color: #302b20 !impor
         justify-content: flex-start;
         padding: 0 12px;
     }
-    body.admin-user-view .nav-menu.open .admin-nav-section,
-    body.admin-user-view .nav-menu.closing .admin-nav-section { display: block; width: 100%; padding-top: 16px; }
 }
 
 body.public-portal-view #bulletin .bulletin-archive-list > .bulletin-load-more,

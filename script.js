@@ -1116,7 +1116,6 @@ window.addEventListener('hashchange', () => {
     let decodedHash = rawHash;
     try { decodedHash = decodeURIComponent(rawHash); } catch { /* Malformed fragments use the common unavailable screen. */ }
     const [route, query = ''] = decodedHash.split('?', 2);
-    const validSections = ['landing', 'bulletin', 'login', 'admin-login', 'forgot-password', 'register', 'resident-dashboard', 'resident-profile', 'resident-change-email', 'resident-change-password', 'admin-dashboard', 'privacy-policy', 'terms', 'moderation', 'copyright', 'page-unavailable'];
     const resetQuery = new URLSearchParams(query);
     const invalidResetToken = route === 'forgot-password' && resetQuery.has('token') && !/^[a-f0-9]{64}$/i.test(resetQuery.get('token') || '');
 
