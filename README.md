@@ -25,7 +25,7 @@ Admin accounts use the separate administrator login and the `user` database tabl
 
 Admin sign-in is available only after visiting the unguessable path configured by `ADMIN_ENTRY_KEY`. Keep that path private and share it only with administrators. The path is an additional barrier; every administrator must still use an Admin account and complete authenticator-app MFA. MFA seeds are encrypted at rest using `ADMIN_MFA_ENCRYPTION_KEY`, which must remain stable and secret.
 
-For an existing database, apply `database/admin_mfa_migration.sql` once before deploying the MFA-enabled PHP files. On the first sign-in, each administrator must enroll an authenticator app using the displayed setup key and confirm a current 6-digit code. If an administrator loses their authenticator, a database administrator must reset that account's MFA columns before it can be enrolled again.
+For an existing database, apply `database/admin_mfa_migration.sql` once before deploying the MFA-enabled PHP files. On the first sign-in, each administrator must enroll an authenticator app using the displayed setup key and confirm a current 6-digit code. Save the one-time recovery codes shown after enrollment. Each code can be used once if the authenticator is unavailable. Generating a new set invalidates the previous set.
 
 For an existing database, also apply `database/profile_enhancements_migration.sql` once before deploying the expanded My profile features. It adds profile photos, administrator details and notification settings, password-change dates, active-session tracking, and MFA recovery-code storage.
 
@@ -50,6 +50,10 @@ For an existing database, run `database/audit_search_migration.sql` once to add 
 
 For an existing database, run `database/public_records_migration.sql` once to add the indexes used by paginated public disclosure listings and attachment lookup.
 
+For an existing database, run `database/disclosure_category_alignment_migration.sql` once so stored disclosure category names match the categories shown by the portal.
+
+For an existing database, apply `database/mail_queue_migration.sql` before enabling email delivery through the queued worker.
+
 For an existing database, run `database/query_performance_migration.sql` once to support request-list ordering and indexed weekly admin overview counts.
 
 For an existing database, run `database/policy_acceptance_migration.sql` once before deploying the updated registration endpoint. It adds nullable fields to record the Terms version accepted and Privacy Notice version acknowledged at registration. Existing accounts remain blank because the earlier version did not retain this evidence.
@@ -72,6 +76,7 @@ The schema defines administrator and resident accounts, document types and reque
 
 - Set `APP_ENV=production`, `APP_URL` (HTTPS), `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASS` in the host environment. Give the database account only the permissions the application needs, including the migration-created tables.
 - Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_ENCRYPTION` (`tls` or `ssl`), `MAIL_FROM_EMAIL`, and optionally `MAIL_FROM_NAME` for verification and notification email.
+- Schedule `api/process_mail_queue.php` as a server-side CLI cron job so queued emails are delivered. In cPanel Cron Jobs, run it every minute with the host's PHP CLI binary, for example: `php -q /home/baraaiyk/public_html/api/process_mail_queue.php`. Replace the path and PHP command with the deployed application path and PHP CLI location. The worker processes up to 20 messages per run and retries temporary failures; monitor the queue for records marked `failed`.
 - Keep `APP_PRIVATE_STORAGE` and the deployment `.env` outside the web root and writable by PHP as needed. The app reads `.env` from a sibling `barangay_portal_private` directory by default; set the server environment variable `PORTAL_ENV_FILE` to an absolute protected path if your layout differs. Do not put secrets in the project root.
 - Use HTTPS at the host/proxy. Apache rules redirect HTTP and set transport/security headers; confirm the host supports `.htaccess` rewrite and header modules.
 - Existing account passwords are not forcibly reset by the migration. Reset any legacy passwords that do not meet the 12-character policy, and rotate any database or SMTP credential that has ever been committed or shared.

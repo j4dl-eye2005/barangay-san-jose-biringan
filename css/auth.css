@@ -1204,6 +1204,51 @@ body:has(#resident-profile.active) .site-footer { display: block !important; }
     gap: 10px;
     margin-top: 0;
 }
+#admin-login #admin-mfa-step [hidden] { display: none !important; }
+#admin-login #admin-mfa-step .admin-mfa-code-group,
+#admin-login #admin-mfa-step .admin-mfa-recovery-group { margin: 0; }
+#admin-login #admin-mfa-step .admin-mfa-code-group > label,
+#admin-login #admin-mfa-step .admin-mfa-recovery-group > label { margin: 0 0 8px; }
+#admin-login #admin-mfa-step .admin-mfa-field-help {
+    margin: 8px 0 2px;
+    color: #4c5750;
+    font-size: 13px;
+    line-height: 1.45;
+}
+#admin-login #admin-mfa-step .admin-mfa-mode-switch {
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    margin-top: 4px;
+    padding: 2px 0;
+    font-size: 14px;
+    line-height: 1.4;
+}
+#admin-login #admin-mfa-recovery-code {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 56px;
+    padding: 12px 14px;
+    border: 1px solid #8b948e;
+    border-radius: var(--radius-control);
+    background: #fff;
+    color: var(--color-ink);
+    font: inherit;
+    font-size: 18px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+#admin-login #admin-mfa-recovery-code:focus {
+    border-color: #0c5700;
+    outline: 3px solid rgb(12 87 0 / 20%);
+    outline-offset: 2px;
+}
+#admin-login #admin-mfa-recovery-code[aria-invalid="true"] {
+    border-color: #c43b3b;
+    outline: none;
+    box-shadow: none;
+    background: #fff;
+}
 #admin-login.auth-section.active #admin-mfa-code-fields .admin-mfa-digit {
     box-sizing: border-box;
     width: 100%;
@@ -1221,7 +1266,7 @@ body:has(#resident-profile.active) .site-footer { display: block !important; }
     text-align: center;
     transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
 }
-#admin-login.auth-section.active #admin-mfa-code-fields .admin-mfa-digit:valid:not(:focus) {
+#admin-login.auth-section.active #admin-mfa-code-fields .admin-mfa-digit.is-filled:not(:focus) {
     border-color: #0c5700;
     background: #f0f7ed;
 }
@@ -1277,4 +1322,10 @@ body:has(#resident-profile.active) .site-footer { display: block !important; }
 
 @media (max-width: 767px) {
     #admin-login #admin-mfa-code-fields { gap: 8px; }
+    #admin-login #admin-mfa-recovery-code { min-height: 52px; font-size: 16px; }
+}
+
+@media (max-width: 380px) {
+    #admin-login #admin-mfa-code-fields { gap: 5px; }
+    #admin-login.auth-section.active #admin-mfa-code-fields .admin-mfa-digit { height: 48px; min-height: 48px; font-size: 21px; }
 }

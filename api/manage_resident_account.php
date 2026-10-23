@@ -20,7 +20,7 @@ if (!$residentId || !in_array($action, ['archive', 'restore', 'delete', 'archive
 
 try {
     $pdo->beginTransaction();
-    $find = $pdo->prepare('SELECT resident_id, first_name, middle_name, last_name, email, archived_at, proof_path FROM resident WHERE resident_id = ? FOR UPDATE');
+    $find = $pdo->prepare('SELECT resident_id, first_name, middle_name, last_name, email, archived_at, proof_path, profile_photo FROM resident WHERE resident_id = ? FOR UPDATE');
     $find->execute([$residentId]);
     $resident = $find->fetch();
     if (!$resident) {
@@ -36,6 +36,7 @@ try {
         (string) ($resident['last_name'] ?? ''),
     ], static fn(string $part): bool => $part !== '')));
 
+    $filesToDelete = [];
     if ($action === 'archive') {
         if (empty($resident['archived_at'])) {
             $pdo->prepare('UPDATE resident SET archived_at = UTC_TIMESTAMP(), is_active = 0, auth_version = auth_version + 1 WHERE resident_id = ?')->execute([$residentId]);
@@ -51,32 +52,103 @@ try {
         $message = 'Resident account restored.';
     } elseif ($action === 'delete') {
         $pdo->prepare("DELETE FROM password_reset_token WHERE account_type = 'resident' AND account_id = ?")->execute([$residentId]);
+        $requests = $pdo->prepare('SELECT request_id, proof_path FROM document_request WHERE resident_id = ? FOR UPDATE');
+        $requests->execute([$residentId]);
+        foreach ($requests->fetchAll(PDO::FETCH_ASSOC) as $requestRow) {
+            if (is_string($requestRow['proof_path'] ?? null) && $requestRow['proof_path'] !== '') $filesToDelete[] = $requestRow['proof_path'];
+            $requestRecordId = (int) ($requestRow['request_id'] ?? 0);
+            if ($requestRecordId > 0) {
+                $redactRequestAudit = $pdo->prepare("UPDATE audit_log SET details = 'Related request details erased with resident account' WHERE details = ? OR details LIKE ? OR details = ? OR details LIKE ?");
+                $redactRequestAudit->execute([
+                    'Request ID ' . $requestRecordId,
+                    'Request ID ' . $requestRecordId . ';%',
+                    'Internal note updated for request ID ' . $requestRecordId,
+                    'Payment status changed for request ID ' . $requestRecordId . ' to %',
+                ]);
+            }
+        }
+        $pdo->prepare('DELETE FROM document_request WHERE resident_id = ?')->execute([$residentId]);
+        $pdo->prepare("DELETE FROM account_session WHERE account_type = 'resident' AND account_id = ?")->execute([$residentId]);
+        $pdo->prepare('DELETE FROM portal_email_queue WHERE recipient = ?')->execute([(string) $resident['email']]);
+        $pdo->prepare("UPDATE audit_log SET subject_resident_id = NULL, details = 'Resident data erased with account' WHERE subject_resident_id = ?")->execute([$residentId]);
         $pdo->prepare('DELETE FROM resident WHERE resident_id = ?')->execute([$residentId]);
+        if (is_string($resident['proof_path'] ?? null) && $resident['proof_path'] !== '') $filesToDelete[] = $resident['proof_path'];
         $auditAction = 'resident_deleted';
-        $message = 'Resident account permanently deleted. Related request records were kept.';
+        $message = 'Resident account, linked requests, and proof files permanently deleted.';
     } else {
         if (empty($resident['archived_at'])) {
             $pdo->prepare('UPDATE resident SET archived_at = UTC_TIMESTAMP(), is_active = 0, auth_version = auth_version + 1 WHERE resident_id = ?')->execute([$residentId]);
             $pdo->prepare('DELETE FROM email_verification_token WHERE resident_id = ?')->execute([$residentId]);
         }
         $pdo->prepare("DELETE FROM password_reset_token WHERE account_type = 'resident' AND account_id = ?")->execute([$residentId]);
+        $requests = $pdo->prepare('SELECT request_id, proof_path FROM document_request WHERE resident_id = ? FOR UPDATE');
+        $requests->execute([$residentId]);
+        foreach ($requests->fetchAll(PDO::FETCH_ASSOC) as $requestRow) {
+            if (is_string($requestRow['proof_path'] ?? null) && $requestRow['proof_path'] !== '') $filesToDelete[] = $requestRow['proof_path'];
+            $requestRecordId = (int) ($requestRow['request_id'] ?? 0);
+            if ($requestRecordId > 0) {
+                $redactRequestAudit = $pdo->prepare("UPDATE audit_log SET details = 'Related request details erased with resident account' WHERE details = ? OR details LIKE ? OR details = ? OR details LIKE ?");
+                $redactRequestAudit->execute([
+                    'Request ID ' . $requestRecordId,
+                    'Request ID ' . $requestRecordId . ';%',
+                    'Internal note updated for request ID ' . $requestRecordId,
+                    'Payment status changed for request ID ' . $requestRecordId . ' to %',
+                ]);
+            }
+        }
+        $pdo->prepare('DELETE FROM document_request WHERE resident_id = ?')->execute([$residentId]);
+        $pdo->prepare("DELETE FROM account_session WHERE account_type = 'resident' AND account_id = ?")->execute([$residentId]);
+        $pdo->prepare('DELETE FROM portal_email_queue WHERE recipient = ?')->execute([(string) $resident['email']]);
+        $pdo->prepare("UPDATE audit_log SET subject_resident_id = NULL, details = 'Resident data erased with account' WHERE subject_resident_id = ?")->execute([$residentId]);
         $pdo->prepare('DELETE FROM resident WHERE resident_id = ?')->execute([$residentId]);
+        if (is_string($resident['proof_path'] ?? null) && $resident['proof_path'] !== '') $filesToDelete[] = $resident['proof_path'];
         $auditAction = 'resident_archived_and_deleted';
-        $message = 'Resident account archived and permanently deleted. Related request records were kept.';
+        $message = 'Resident account, linked requests, and proof files permanently deleted.';
     }
 
-    $audit = $pdo->prepare('INSERT INTO audit_log (user_id, subject_resident_id, action, details) VALUES (?, ?, ?, ?)');
-    $audit->execute([
-        (int) $_SESSION['user_id'],
-        (int) $residentId,
-        $auditAction,
-        'Resident: ' . ($name !== '' ? $name : 'Name not provided') . ' (ID ' . (int) $residentId . '; email ' . (string) $resident['email'] . ')',
-    ]);
+    if (in_array($action, ['delete', 'archive_delete'], true)) {
+        $audit = $pdo->prepare('INSERT INTO audit_log (user_id, action, details) VALUES (?, ?, ?)');
+        $audit->execute([(int) $_SESSION['user_id'], $auditAction, 'Resident account and linked request data permanently erased']);
+    } else {
+        $audit = $pdo->prepare('INSERT INTO audit_log (user_id, subject_resident_id, action, details) VALUES (?, ?, ?, ?)');
+        $audit->execute([
+            (int) $_SESSION['user_id'],
+            (int) $residentId,
+            $auditAction,
+            'Resident: ' . ($name !== '' ? $name : 'Name not provided') . ' (ID ' . (int) $residentId . '; email ' . (string) $resident['email'] . ')',
+        ]);
+    }
     $pdo->commit();
 
-    if (in_array($action, ['delete', 'archive_delete'], true) && is_string($resident['proof_path'] ?? null)) {
-        $proofFile = resolveStoredUpload($resident['proof_path']);
-        if ($proofFile) @unlink($proofFile);
+    if (in_array($action, ['delete', 'archive_delete'], true)) {
+        if (is_string($resident['profile_photo'] ?? null) && preg_match('/^[a-f0-9]{32}\.(?:webp|jpg)$/', $resident['profile_photo'])) {
+            try {
+                $photoDirectory = realpath(privateStorageDirectory('profile-photos'));
+                $photoPath = $photoDirectory === false ? false : realpath($photoDirectory . DIRECTORY_SEPARATOR . $resident['profile_photo']);
+                if ($photoPath !== false && is_file($photoPath)
+                    && str_starts_with(strtolower($photoPath), strtolower(rtrim($photoDirectory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR))) {
+                    $filesToDelete[] = $photoPath;
+                }
+            } catch (Throwable $cleanupError) {
+                error_log('Could not access private storage while deleting a resident account.');
+                $message .= ' Some stored files could not be reached for cleanup.';
+            }
+        }
+        $cleanupFailed = false;
+        foreach (array_unique($filesToDelete) as $storedPath) {
+            try {
+                $file = str_starts_with($storedPath, DIRECTORY_SEPARATOR) || preg_match('/^[A-Za-z]:[\\\\\/]/', $storedPath)
+                    ? $storedPath
+                    : resolveStoredUpload($storedPath);
+                if (is_string($file) && is_file($file) && !@unlink($file)) $cleanupFailed = true;
+            } catch (Throwable $cleanupError) {
+                $cleanupFailed = true;
+            }
+        }
+        if ($cleanupFailed) {
+            error_log('One or more resident proof files could not be deleted from private storage.');
+            $message .= ' Some stored files could not be erased and need administrator cleanup.';
+        }
     }
 
     echo json_encode(['success' => true, 'message' => $message]);

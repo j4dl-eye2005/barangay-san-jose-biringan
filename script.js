@@ -142,6 +142,7 @@ let registrationEmailCheckSequence = 0;
 let toastHideTimer = null;
 let toastExitTimer = null;
 let adminMfaCopyFeedbackTimer = null;
+let adminMfaSetupInProgress = false;
 const adminPanelLoadedAt = new Map();
 const ADMIN_PANEL_CACHE_MS = 30000;
 const PUBLIC_DISCLOSURES_CACHE_MS = 30000;
@@ -158,7 +159,7 @@ const delegatedActionNames = new Set([
     'activateDisclosureCategory', 'changePickupCalendarMonth', 'checkAuthAndRedirect', 'clearPublicRecordsSearchInput', 'copyAuthenticatorSetupKey',
     'clearActivityFilters', 'clearDisclosureFile', 'closeAdminRequestDetail', 'closeMobileMenu',
     'closeBulletinDeleteDialog', 'closeModal', 'confirmBulletinDelete', 'exportActivityCsv',
-    'focusContactInfo', 'handleActivityFilterChange', 'handleAdminLogin', 'handleAdminMfaSubmit', 'handleAdminMfaDigitKeydown', 'handleAdminMfaPaste', 'cancelAdminMfa', 'handleViewProfile',
+    'focusContactInfo', 'handleActivityFilterChange', 'handleAdminLogin', 'handleAdminMfaSubmit', 'handleAdminMfaDigitKeydown', 'handleAdminMfaPaste', 'handleAdminMfaRecoveryInput', 'cancelAdminMfa', 'showAdminMfaRecoveryCodeInput', 'useAdminMfaAuthenticatorCode', 'handleViewProfile',
     'handleDisclosureCardKeydown', 'handleLogin', 'handlePickupDateKeydown',
     'handlePostDisclosure', 'handleRegister', 'handleRequest', 'filterAdminRequests', 'loadAdminActivity', 'logout', 'openWalkInRequestPanel', 'cancelWalkInRequest',
     'resendResidentVerification', 'changeResidentEmail', 'changeResidentPassword', 'submitManualRequest',
@@ -167,7 +168,7 @@ const delegatedActionNames = new Set([
     'requestPasswordReset', 'returnFromPasswordReset', 'scrollToId',
     'selectResidentRequestTab', 'selectResidentRequestStatusTab', 'openRequestProofPicker', 'removeRequestProof',
     'setActivityPreset', 'setAdminRequestFilter', 'setBulletinFilter', 'showSection', 'updateAdminMfaCode', 'updateAdminMfaDigits',
-    'sortActivity', 'submitModal', 'saveAdminNotificationPreferences', 'setPortalLanguage', 'switchAdminTab', 'toggleActivityExtraFilters',
+    'sortActivity', 'submitModal', 'saveAdminNotificationPreferences', 'generateAdminProfileMfaRecoveryCodes', 'setPortalLanguage', 'switchAdminTab', 'toggleActivityExtraFilters',
     'toggleMobileMenu', 'toggleUserMenu', 'togglePassword', 'togglePickupCalendar', 'updatePickupReadback', 'updateLandingDocumentFinder',
     'openFilePicker', 'openProfilePhotoPicker', 'saveProfilePhoto', 'cancelProfilePhotoPreview',
     'removeProfilePhoto', 'updateAdminNotificationSaveState', 'updateAdminProfileDetailsSaveState', 'scrollPageTop'
@@ -2920,6 +2921,8 @@ function getAdminMfaDigitInputs() {
 
 function clearAdminMfaCodeError() {
     document.getElementById('admin-mfa-code-fields')?.classList.remove('is-error');
+    document.getElementById('admin-mfa-recovery-code')?.removeAttribute('aria-invalid');
+    getAdminMfaDigitInputs().forEach(field => field.removeAttribute('aria-invalid'));
     const error = document.getElementById('admin-mfa-error');
     error?.classList.add('hidden');
     const message = document.getElementById('admin-mfa-error-message');
@@ -2931,8 +2934,21 @@ function showAdminMfaCodeError(message) {
     const error = document.getElementById('admin-mfa-error');
     const errorMessage = document.getElementById('admin-mfa-error-message');
     if (errorMessage) errorMessage.textContent = message;
-    fields?.classList.add('is-error');
+    const recoveryWrap = document.getElementById('admin-mfa-recovery-wrap');
+    const usingRecoveryCode = Boolean(recoveryWrap && !recoveryWrap.hidden);
+    if (usingRecoveryCode) {
+        document.getElementById('admin-mfa-recovery-code')?.setAttribute('aria-invalid', 'true');
+    } else {
+        fields?.classList.add('is-error');
+        getAdminMfaDigitInputs().forEach(field => field.setAttribute('aria-invalid', 'true'));
+    }
     error?.classList.remove('hidden');
+    if (usingRecoveryCode) {
+        const recoveryInput = document.getElementById('admin-mfa-recovery-code');
+        recoveryInput?.focus();
+        recoveryInput?.select();
+        return;
+    }
     const first = getAdminMfaDigitInputs()[0];
     first?.focus();
     first?.select();
@@ -2941,15 +2957,59 @@ function showAdminMfaCodeError(message) {
 function updateAdminMfaCode() {
     const input = document.getElementById('admin-mfa-code');
     const button = document.getElementById('admin-mfa-submit');
+    const recoveryWrap = document.getElementById('admin-mfa-recovery-wrap');
+    const usingRecoveryCode = Boolean(recoveryWrap && !recoveryWrap.hidden);
+    if (usingRecoveryCode) {
+        getAdminMfaDigitInputs().forEach(field => field.classList.remove('is-filled'));
+        const recoveryInput = document.getElementById('admin-mfa-recovery-code');
+        const recoveryCode = String(recoveryInput?.value || '').trim().toUpperCase();
+        if (recoveryInput && recoveryInput.value !== recoveryCode) recoveryInput.value = recoveryCode;
+        if (input) input.value = recoveryCode;
+        if (button) button.disabled = !/^[A-F0-9]{20}$/.test(recoveryCode) || button.getAttribute('aria-busy') === 'true';
+        return recoveryCode;
+    }
     const fields = getAdminMfaDigitInputs();
     const code = fields.map(field => field.value.replace(/\D/g, '').slice(0, 1)).join('');
+    fields.forEach(field => field.classList.toggle('is-filled', field.value.length === 1));
     if (input) input.value = code;
     if (button) button.disabled = code.length !== 6 || button.getAttribute('aria-busy') === 'true';
     return code;
 }
 
+function showAdminMfaRecoveryCodeInput() {
+    if (adminMfaSetupInProgress) return;
+    document.getElementById('admin-mfa-authenticator-mode').hidden = true;
+    document.getElementById('admin-mfa-recovery-wrap').hidden = false;
+    getAdminMfaDigitInputs().forEach(field => { field.value = ''; field.classList.remove('is-filled'); });
+    const codeInput = document.getElementById('admin-mfa-code');
+    if (codeInput) codeInput.value = '';
+    const recoveryInput = document.getElementById('admin-mfa-recovery-code');
+    if (recoveryInput) { recoveryInput.value = ''; recoveryInput.focus(); }
+    clearAdminMfaCodeError();
+    updateAdminMfaCode();
+}
+
+function useAdminMfaAuthenticatorCode(focusFirst = false) {
+    document.getElementById('admin-mfa-recovery-wrap').hidden = true;
+    document.getElementById('admin-mfa-authenticator-mode').hidden = false;
+    const recoveryToggle = document.getElementById('admin-mfa-recovery-toggle');
+    if (recoveryToggle) recoveryToggle.hidden = adminMfaSetupInProgress;
+    document.getElementById('admin-mfa-code-step-number').hidden = !adminMfaSetupInProgress;
+    document.getElementById('admin-mfa-code-step-text').textContent = adminMfaSetupInProgress ? 'Enter the 6-digit code' : 'Authenticator code';
+    getAdminMfaDigitInputs().forEach(field => { field.value = ''; field.classList.remove('is-filled'); });
+    const recoveryInput = document.getElementById('admin-mfa-recovery-code');
+    if (recoveryInput) recoveryInput.value = '';
+    const codeInput = document.getElementById('admin-mfa-code');
+    if (codeInput) codeInput.value = '';
+    clearAdminMfaCodeError();
+    updateAdminMfaCode();
+    if (focusFirst) getAdminMfaDigitInputs()[0]?.focus();
+}
+
 function resetAdminMfaDigits(focusFirst = false) {
     getAdminMfaDigitInputs().forEach(field => { field.value = ''; });
+    const recoveryInput = document.getElementById('admin-mfa-recovery-code');
+    if (recoveryInput) recoveryInput.value = '';
     clearAdminMfaCodeError();
     updateAdminMfaCode();
     if (focusFirst) getAdminMfaDigitInputs()[0]?.focus();
@@ -2970,6 +3030,13 @@ function updateAdminMfaDigits(event) {
         field.value = digits.slice(0, 1);
         if (field.value && index < fields.length - 1) fields[index + 1]?.focus();
     }
+    updateAdminMfaCode();
+}
+
+function handleAdminMfaRecoveryInput(event) {
+    const field = event?.target;
+    if (!(field instanceof HTMLInputElement) || field.id !== 'admin-mfa-recovery-code') return;
+    clearAdminMfaCodeError();
     updateAdminMfaCode();
 }
 
@@ -3031,9 +3098,11 @@ async function handleAdminMfaSubmit(event) {
     event.preventDefault();
     const button = document.getElementById('admin-mfa-submit');
     const code = updateAdminMfaCode();
+    const recoveryWrap = document.getElementById('admin-mfa-recovery-wrap');
+    const usingRecoveryCode = Boolean(recoveryWrap && !recoveryWrap.hidden);
     if (button?.getAttribute('aria-busy') === 'true') return;
-    if (!/^\d{6}$/.test(code)) {
-        getAdminMfaDigitInputs()[0]?.focus();
+    if (usingRecoveryCode ? !/^[A-F0-9]{20}$/.test(code) : !/^\d{6}$/.test(code)) {
+        showAdminMfaCodeError(usingRecoveryCode ? 'Enter the 20-character recovery code you saved during setup.' : 'Enter the current 6-digit code from your authenticator app.');
         return;
     }
     clearAdminMfaCodeError();
@@ -3057,8 +3126,13 @@ async function handleAdminMfaSubmit(event) {
         document.getElementById('admin-mfa-step')?.classList.add('hidden');
         document.getElementById('admin-login-password').value = '';
         resetAdminMfaDigits();
+        adminMfaSetupInProgress = false;
+        useAdminMfaAuthenticatorCode();
         updateNavBar();
         showSection('admin-dashboard');
+        if (Array.isArray(data.recoveryCodes) && data.recoveryCodes.length) {
+            showAdminMfaRecoveryCodes(data.recoveryCodes, 'Save your recovery codes');
+        }
     } catch (requestError) {
         showAdminMfaCodeError(requestError.message || 'That code is invalid or expired. Check your device time and try again.');
     } finally {
@@ -3074,6 +3148,8 @@ async function cancelAdminMfa() {
     document.getElementById('admin-mfa-step')?.classList.add('hidden');
     document.getElementById('admin-mfa-secret-wrap')?.classList.add('hidden');
     document.getElementById('admin-mfa-secret').replaceChildren();
+    adminMfaSetupInProgress = false;
+    useAdminMfaAuthenticatorCode();
     document.getElementById('admin-mfa-form')?.reset();
     resetAdminMfaDigits();
     document.getElementById('admin-login-signin-step')?.classList.remove('hidden');
@@ -3297,6 +3373,7 @@ async function performLogin(email, password, context) {
             document.getElementById('admin-login-form')?.classList.add('hidden');
             document.getElementById('admin-mfa-step')?.classList.remove('hidden');
             const setup = Boolean(data.mfaSetupRequired);
+            adminMfaSetupInProgress = setup;
             document.getElementById('admin-mfa-title').textContent = setup ? 'Set up your authenticator' : 'Verify your identity';
             document.getElementById('admin-mfa-instructions').textContent = setup
                 ? 'Add your account to an authenticator app, then enter the code it shows.'
@@ -3304,6 +3381,7 @@ async function performLogin(email, password, context) {
             document.getElementById('admin-mfa-code-step-number').hidden = !setup;
             document.getElementById('admin-mfa-code-step-text').textContent = setup ? 'Enter the 6-digit code' : 'Authenticator code';
             document.getElementById('admin-mfa-secret-wrap')?.classList.toggle('hidden', !setup);
+            useAdminMfaAuthenticatorCode();
             renderStaffAuthenticatorSetupKey(setup ? data.secret : '');
             resetAdminMfaDigits();
             return;
@@ -4278,6 +4356,7 @@ async function loadEnhancedProfile() {
         document.getElementById('admin-profile-mfa-status').textContent = data.mfaEnabled ? `Enabled since ${formatProfileDate(data.mfaEnabledAt)}` : 'Not enabled.';
         document.getElementById('admin-profile-mfa-setup').hidden = Boolean(data.mfaEnabled);
         document.getElementById('admin-profile-mfa-reset').hidden = !data.mfaEnabled;
+        document.getElementById('admin-profile-mfa-recovery').hidden = !data.mfaEnabled;
         renderAdminProfileSessions(data.sessions);
         renderAdminProfileEvents('admin-profile-signins', data.signIns, 'signin');
         renderAdminProfileEvents('admin-profile-recent-actions', data.recentActions, 'action');
@@ -4546,7 +4625,26 @@ async function saveAdminNotificationPreferences(event) { event.preventDefault();
 async function revokeOtherAdminSessions() { if (!window.confirm('Log out of all other signed-in devices?')) return; try { const result = await postProfileAction('sessions_revoke_others'); showToast(result.message, 'success'); await loadEnhancedProfile(); } catch (error) { showToast(error.message, 'error'); } }
 async function beginAdminProfileMfa() { const password = window.prompt('Enter your current password to continue.'); if (password === null) return; try { const result = await postProfileAction('mfa_begin', { password }); document.getElementById('admin-profile-mfa-secret').textContent = result.secret; document.getElementById('admin-profile-mfa-secret-hint').textContent = result.replacing ? 'Add this new key to your authenticator app:' : 'Add this key to your authenticator app:'; document.getElementById('admin-profile-mfa-setup-box').hidden = false; document.getElementById('admin-profile-mfa-code').focus(); } catch (error) { showToast(error.message, 'error'); } }
 function cancelAdminProfileMfa() { document.getElementById('admin-profile-mfa-setup-box').hidden = true; document.getElementById('admin-profile-mfa-secret').textContent = ''; document.getElementById('admin-profile-mfa-confirm-form').reset(); }
-async function confirmAdminProfileMfa(event) { event.preventDefault(); try { await postProfileAction('mfa_confirm', { code: document.getElementById('admin-profile-mfa-code').value.trim() }); cancelAdminProfileMfa(); showToast('Authenticator enabled.', 'success'); await loadEnhancedProfile(); } catch (error) { showToast(error.message, 'error'); } }
+function showAdminMfaRecoveryCodes(codes, title = 'Save your recovery codes') {
+    if (!Array.isArray(codes) || !codes.length) return;
+    showNotice('Account security', title, [
+        'Each code works once. Store these somewhere private. They will not be shown again. Generating a new set invalidates the old set.',
+        ...codes
+    ]);
+}
+async function confirmAdminProfileMfa(event) { event.preventDefault(); try { const result = await postProfileAction('mfa_confirm', { code: document.getElementById('admin-profile-mfa-code').value.trim() }); cancelAdminProfileMfa(); showToast('Authenticator enabled.', 'success'); await loadEnhancedProfile(); showAdminMfaRecoveryCodes(result.recoveryCodes); } catch (error) { showToast(error.message, 'error'); } }
+async function generateAdminProfileMfaRecoveryCodes() {
+    const password = window.prompt('Enter your current password to generate new recovery codes.');
+    if (password === null) return;
+    const code = window.prompt('Enter the current 6-digit code from your authenticator app.');
+    if (code === null) return;
+    try {
+        const result = await postProfileAction('mfa_recovery_codes', { password, code: code.trim() });
+        showAdminMfaRecoveryCodes(result.recoveryCodes, 'Save your new recovery codes');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
 
 function formatProfilePhone(value) {
     const original = String(value || '').trim();
@@ -6055,9 +6153,9 @@ function changeResidentAccountPage(direction) {
 
 function confirmResidentAccountAction(residentId, action, residentName, archived = false) {
     const copy = action === 'archive_delete'
-        ? `${archived ? 'Permanently delete' : 'Archive and permanently delete'} ${residentName}'s account? Related request records will be kept, but the account cannot be restored.`
+        ? `${archived ? 'Permanently delete' : 'Archive and permanently delete'} ${residentName}'s account? All related document requests and proof files will also be erased. This cannot be undone.`
         : action === 'delete'
-        ? `Permanently delete ${residentName}'s account? Related request records will be kept, but the account cannot be restored.`
+        ? `Permanently delete ${residentName}'s account? All related document requests and proof files will also be erased. This cannot be undone.`
         : action === 'archive'
             ? `Archive ${residentName}'s account? They will no longer be able to sign in.`
             : `Restore ${residentName}'s account and allow them to sign in again?`;

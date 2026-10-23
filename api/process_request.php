@@ -13,13 +13,18 @@ $action = is_string($data['action'] ?? null) ? $data['action'] : '';
 $details = is_string($data['details'] ?? null) ? trim($data['details']) : '';
 if (!$requestId || strlen($details) > 2000 || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', $details)) { http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Invalid request details.']); exit; }
 
-$newStatus = match($action) {
-    'Approve' => 'Approved',
-    'Reject'  => 'Rejected',
-    'Ready'   => 'Ready for Pickup',
-    'Pickup'  => 'Completed',
-    default   => 'Pending'
-};
+$allowedTransitions = [
+    'Pending' => [
+        'Approve' => 'Approved',
+        'Reject' => 'Rejected',
+    ],
+    'Approved' => [
+        'Ready' => 'Ready for Pickup',
+    ],
+    'Ready for Pickup' => [
+        'Pickup' => 'Completed',
+    ],
+];
 
 if (!in_array($action, ['Approve', 'Reject', 'Ready', 'Pickup'], true)) {
     http_response_code(400);
@@ -27,33 +32,62 @@ if (!in_array($action, ['Approve', 'Reject', 'Ready', 'Pickup'], true)) {
     exit;
 }
 
-$request = $pdo->prepare("SELECT dr.tracking_code, r.email, COALESCE(r.first_name, dr.walk_in_name) AS first_name, r.middle_name, r.last_name, dr.request_source, dt.name AS document_name
-                          FROM document_request dr
-                          LEFT JOIN resident r ON r.resident_id = dr.resident_id
-                          JOIN document_type dt ON dt.document_type_id = dr.document_type_id
-                          WHERE dr.request_id = ?");
-$request->execute([$requestId]);
-$requestInfo = $request->fetch();
-if (!$requestInfo) {
-    http_response_code(404);
-    echo json_encode(['success' => false, 'message' => 'Request not found']);
+$pdo->beginTransaction();
+try {
+    $lock = $pdo->prepare('SELECT current_status FROM document_request WHERE request_id = ? FOR UPDATE');
+    $lock->execute([$requestId]);
+    $currentStatus = $lock->fetchColumn();
+    if ($currentStatus === false) {
+        $pdo->rollBack();
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => 'Request not found']);
+        exit;
+    }
+
+    $newStatus = $allowedTransitions[(string) $currentStatus][$action] ?? null;
+    if ($newStatus === null) {
+        $pdo->rollBack();
+        http_response_code(409);
+        echo json_encode(['success' => false, 'message' => 'This request has already changed or cannot take that action. Refresh the requests list and try again.']);
+        exit;
+    }
+
+    $stmt = $pdo->prepare('UPDATE document_request SET current_status = ?, rejection_reason = ? WHERE request_id = ? AND current_status = ?');
+    $stmt->execute([$newStatus, $action === 'Reject' ? $details : null, $requestId, $currentStatus]);
+    if ($stmt->rowCount() !== 1) {
+        $pdo->rollBack();
+        http_response_code(409);
+        echo json_encode(['success' => false, 'message' => 'This request has already changed. Refresh the requests list and try again.']);
+        exit;
+    }
+
+    $log = $pdo->prepare('INSERT INTO request_status_log (request_id, updated_by_user_id, status, notes) VALUES (?, ?, ?, ?)');
+    $log->execute([$requestId, $_SESSION['user_id'], $newStatus, $details]);
+
+    $audit = $pdo->prepare('INSERT INTO audit_log (user_id, action, details) VALUES (?, ?, ?)');
+    $auditAction = match ($action) {
+        'Approve' => 'request_approved',
+        'Reject' => 'request_rejected',
+        'Ready' => 'request_ready_for_pickup',
+        'Pickup' => 'request_completed',
+    };
+    $audit->execute([$_SESSION['user_id'], $auditAction, "Request ID $requestId; new status $newStatus"]);
+
+    $request = $pdo->prepare("SELECT dr.tracking_code, r.email, COALESCE(r.first_name, dr.walk_in_name) AS first_name, r.middle_name, r.last_name, dr.request_source, dt.name AS document_name
+                              FROM document_request dr
+                              LEFT JOIN resident r ON r.resident_id = dr.resident_id
+                              JOIN document_type dt ON dt.document_type_id = dr.document_type_id
+                              WHERE dr.request_id = ?");
+    $request->execute([$requestId]);
+    $requestInfo = $request->fetch();
+    $pdo->commit();
+} catch (Throwable $error) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    error_log('Request status transition failed.');
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'The request could not be updated. Please try again.']);
     exit;
 }
-
-$stmt = $pdo->prepare("UPDATE document_request SET current_status = ?, rejection_reason = ? WHERE request_id = ?");
-$stmt->execute([$newStatus, $action === 'Reject' ? $details : null, $requestId]);
-
-$log = $pdo->prepare("INSERT INTO request_status_log (request_id, updated_by_user_id, status, notes) VALUES (?, ?, ?, ?)");
-$log->execute([$requestId, $_SESSION['user_id'], $newStatus, $details]);
-
-$audit = $pdo->prepare('INSERT INTO audit_log (user_id, action, details) VALUES (?, ?, ?)');
-$auditAction = match ($action) {
-    'Approve' => 'request_approved',
-    'Reject' => 'request_rejected',
-    'Ready' => 'request_ready_for_pickup',
-    'Pickup' => 'request_completed',
-};
-$audit->execute([$_SESSION['user_id'], $auditAction, "Request ID $requestId; new status $newStatus"]);
 
 $appUrl   = portalConfig()['app_url'];
 

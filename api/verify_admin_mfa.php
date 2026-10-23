@@ -26,9 +26,10 @@ if (!rateLimit($pdo, 'admin-mfa-verify', 8, 600, 'admin-' . $userId)) {
 }
 $data = jsonBody(4096);
 $code = strtoupper(trim(is_string($data['code'] ?? null) ? $data['code'] : ''));
-if (!preg_match('/^\d{6}$/', $code)) {
+$isRecoveryAttempt = preg_match('/^[A-F0-9]{20}$/', $code) === 1;
+if (!preg_match('/^(?:\d{6}|[A-F0-9]{20})$/', $code)) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Enter the 6-digit authenticator code.']);
+    echo json_encode(['success' => false, 'message' => 'Enter a 6-digit authenticator code or a 20-character recovery code.']);
     exit;
 }
 
@@ -44,27 +45,51 @@ if (!$user || $user['role'] !== 'Admin' || !isset($_SESSION['pending_admin_auth_
 }
 
 $isEnrollment = empty($user['admin_mfa_enabled_at']) || empty($user['admin_mfa_secret_enc']);
+$usedRecoveryCode = false;
+$matchedCounter = null;
+$issuedRecoveryCodes = [];
 try {
-    $secret = $isEnrollment
-        ? (string) ($_SESSION['pending_admin_mfa_setup_secret'] ?? '')
-        : decryptAdminMfaSecret((string) $user['admin_mfa_secret_enc']);
-    if ($secret === '') throw new RuntimeException('Admin MFA setup is unavailable.');
-    $lastCounter = $isEnrollment || $user['admin_mfa_last_counter'] === null ? null : (int) $user['admin_mfa_last_counter'];
-    $matchedCounter = verifyAdminTotp($secret, $code, $lastCounter);
-    if ($matchedCounter === null) {
+    if (!$isEnrollment && preg_match('/^[A-F0-9]{20}$/', $code)) {
+        $consume = $pdo->prepare('UPDATE admin_mfa_recovery_code SET used_at = UTC_TIMESTAMP() WHERE user_id = ? AND code_hash = ? AND used_at IS NULL');
+        $consume->execute([$userId, hash('sha256', $code)]);
+        $usedRecoveryCode = $consume->rowCount() === 1;
+    } else {
+        $secret = $isEnrollment
+            ? (string) ($_SESSION['pending_admin_mfa_setup_secret'] ?? '')
+            : decryptAdminMfaSecret((string) $user['admin_mfa_secret_enc']);
+        if ($secret === '') throw new RuntimeException('Admin MFA setup is unavailable.');
+        $lastCounter = $isEnrollment || $user['admin_mfa_last_counter'] === null ? null : (int) $user['admin_mfa_last_counter'];
+        $matchedCounter = preg_match('/^\d{6}$/', $code) ? verifyAdminTotp($secret, $code, $lastCounter) : null;
+    }
+    if (!$usedRecoveryCode && $matchedCounter === null) {
         $audit = $pdo->prepare("INSERT INTO audit_log (user_id, action, details) VALUES (?, 'admin_mfa_failed', ?)");
-        $audit->execute([$userId, 'Failed authenticator code; IP hash ' . hash('sha256', (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown')) . '; device ' . substr((string)($_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'), 0, 160)]);
+        $audit->execute([$userId, 'Failed authenticator or recovery code; IP hash ' . hash('sha256', (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown')) . '; device ' . substr((string)($_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'), 0, 160)]);
         http_response_code(401);
-        echo json_encode(['success' => false, 'message' => 'That code is invalid or expired. Check your device time and try again.']);
+        echo json_encode(['success' => false, 'message' => $isRecoveryAttempt
+            ? 'That recovery code is incorrect or has already been used. Check it and try again.'
+            : 'That authenticator code is incorrect or expired. Check your device time and try again.']);
         exit;
     }
 
     $mfaAccepted = false;
     if ($isEnrollment) {
         $encryptedSecret = encryptAdminMfaSecret($secret);
+        for ($i = 0; $i < 10; $i++) $issuedRecoveryCodes[] = strtoupper(bin2hex(random_bytes(5)));
+        $pdo->beginTransaction();
         $save = $pdo->prepare('UPDATE user SET admin_mfa_secret_enc = ?, admin_mfa_enabled_at = UTC_TIMESTAMP(), admin_mfa_last_counter = ? WHERE user_id = ? AND admin_mfa_enabled_at IS NULL');
         $save->execute([$encryptedSecret, $matchedCounter, $userId]);
         $mfaAccepted = $save->rowCount() === 1;
+        if ($mfaAccepted) {
+            $pdo->prepare('DELETE FROM admin_mfa_recovery_code WHERE user_id = ?')->execute([$userId]);
+            $insert = $pdo->prepare('INSERT INTO admin_mfa_recovery_code (user_id, code_hash) VALUES (?, ?)');
+            foreach ($issuedRecoveryCodes as $recoveryCode) $insert->execute([$userId, hash('sha256', $recoveryCode)]);
+            $pdo->commit();
+        } else {
+            $pdo->rollBack();
+            $issuedRecoveryCodes = [];
+        }
+    } elseif ($usedRecoveryCode) {
+        $mfaAccepted = true;
     } else {
         $save = $pdo->prepare('UPDATE user SET admin_mfa_last_counter = ? WHERE user_id = ? AND (admin_mfa_last_counter IS NULL OR admin_mfa_last_counter < ?)');
         $save->execute([$matchedCounter, $userId, $matchedCounter]);
@@ -76,6 +101,7 @@ try {
         exit;
     }
 } catch (Throwable $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('Admin MFA verification failed due to server configuration.');
     http_response_code(503);
     echo json_encode(['success' => false, 'message' => 'Admin verification is temporarily unavailable.']);
@@ -98,5 +124,10 @@ $_SESSION = [
 ];
 $csrfToken = rotateCsrfToken();
 $audit = $pdo->prepare('INSERT INTO audit_log (user_id, action, details) VALUES (?, ?, ?)');
-$audit->execute([$userId, 'admin_login_mfa', ($isEnrollment ? 'Admin enrolled authenticator MFA' : 'Admin completed MFA sign-in') . '; device ' . substr((string)($_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'), 0, 160)]);
-echo json_encode(['success' => true, 'id' => $userId, 'name' => $_SESSION['fullName'], 'email' => $_SESSION['email'], 'role' => 'Admin', 'createdAt' => (int) $_SESSION['_created_at'], 'csrfToken' => $csrfToken]);
+$loginDetail = $isEnrollment
+    ? 'Admin enrolled authenticator MFA'
+    : ($usedRecoveryCode ? 'Admin completed MFA sign-in using a recovery code' : 'Admin completed MFA sign-in');
+$audit->execute([$userId, 'admin_login_mfa', $loginDetail . '; device ' . substr((string)($_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'), 0, 160)]);
+$response = ['success' => true, 'id' => $userId, 'name' => $_SESSION['fullName'], 'email' => $_SESSION['email'], 'role' => 'Admin', 'createdAt' => (int) $_SESSION['_created_at'], 'csrfToken' => $csrfToken];
+if ($isEnrollment) $response['recoveryCodes'] = $issuedRecoveryCodes;
+echo json_encode($response);

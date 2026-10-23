@@ -40,7 +40,7 @@ ErrorDocument 404 /index.php?error=404
     AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json application/xml image/svg+xml
 </IfModule>
 
-<FilesMatch "^(?:\.env(?:\..*)?|\.gitignore|.*\.sql|.*\.zip|.*\.log|SECURITY_OPERATIONS\.md|create_admin\.php|test_.*\.php)$">
+<FilesMatch "^(?:\.env(?:\..*)?|\.gitignore|.*\.sql|.*\.zip|.*\.log|SECURITY_OPERATIONS\.md|create_admin\.php|_email_test\.php|test_.*\.php)$">
     Require all denied
 </FilesMatch>
 

@@ -249,7 +249,7 @@ INSERT INTO document_type (name, is_active) VALUES
     ('Business Permit', 1);
 
 INSERT INTO disclosure_category (category_id, category_name) VALUES
-    (1, 'Announcement'),
-    (2, 'Event'),
-    (3, 'Advisory'),
-    (4, 'Ordinance');
+    (1, 'Announcements'),
+    (2, 'Financial Reports'),
+    (3, 'Projects & Budget'),
+    (4, 'Meeting Minutes');
