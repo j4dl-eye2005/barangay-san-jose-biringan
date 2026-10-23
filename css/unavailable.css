@@ -199,7 +199,7 @@ body.unavailable-view:not(.public-portal-view) .navbar > .nav-inner {
     body.unavailable-view .unavailable-code,
     #app-container .unavailable-section.active .unavailable-code {
         margin-bottom: 14px;
-        font-size: clamp(104px, 31vw, 128px) !important;
+        font-size: clamp(132px, 38vw, 160px) !important;
         font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
         font-weight: 800;
         letter-spacing: -0.09em;
