@@ -627,12 +627,20 @@ function privateStorageDirectory(string $kind): string
 
     $isProtectedBase = $samePath($base, $protectedBase);
     if ($isProtectedBase) return $resolve($protectedBase, true);
-    if ($configuredBase !== '') return $resolve($base, false);
     try {
         return $resolve($base, false);
     } catch (Throwable $error) {
-        error_log('Default private upload storage is unavailable (' . $error->getMessage() . '); trying the protected application storage fallback.');
-        return $resolve($protectedBase, true);
+        $storageLabel = $configuredBase !== '' ? 'Configured' : 'Default';
+        error_log($storageLabel . ' private upload storage is unavailable (' . $error->getMessage() . '); trying the protected application storage fallback.');
+        try {
+            return $resolve($protectedBase, true);
+        } catch (Throwable $fallbackError) {
+            throw new RuntimeException(
+                'Private upload storage is unavailable; the configured storage and protected application fallback both failed.',
+                0,
+                $fallbackError
+            );
+        }
     }
 }
 

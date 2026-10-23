@@ -68,7 +68,7 @@ if ($useWebp) { imagealphablending($target,false); imagesavealpha($target,true);
 else { $background = imagecolorallocate($target,255,255,255); imagefill($target,0,0,$background); imagealphablending($target,true); }
 if (!imagecopyresampled($target,$source,0,0,$sx,$sy,256,256,$side,$side)) { imagedestroy($source); imagedestroy($target); http_response_code(500); echo json_encode(['success'=>false,'message'=>'Could not prepare that image.']); exit; }
 try { $uploadDir = privateStorageDirectory('profile-photos'); }
-catch (Throwable $e) { error_log('Profile photo storage is unavailable: ' . $e->getMessage()); imagedestroy($source); imagedestroy($target); http_response_code(503); echo json_encode(['success'=>false,'message'=>'Photo storage is unavailable. The site needs a writable private folder outside its public directory.']); exit; }
+catch (Throwable $e) { error_log('Profile photo storage is unavailable: ' . $e->getMessage() . ($e->getPrevious() ? ' Cause: ' . $e->getPrevious()->getMessage() : '')); imagedestroy($source); imagedestroy($target); http_response_code(503); echo json_encode(['success'=>false,'message'=>'The server could not access photo storage. Check the site storage permissions.']); exit; }
 $name = bin2hex(random_bytes(16)) . '.' . $extension; $path = $uploadDir . DIRECTORY_SEPARATOR . $name;
 $saved = $useWebp ? @imagewebp($target,$path,85) : @imagejpeg($target,$path,88); imagedestroy($source); imagedestroy($target);
 if (!$saved) { http_response_code(500); echo json_encode(['success'=>false,'message'=>'Could not save that photo.']); exit; }
