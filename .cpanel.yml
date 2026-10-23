@@ -2,6 +2,6 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/baraaiyk/public_html/
-    - /bin/mkdir -p /home/baraaiyk/barangay_portal_private/storage/proofs /home/baraaiyk/barangay_portal_private/storage/disclosures /home/baraaiyk/barangay_portal_private/storage/profile-photos
-    - /bin/chmod 700 /home/baraaiyk/barangay_portal_private /home/baraaiyk/barangay_portal_private/storage /home/baraaiyk/barangay_portal_private/storage/proofs /home/baraaiyk/barangay_portal_private/storage/disclosures /home/baraaiyk/barangay_portal_private/storage/profile-photos
+    - /bin/mkdir -p /home/baraaiyk/barangay_portal_private/storage/proofs /home/baraaiyk/barangay_portal_private/storage/disclosures /home/baraaiyk/barangay_portal_private/storage/profile-photos /home/baraaiyk/public_html/private_storage/proofs /home/baraaiyk/public_html/private_storage/disclosures /home/baraaiyk/public_html/private_storage/profile-photos
+    - /bin/chmod 700 /home/baraaiyk/barangay_portal_private /home/baraaiyk/barangay_portal_private/storage /home/baraaiyk/barangay_portal_private/storage/proofs /home/baraaiyk/barangay_portal_private/storage/disclosures /home/baraaiyk/barangay_portal_private/storage/profile-photos /home/baraaiyk/public_html/private_storage/proofs /home/baraaiyk/public_html/private_storage/disclosures /home/baraaiyk/public_html/private_storage/profile-photos
     - /bin/cp -R . $DEPLOYPATH

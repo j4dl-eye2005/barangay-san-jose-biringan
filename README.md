@@ -66,7 +66,7 @@ The main interface and routing are in `index.php` and `script.js`. Admin section
 
 ## Database tables
 
-The schema defines administrator and resident accounts, document types and requests, request status history, admin-only request notes, disclosure categories and posts, attachments, email verification, rate limits, and an audit log. Uploaded proofs, disclosure attachments, and profile photos are stored outside the web root by default in a sibling `barangay_portal_private` directory. Set `APP_PRIVATE_STORAGE` to another directory outside the public web root when deploying.
+The schema defines administrator and resident accounts, document types and requests, request status history, admin-only request notes, disclosure categories and posts, attachments, email verification, rate limits, and an audit log. Uploaded proofs, disclosure attachments, and profile photos are stored outside the web root by default in a sibling `barangay_portal_private` directory. If the host blocks that location, the app can fall back to `private_storage/` under the application only when its `.htaccess` denies all direct access. Set `APP_PRIVATE_STORAGE` to a writable, protected directory when deploying.
 
 ## Configuration and security
 

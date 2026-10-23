@@ -582,19 +582,58 @@ function validateDocxPackage(string $path, string $mime): bool
 function privateStorageDirectory(string $kind): string
 {
     if (!in_array($kind, ['proofs', 'disclosures', 'profile-photos'], true)) throw new InvalidArgumentException('Invalid private storage type.');
-    $base = portalConfig()['private_storage'];
-    $directory = $base . DIRECTORY_SEPARATOR . $kind;
-    if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
-        throw new RuntimeException('Private upload storage is unavailable.');
+    loadPortalEnvFile();
+    $config = portalConfig();
+    $base = $config['private_storage'];
+    $configuredBase = trim((string) ($_ENV['APP_PRIVATE_STORAGE'] ?? getenv('APP_PRIVATE_STORAGE') ?: ''));
+    $applicationRoot = dirname(__DIR__);
+    $protectedBase = $applicationRoot . DIRECTORY_SEPARATOR . 'private_storage';
+    $normalizePath = static fn(string $path): string => rtrim(str_replace('\\', '/', $path), '/');
+    $samePath = static fn(string $left, string $right): bool => DIRECTORY_SEPARATOR === '\\'
+        ? strcasecmp($normalizePath($left), $normalizePath($right)) === 0
+        : $normalizePath($left) === $normalizePath($right);
+
+    $resolve = static function (string $storageBase, bool $allowProtectedInRoot) use ($kind, $applicationRoot): string {
+        $directory = rtrim($storageBase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $kind;
+        if (!is_dir($directory) && !@mkdir($directory, 0700, true) && !is_dir($directory)) {
+            throw new RuntimeException('Private upload storage is unavailable.');
+        }
+        $realDirectory = realpath($directory);
+        $documentRoot = realpath((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''));
+        if ($realDirectory === false || $documentRoot === false) {
+            throw new RuntimeException('Private upload storage is not available to PHP.');
+        }
+        $documentRootPrefix = rtrim($documentRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        $isInsideDocumentRoot = $realDirectory === $documentRoot
+            || str_starts_with(strtolower($realDirectory), strtolower($documentRootPrefix));
+        if ($isInsideDocumentRoot) {
+            $realApplicationRoot = realpath($applicationRoot);
+            $realProtectedBase = $realApplicationRoot === false ? false : realpath($realApplicationRoot . DIRECTORY_SEPARATOR . 'private_storage');
+            $protectedRules = $realProtectedBase === false ? false : @file_get_contents($realProtectedBase . DIRECTORY_SEPARATOR . '.htaccess');
+            $expectedProtectedDirectory = $realProtectedBase === false ? false : $realProtectedBase . DIRECTORY_SEPARATOR . $kind;
+            $isProtectedApplicationStorage = $allowProtectedInRoot
+                && $realProtectedBase !== false
+                && $expectedProtectedDirectory !== false
+                && $realDirectory === $expectedProtectedDirectory
+                && is_string($protectedRules)
+                && preg_match('/^\\s*Require\\s+all\\s+denied\\s*$/mi', $protectedRules) === 1;
+            if (!$isProtectedApplicationStorage) {
+                throw new RuntimeException('Private upload storage is not configured in a protected location.');
+            }
+        }
+        if (!is_writable($realDirectory)) throw new RuntimeException('Private upload storage is not writable by PHP.');
+        return $realDirectory;
+    };
+
+    $isProtectedBase = $samePath($base, $protectedBase);
+    if ($isProtectedBase) return $resolve($protectedBase, true);
+    if ($configuredBase !== '') return $resolve($base, false);
+    try {
+        return $resolve($base, false);
+    } catch (Throwable $error) {
+        error_log('Default private upload storage is unavailable (' . $error->getMessage() . '); trying the protected application storage fallback.');
+        return $resolve($protectedBase, true);
     }
-    $realDirectory = realpath($directory);
-    $documentRoot = realpath((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''));
-    $isInsideDocumentRoot = $realDirectory !== false && $documentRoot !== false
-        && ($realDirectory === $documentRoot || str_starts_with(strtolower($realDirectory), strtolower($documentRoot . DIRECTORY_SEPARATOR)));
-    if ($realDirectory === false || $documentRoot === false || $isInsideDocumentRoot) {
-        throw new RuntimeException('Private upload storage is not configured in a protected location.');
-    }
-    return $directory;
 }
 
 function logPermissionFailure(): void
