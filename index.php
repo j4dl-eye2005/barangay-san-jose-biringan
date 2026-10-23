@@ -207,13 +207,13 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <link rel="stylesheet" href="css/home.css?v=20261023-static-request-arrows-v1">
     <link rel="stylesheet" href="css/components.css?v=20261017-direct-password-change">
     <link data-portal-route-css="auth" data-portal-css-href="css/auth.css?v=20261023-admin-mfa-mode-ui-v1">
-    <link data-portal-route-css="admin" data-portal-css-href="css/admin.css?v=20261022-admin-rail-desktop-hidden-v1">
+    <link data-portal-route-css="admin" data-portal-css-href="css/admin.css?v=20261023-server-disclosure-drafts-v1">
     <link rel="stylesheet" href="css/public.css?v=20261016-sticky-menu-stable">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin-tables.css?v=20261022-readable-activity-details-v1">
     <link rel="stylesheet" href="css/shared-responsive.css?v=20261023-mobile-account-actions-v1">
-    <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261023-disclosure-desktop-layout-v1">
+    <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261023-server-disclosure-drafts-v1">
     <link data-portal-route-css="unavailable" data-portal-css-href="css/unavailable.css?v=20261023-mobile-404-wrap-v2">
-    <link rel="stylesheet" href="css/portal-public.css?v=20261023-landing-custom-scrollbar-v1">
+    <link rel="stylesheet" href="css/portal-public.css?v=20261023-desktop-request-guidance-v1">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -1282,7 +1282,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <?php require __DIR__ . '/includes/shared/site-footer.php'; ?>
 
     <?php require __DIR__ . '/includes/shared/dialogs.php'; ?>    <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true">Message</div>
-    <script src="script.js?v=20261023-admin-mfa-mode-ui-v1" defer></script>
+    <script src="script.js?v=20261023-server-disclosure-drafts-v1" defer></script>
 </body>
 </html>
 

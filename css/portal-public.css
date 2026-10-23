@@ -4294,7 +4294,8 @@ body.resident-workspace-view #resident-dashboard .request-proof-privacy {
     align-items: flex-start;
 }
 body.resident-workspace-view #resident-dashboard .request-proof-privacy-mobile,
-body.resident-workspace-view #resident-dashboard .request-guidance-mobile {
+body.resident-workspace-view #resident-dashboard .request-guidance-mobile,
+body.resident-workspace-view #resident-dashboard .request-guidance-desktop {
     display: none;
 }
 
