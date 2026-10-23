@@ -34,14 +34,34 @@ if (!in_array($action, ['Approve', 'Reject', 'Ready', 'Pickup'], true)) {
 
 $pdo->beginTransaction();
 try {
-    $lock = $pdo->prepare('SELECT current_status FROM document_request WHERE request_id = ? FOR UPDATE');
+    $lock = $pdo->prepare('SELECT dr.current_status, dr.payment_status, dt.fee_amount
+                           FROM document_request dr
+                           JOIN document_type dt ON dt.document_type_id = dr.document_type_id
+                           WHERE dr.request_id = ? FOR UPDATE');
     $lock->execute([$requestId]);
-    $currentStatus = $lock->fetchColumn();
-    if ($currentStatus === false) {
+    $currentRequest = $lock->fetch(PDO::FETCH_ASSOC);
+    if (!$currentRequest) {
         $pdo->rollBack();
         http_response_code(404);
         echo json_encode(['success' => false, 'message' => 'Request not found']);
         exit;
+    }
+    $currentStatus = (string) $currentRequest['current_status'];
+
+    if (in_array($action, ['Ready', 'Pickup'], true)) {
+        $feeAmount = $currentRequest['fee_amount'];
+        $paymentRequired = $feeAmount === null
+            ? $currentRequest['payment_status'] !== 'Not Required'
+            : (float) $feeAmount > 0;
+        if ($paymentRequired && $currentRequest['payment_status'] !== 'Paid') {
+            $pdo->rollBack();
+            http_response_code(409);
+            $message = $action === 'Ready'
+                ? 'Payment must be verified before the request can be marked ready for pickup.'
+                : 'Payment must be verified before the request can be completed.';
+            echo json_encode(['success' => false, 'message' => $message]);
+            exit;
+        }
     }
 
     $newStatus = $allowedTransitions[(string) $currentStatus][$action] ?? null;

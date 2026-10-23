@@ -12,10 +12,12 @@ if (!$requestId) {
 }
 
 $paymentStatusColumn = $pdo->query("SHOW COLUMNS FROM document_request LIKE 'payment_status'")->fetch() ? 'dr.payment_status' : "'Unpaid' AS payment_status";
-$stmt = $pdo->prepare("SELECT dr.request_id, dr.tracking_code, dr.purpose, dr.current_status, " . $paymentStatusColumn . ", dr.rejection_reason, dr.created_at, dr.request_source, dr.walk_in_name, dr.walk_in_phone, dr.walk_in_address, dr.proof_type,
+$stmt = $pdo->prepare("SELECT dr.request_id, dr.tracking_code, dr.purpose, dr.current_status, " . $paymentStatusColumn . ", dr.payment_reference, dr.payment_submitted_at, dr.payment_rejection_reason,
+        CASE WHEN dr.payment_proof_path IS NULL THEN NULL ELSE CONCAT('api/payment_proof.php?id=', dr.request_id) END AS payment_proof_url,
+        dr.rejection_reason, dr.created_at, dr.request_source, dr.walk_in_name, dr.walk_in_phone, dr.walk_in_address, dr.proof_type,
         CASE WHEN dr.request_source = 'online' AND dr.proof_path IS NOT NULL THEN CONCAT('api/request_proof.php?id=', dr.request_id) ELSE NULL END AS proof_url,
         CASE WHEN dr.proof_path IS NULL THEN NULL ELSE LOWER(SUBSTRING_INDEX(dr.proof_path, '.', -1)) END AS proof_format,
-        dt.name AS document_type, r.resident_id, COALESCE(r.first_name, dr.walk_in_name) AS first_name, r.middle_name, r.last_name, r.email, COALESCE(r.phone_number, dr.walk_in_phone) AS phone_number, COALESCE(r.address, dr.walk_in_address) AS address
+        dt.name AS document_type, dt.fee_amount AS fee_amount, r.resident_id, COALESCE(r.first_name, dr.walk_in_name) AS first_name, r.middle_name, r.last_name, r.email, COALESCE(r.phone_number, dr.walk_in_phone) AS phone_number, COALESCE(r.address, dr.walk_in_address) AS address
     FROM document_request dr
     JOIN document_type dt ON dt.document_type_id = dr.document_type_id
     LEFT JOIN resident r ON r.resident_id = dr.resident_id

@@ -87,6 +87,23 @@ function notifyAdminsOfNewRequest(PDO $pdo, string $trackingCode, string $reques
     } catch (Throwable $e) { error_log('Administrator new-request notification could not be queued.'); }
 }
 
+/** Queue a payment-proof review alert only for administrators who opted in. */
+function notifyAdminsOfPaymentSubmission(PDO $pdo, string $trackingCode, string $documentName, float $fee): void
+{
+    try {
+        $admins = $pdo->query("SELECT DISTINCT email FROM user WHERE role = 'Admin' AND notification_payment_verification = 1")->fetchAll(PDO::FETCH_COLUMN);
+        $appUrl = rtrim((string) portalConfig()['app_url'], '/');
+        $amount = 'PHP ' . number_format($fee, 2);
+        $message = "A resident submitted payment proof for review.\n\nRequest: $trackingCode\nDocument: $documentName\nFee: $amount\n\nReview it in the admin workspace: $appUrl/admin_requests.php#admin-requests\n";
+        foreach ($admins as $email) {
+            $mailError = null;
+            queuePortalEmail($pdo, (string) $email, 'Payment proof needs review', $message, null, $mailError);
+        }
+    } catch (Throwable $e) {
+        error_log('Administrator payment-review notification could not be queued.');
+    }
+}
+
 /**
  * Send a notification email through the configured SMTP server.
  *

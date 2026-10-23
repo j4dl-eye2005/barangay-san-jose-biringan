@@ -17,6 +17,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $status = is_string($_GET['status'] ?? null) ? $_GET['status'] : 'All';
         $allowedStatuses = ['All', 'Pending', 'Approved', 'Ready for Pickup', 'Completed', 'Rejected'];
         if (!in_array($status, $allowedStatuses, true)) $status = 'All';
+        $paymentStatus = is_string($_GET['payment'] ?? null) ? $_GET['payment'] : '';
+        $allowedPaymentStatuses = ['', 'Unpaid', 'Pending Verification', 'Paid', 'Rejected', 'Not Required'];
+        if (!in_array($paymentStatus, $allowedPaymentStatuses, true)) $paymentStatus = '';
         $search = trim(is_string($_GET['search'] ?? null) ? $_GET['search'] : '');
         if (strlen($search) > 100) {
             http_response_code(400);
@@ -26,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $where = [];
         $params = [];
         if ($status !== 'All') { $where[] = 'dr.current_status = ?'; $params[] = $status; }
+        if ($paymentStatus !== '') { $where[] = 'dr.payment_status = ?'; $params[] = $paymentStatus; }
         if ($search !== '') {
             $where[] = '(dr.tracking_code LIKE ? OR COALESCE(NULLIF(CONCAT_WS(\' \', r.first_name, r.last_name), \'\'), dr.walk_in_name, \'\') LIKE ?)';
             $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
@@ -44,10 +48,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $total = (int) $countStmt->fetchColumn();
         $stmt = $pdo->prepare("
             SELECT dr.request_id, dr.tracking_code, dr.resident_id, dr.document_type_id, dr.purpose,
-                   dr.current_status, dr.payment_status, dr.rejection_reason, dr.created_at, dr.request_source, dr.proof_type,
+                   dr.current_status, dr.payment_status, dr.payment_reference, dr.payment_submitted_at,
+                   dr.payment_rejection_reason, dr.rejection_reason, dr.created_at, dr.request_source, dr.proof_type,
                    CASE WHEN dr.request_source = 'online' AND dr.proof_path IS NOT NULL THEN CONCAT('api/request_proof.php?id=', dr.request_id) ELSE NULL END AS proof_url,
                    CASE WHEN dr.proof_path IS NULL THEN NULL ELSE LOWER(SUBSTRING_INDEX(dr.proof_path, '.', -1)) END AS proof_format,
-                   dt.name AS documentType,
+                   dt.name AS documentType, dt.fee_amount AS fee_amount,
                    (SELECT rsl.notes FROM request_status_log rsl
                     WHERE rsl.request_id = dr.request_id AND rsl.status = 'Ready for Pickup'
                     ORDER BY rsl.created_at DESC, rsl.log_id DESC LIMIT 1) AS pickupDetails,
@@ -65,8 +70,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     } elseif ($_SESSION['role'] === 'Resident' && isset($_SESSION['resident_id'])) {
         $stmt = $pdo->prepare("
             SELECT dr.request_id, dr.tracking_code, dr.resident_id, dr.document_type_id, dr.purpose,
-                   dr.current_status, dr.payment_status, dr.rejection_reason, dr.created_at,
-                   dt.name AS documentType,
+                   dr.current_status, dr.payment_status, dr.payment_reference, dr.payment_submitted_at,
+                   dr.payment_rejection_reason, dr.rejection_reason, dr.created_at,
+                   dt.name AS documentType, dt.fee_amount AS fee_amount,
                    (SELECT rsl.notes
                     FROM request_status_log rsl
                     WHERE rsl.request_id = dr.request_id
@@ -113,7 +119,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!in_array($proofType, ['National ID', 'Certificate of Residency'], true) || $extension === null) {
         http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Attach a valid National ID or Certificate of Residency (PDF, JPG, or PNG, up to 5 MB).']); exit;
     }
-    $type = $pdo->prepare('SELECT document_type_id, name FROM document_type WHERE document_type_id = ? AND is_active = 1');
+    $type = $pdo->prepare('SELECT document_type_id, name, fee_amount FROM document_type WHERE document_type_id = ? AND is_active = 1');
     $type->execute([$documentTypeId]);
     $documentType = $type->fetch();
     if (!$documentType) { http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Choose an available document type.']); exit; }
@@ -123,8 +129,9 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $proofPath = 'proofs/' . $proofName;
     $trackingCode = 'REQ-' . strtoupper(bin2hex(random_bytes(8)));
     try {
-        $stmt = $pdo->prepare("INSERT INTO document_request (tracking_code, resident_id, document_type_id, purpose, request_source, proof_path, proof_type) VALUES (?, ?, ?, ?, 'online', ?, ?)");
-        $stmt->execute([$trackingCode, $_SESSION['resident_id'], $documentTypeId, $purpose, $proofPath, $proofType]);
+        $paymentStatus = $documentType['fee_amount'] !== null && (float) $documentType['fee_amount'] === 0.0 ? 'Not Required' : 'Unpaid';
+        $stmt = $pdo->prepare("INSERT INTO document_request (tracking_code, resident_id, document_type_id, purpose, request_source, proof_path, proof_type, payment_status) VALUES (?, ?, ?, ?, 'online', ?, ?, ?)");
+        $stmt->execute([$trackingCode, $_SESSION['resident_id'], $documentTypeId, $purpose, $proofPath, $proofType, $paymentStatus]);
     } catch (Throwable $e) {
         if (is_file($proofDirectory . DIRECTORY_SEPARATOR . $proofName)) unlink($proofDirectory . DIRECTORY_SEPARATOR . $proofName);
         throw $e;

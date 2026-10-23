@@ -44,6 +44,8 @@ Then sign in through `http://localhost/barangay_portal_new/index.php#admin-login
 
 For an existing database, run `database/admin_workspace_migration.sql`, `database/resident_payment_migration.sql`, and `database/security_hardening_migration.sql` once in the `barangay_portal` database. These add request notes, payment status, email verification, and rate-limit storage. Existing residents are marked as previously verified by the security migration; new registrations must verify their email.
 
+For an existing database, run `database/resident_payment_review_migration.sql` once before deploying resident payment-proof review. Confirm the document fees with the barangay before using these sample fee amounts for real requests.
+
 For an older local database that does not have `resident.archived_at`, run `database/resident_archive_migration.sql` once. The current login and account APIs expect this nullable column.
 
 For an existing database, run `database/audit_search_migration.sql` once to add the full-text activity search indexes and the structured resident reference used by the admin activity log.
@@ -60,7 +62,7 @@ For an existing database, run `database/query_performance_migration.sql` once to
 
 For an existing database, run `database/policy_acceptance_migration.sql` once before deploying the updated registration endpoint. It adds nullable fields to record the Terms version accepted and Privacy Notice version acknowledged at registration. Existing accounts remain blank because the earlier version did not retain this evidence.
 
-The migrations under `database/` use MariaDB's `IF NOT EXISTS` syntax and are compatible with the MariaDB 10.4.32 server shown in the supplied database dump. They can be re-imported without duplicate-column or duplicate-index errors.
+Migration repeatability depends on the individual file. Follow each migration's instructions and run files marked “once” only once. The SQL syntax targets the MariaDB 10.4.32 server shown in the supplied database dump.
 
 ## Main areas
 

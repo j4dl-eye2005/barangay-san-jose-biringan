@@ -166,7 +166,7 @@ const delegatedActionNames = new Set([
     'closeBulletinDeleteDialog', 'closeModal', 'confirmBulletinDelete', 'exportActivityCsv',
     'focusContactInfo', 'handleActivityFilterChange', 'handleAdminLogin', 'handleAdminMfaSubmit', 'handleAdminMfaDigitKeydown', 'handleAdminMfaPaste', 'handleAdminMfaRecoveryInput', 'cancelAdminMfa', 'showAdminMfaRecoveryCodeInput', 'useAdminMfaAuthenticatorCode', 'handleViewProfile',
     'handleDisclosureCardKeydown', 'handleLogin', 'handlePickupDateKeydown',
-    'handlePostDisclosure', 'handleRegister', 'handleRequest', 'filterAdminRequests', 'loadAdminActivity', 'logout', 'openWalkInRequestPanel', 'cancelWalkInRequest',
+    'handlePostDisclosure', 'handleRegister', 'handleRequest', 'filterAdminRequests', 'handleAdminPaymentFilterChange', 'loadAdminActivity', 'logout', 'openWalkInRequestPanel', 'cancelWalkInRequest',
     'resendResidentVerification', 'changeResidentEmail', 'changeResidentPassword', 'submitManualRequest',
     'openDashboard', 'openDisclosureCategory', 'openDisclosureComposer', 'openForgotPassword',
     'openOverviewDestination', 'openRegisterPolicy', 'openResidentProfileQuickLink', 'portalSearch', 'searchPublicRecords', 'showBulletinOverview', 'showHomeAnchor', 'regClearFile', 'requestDoc',
@@ -485,6 +485,9 @@ function clearNode(node) {
 
 function statusClass(status) {
     return 'status-badge status-' + (status || '').toLowerCase().replace(/ /g, '');
+}
+function paymentStatusClass(status) {
+    return `payment-${String(status || 'Unpaid').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 }
 
 function adminPanelNeedsRefresh(panel) {
@@ -1172,7 +1175,7 @@ function requestDoc(docName) {
         const trySelect = (attempts) => {
             const select = document.getElementById('doc-type');
             if (!select) return;
-            const match = Array.from(select.options).find(o => o.text.startsWith(docName));
+            const match = Array.from(select.options).find(o => o.dataset.name === docName);
             if (match) {
                 select.value = match.value;
                 updateDocumentTypeInfo();
@@ -1214,8 +1217,8 @@ function updateLandingDocumentFinder(purpose) {
             fee: 'Free'
         },
         business: {
-            name: 'Barangay Business Clearance',
-            description: 'Barangay-level clearance required before applying for a city business permit.',
+            name: 'Business Permit',
+            description: 'Barangay-level approval required before applying for a city business permit.',
             fee: '₱200'
         }
     };
@@ -1243,7 +1246,10 @@ function updateLandingDocumentFinder(purpose) {
     const action = document.createElement('div');
     action.className = 'document-finder-action';
     const fee = document.createElement('span');
-    fee.textContent = suggestion.fee;
+    const suggestionKey = suggestion.name.trim().toLowerCase();
+    fee.textContent = publicDocumentTypeFees.has(suggestionKey)
+        ? publicDocumentFeeLabel(suggestion.name)
+        : suggestion.fee;
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'document-finder-button';
@@ -3857,7 +3863,8 @@ function startAdminSessionExpiry(createdAt = Math.floor(Date.now() / 1000)) {
    LOAD DOCUMENT TYPES
    ============================================================ */
 let documentTypesPromise = null;
-async function loadDocTypes() {
+let publicDocumentTypeFees = new Map();
+async function getDocumentTypes() {
     if (!documentTypesPromise) {
         documentTypesPromise = fetch('api/document_types.php')
             .then(async response => {
@@ -3872,7 +3879,29 @@ async function loadDocTypes() {
                 return null;
             });
     }
-    const types = await documentTypesPromise;
+    return documentTypesPromise;
+}
+function publicDocumentFeeLabel(documentName) {
+    const fee = publicDocumentTypeFees.get(String(documentName || '').trim().toLowerCase());
+    return fee === undefined || fee === null ? 'Fee confirmed at the barangay hall' : fee === 0 ? 'Free' : `Fee: ₱${fee}`;
+}
+function updatePublicDocumentFees(types) {
+    publicDocumentTypeFees = new Map(types.map(type => [
+        String(type.name || '').trim().toLowerCase(),
+        type.fee == null || type.fee === '' ? null : Number(type.fee)
+    ]));
+    document.querySelectorAll('[data-document-fee-for]').forEach(element => {
+        const name = element.getAttribute('data-document-fee-for') || '';
+        const fee = publicDocumentTypeFees.get(name.trim().toLowerCase());
+        element.textContent = publicDocumentFeeLabel(name);
+        element.classList.toggle('free', fee === 0);
+    });
+    const purpose = document.getElementById('document-finder-purpose')?.value;
+    if (purpose) updateLandingDocumentFinder(purpose);
+}
+async function loadDocTypes() {
+    const types = await getDocumentTypes();
+    if (types) updatePublicDocumentFees(types);
     const select = document.getElementById('doc-type');
     if (select) clearNode(select);
 
@@ -3967,7 +3996,9 @@ function updateDocumentTypeInfo() {
 }
 
 function getDocumentFee(documentType) {
-    if (documentType?.fee != null && documentType.fee !== '') return Number(documentType.fee);
+    if (documentType && typeof documentType === 'object' && Object.prototype.hasOwnProperty.call(documentType, 'fee')) {
+        return documentType.fee == null || documentType.fee === '' ? null : Number(documentType.fee);
+    }
     const name = String(documentType?.name ?? documentType ?? '').trim().toLowerCase();
     if (name.includes('indigency')) return 0;
     if (name.includes('business')) return 200;
@@ -3976,13 +4007,17 @@ function getDocumentFee(documentType) {
 }
 
 function getRequestPaymentStatus(paymentStatus, requestStatus, pickupDetails) {
-    if (paymentStatus === 'Paid') return 'Paid';
+    if (['Paid', 'Pending Verification', 'Rejected', 'Not Required'].includes(paymentStatus)) return paymentStatus;
+    if (paymentStatus !== 'Unpaid' && paymentStatus) return 'Unpaid';
     if (!['Ready for Pickup', 'Completed'].includes(requestStatus) || typeof pickupDetails !== 'string') return 'Unpaid';
     const pickupLine = pickupDetails.split(/\r?\n/).map(line => line.trim()).find(line => /^Pickup:/i.test(line));
     const match = pickupLine?.match(/^Pickup:\s*(.+?)\s+at\s+(.+)$/i);
     if (!match) return 'Unpaid';
     const deadline = new Date(`${match[1]} ${match[2]}`);
     return !Number.isNaN(deadline.getTime()) && Date.now() > deadline.getTime() ? 'Overdue' : 'Unpaid';
+}
+function requestPaymentIsRequired(fee, paymentStatus) {
+    return fee === null ? paymentStatus !== 'Not Required' : fee > 0;
 }
 function formatPickupDetails(value) {
     if (typeof value !== 'string') return '';
@@ -4480,6 +4515,8 @@ function adminProfileEventTitle(row, type) {
         const payment = details.match(/to\s+(Paid|Unpaid)/i)?.[1]?.toLowerCase() || 'updated';
         return payment === 'paid' ? `Marked request #${requestId} as paid` : payment === 'unpaid' ? `Marked request #${requestId} as unpaid` : `Updated payment for request #${requestId}`;
     }
+    if (row.action === 'request_payment_verified' && requestId) return `Verified payment for request #${requestId}`;
+    if (row.action === 'request_payment_rejected' && requestId) return `Rejected payment proof for request #${requestId}`;
     if ((row.action === 'resident_approved' || row.action === 'approve_resident') && residentId) return `Approved resident account #${residentId}`;
     if (row.action === 'resident_archived' && residentId) return `Archived resident account #${residentId}`;
     if (row.action === 'resident_restored' && residentId) return `Restored resident account #${residentId}`;
@@ -5075,11 +5112,11 @@ function renderResidentRequestList(requests = residentRequestItems) {
     visibleRequests.forEach(r => {
         const tracking = String(r.tracking_code ?? '');
         const status = String(r.current_status ?? 'Pending');
-        const fee = getDocumentFee(r.documentType);
+        const fee = getDocumentFee({ name: r.documentType, fee: r.fee_amount });
         const paymentStatus = getRequestPaymentStatus(r.payment_status, status, r.pickupDetails);
         let displayStatus = status;
         if (['Approved', 'Ready for Pickup'].includes(status) && fee > 0 && paymentStatus !== 'Paid') {
-            displayStatus = 'Awaiting payment';
+            displayStatus = paymentStatus === 'Pending Verification' ? 'Payment under review' : paymentStatus === 'Rejected' ? 'Payment proof needs update' : 'Awaiting payment';
         } else if (status === 'Approved' && fee > 0 && paymentStatus === 'Paid') {
             displayStatus = 'Ready for pickup';
         } else if (status === 'Ready for Pickup') {
@@ -5088,7 +5125,7 @@ function renderResidentRequestList(requests = residentRequestItems) {
         const statusSteps = window.matchMedia('(max-width: 767px)').matches
             ? ['Submitted', 'Approved', 'Pickup', 'Completed']
             : ['Submitted', 'Approved', 'Ready for pickup', 'Completed'];
-        const progressIndex = displayStatus === 'Completed' ? 3 : ['Ready for Pickup', 'Ready for pickup'].includes(displayStatus) ? 2 : ['Approved', 'Awaiting payment'].includes(displayStatus) ? 1 : 0;
+        const progressIndex = displayStatus === 'Completed' ? 3 : ['Ready for Pickup', 'Ready for pickup'].includes(displayStatus) ? 2 : ['Approved', 'Awaiting payment', 'Payment under review', 'Payment proof needs update'].includes(displayStatus) ? 1 : 0;
         const progress = el('ol', { className: `request-progress${status === 'Rejected' ? ' is-rejected' : ''}`, attrs: { 'aria-label': `Request progress: ${displayStatus}` } },
             statusSteps.map((label, index) => el('li', {
                 className: index < progressIndex || (status === 'Rejected' && index === 0) ? 'is-done' : index === progressIndex && status !== 'Rejected' ? 'is-current' : '',
@@ -5114,11 +5151,13 @@ function renderResidentRequestList(requests = residentRequestItems) {
             el('strong', { text: `Fee: ${feeText}` }),
             fee === 0
                 ? el('span', { className: 'payment-status-chip payment-free', text: 'No payment required' })
-                : displayStatus === 'Awaiting payment' && paymentStatus === 'Unpaid'
-                    ? null
-                    : el('span', { className: `payment-status-chip payment-${paymentStatus.toLowerCase()}`, text: paymentStatus })
+                : fee === null
+                    ? el('span', { className: 'payment-status-chip payment-unpaid', text: 'Fee to be confirmed' })
+                    : el('span', { className: `payment-status-chip ${paymentStatusClass(paymentStatus)}`, text: paymentStatus })
         ]);
         item.appendChild(paymentRow);
+        const paymentControl = createResidentPaymentControl(r, fee, paymentStatus);
+        if (paymentControl) item.appendChild(paymentControl);
 
         if (r.current_status === 'Rejected') {
             item.appendChild(el('div', { className: 'request-note request-note-rejected' }, [
@@ -5156,6 +5195,101 @@ function formatDateTime(value) {
     return Number.isNaN(date.getTime()) ? String(value || '') : date.toLocaleString('en-PH', {
         year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
     });
+}
+
+function submitResidentPaymentProof(event, request, form, submitButton, feedback) {
+    event.preventDefault();
+    if (form.dataset.submitting === 'true') return;
+    const fileInput = form.querySelector('input[type="file"]');
+    const file = fileInput?.files?.[0];
+    if (!form.reportValidity()) return;
+    if (!file || file.size > 5 * 1024 * 1024) {
+        feedback.textContent = file ? 'Receipt is too large. Maximum size is 5 MB.' : 'Attach your payment receipt.';
+        feedback.hidden = false;
+        return;
+    }
+    form.dataset.submitting = 'true';
+    submitButton.disabled = true;
+    submitButton.setAttribute('aria-busy', 'true');
+    submitButton.textContent = 'Submitting…';
+    feedback.hidden = true;
+    const payload = new FormData(form);
+    payload.set('requestId', String(request.request_id));
+    fetch('api/submit_payment_proof.php', { method: 'POST', body: payload })
+        .then(async response => {
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.message || 'Payment proof could not be submitted.');
+            showToast('Payment proof submitted for review.', 'success');
+            selectResidentRequestTab('list');
+            try {
+                await loadResidentData();
+            } catch {
+                showToast('Payment proof was submitted, but the request list could not refresh.', 'error');
+            }
+        })
+        .catch(error => {
+            feedback.textContent = error.message || 'Payment proof could not be submitted. Try again.';
+            feedback.hidden = false;
+            showToast(feedback.textContent, 'error');
+        })
+        .finally(() => {
+            form.dataset.submitting = 'false';
+            if (form.isConnected) {
+                submitButton.disabled = false;
+                submitButton.removeAttribute('aria-busy');
+                submitButton.textContent = 'Send for verification';
+            }
+        });
+}
+
+function createResidentPaymentControl(request, fee, paymentStatus) {
+    if (!(fee > 0) || !['Approved', 'Ready for Pickup'].includes(request.current_status)) return null;
+    if (paymentStatus === 'Paid' || paymentStatus === 'Not Required') return null;
+    const section = el('section', { className: 'resident-payment-review' });
+    section.appendChild(el('p', {
+        className: 'field-help',
+        text: 'After approval, pay using a method confirmed by the barangay office, then submit your reference and receipt for review.'
+    }));
+    if (paymentStatus === 'Pending Verification') {
+        const details = [
+            `Payment proof submitted${request.payment_submitted_at ? ` on ${formatDateTime(request.payment_submitted_at)}` : ''}.`,
+            request.payment_reference ? `Reference: ${request.payment_reference}` : ''
+        ].filter(Boolean).join(' ');
+        section.appendChild(el('p', { className: 'field-help', text: details, attrs: { role: 'status' } }));
+        return section;
+    }
+    if (paymentStatus === 'Rejected' && request.payment_rejection_reason) {
+        section.appendChild(el('p', { className: 'request-payment-rejection', text: `Payment proof needs an update: ${request.payment_rejection_reason}` }));
+    }
+
+    const requestId = Number(request.request_id);
+    const referenceId = `payment-reference-${requestId}`;
+    const proofId = `payment-receipt-${requestId}`;
+    const feedback = el('p', { className: 'reg-field-error resident-payment-feedback', attrs: { role: 'status', 'aria-live': 'polite', hidden: '' } });
+    const form = el('form', { className: 'resident-payment-form', attrs: { enctype: 'multipart/form-data', hidden: '' } });
+    const reference = el('input', { attrs: { id: referenceId, name: 'paymentReference', type: 'text', maxlength: '120', required: '', autocomplete: 'off' } });
+    const proof = el('input', { attrs: { id: proofId, name: 'proof', type: 'file', accept: '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png', required: '' } });
+    const submitButton = el('button', { className: 'btn-solid', text: 'Send for verification', attrs: { type: 'submit' } });
+    const cancelButton = el('button', { className: 'btn-outline', text: 'Cancel', attrs: { type: 'button' }, on: { click: () => { form.hidden = true; } } });
+    form.append(
+        el('label', { text: 'Payment reference', attrs: { for: referenceId } }),
+        reference,
+        el('small', { className: 'field-help', text: 'Enter the transaction or receipt number.' }),
+        el('label', { text: 'Receipt proof', attrs: { for: proofId } }),
+        proof,
+        el('small', { className: 'field-help', text: 'PDF, JPG, or PNG, up to 5 MB.' }),
+        feedback,
+        el('div', { className: 'resident-payment-form-actions' }, [submitButton, cancelButton])
+    );
+    form.addEventListener('submit', event => submitResidentPaymentProof(event, request, form, submitButton, feedback));
+    const openButton = el('button', {
+        className: 'btn-outline resident-payment-open',
+        text: paymentStatus === 'Rejected' ? 'Submit corrected receipt' : 'Submit payment proof',
+        attrs: { type: 'button' },
+        on: { click: () => { form.hidden = !form.hidden; if (!form.hidden) reference.focus(); } }
+    });
+    section.append(openButton, form);
+    return section;
 }
 
 async function loadAdminOverview() {
@@ -5315,6 +5449,10 @@ function formatActivityAction(action) {
         request_rejected: 'Request rejected',
         request_ready_for_pickup: 'Marked ready for pickup',
         request_completed: 'Request completed',
+        resident_payment_submitted: 'Payment proof submitted',
+        request_payment_verified: 'Payment verified',
+        request_payment_rejected: 'Payment proof rejected',
+        payment_proof_viewed: 'Payment proof viewed',
         disclosure_published: 'Disclosure posted',
         disclosure_draft_saved: 'Draft saved',
         disclosure_draft_deleted: 'Draft deleted',
@@ -5328,7 +5466,7 @@ function formatActivityAction(action) {
 function activityActionClass(action) {
     const normalized = String(action || '').toLowerCase().replace(/[\s-]+/g, '_');
     if (normalized.startsWith('failed_') || normalized.endsWith('_failed') || normalized.includes('reject')) return 'is-red';
-    if (['admin_login_mfa', 'resident_login_success', 'admin_login', 'request_approved', 'request_completed', 'disclosure_published', 'approve_resident', 'resident_verified'].includes(normalized)) return 'is-green';
+    if (['admin_login_mfa', 'resident_login_success', 'admin_login', 'request_approved', 'request_completed', 'request_payment_verified', 'disclosure_published', 'approve_resident', 'resident_verified'].includes(normalized)) return 'is-green';
     if (normalized.includes('mfa') || normalized.includes('authenticator') || normalized.includes('edit') || normalized === 'proof_viewed') return 'is-blue';
     if (normalized.includes('ready_for_pickup') || normalized === 'walk_in_request_created') return 'is-amber';
     return 'is-neutral';
@@ -5595,6 +5733,7 @@ async function loadAdminData() {
     const query = new URLSearchParams({
         page: String(adminRequestPage),
         status: adminRequestStatusFilter,
+        payment: document.getElementById('admin-payment-filter')?.value || '',
         search: document.getElementById('admin-request-search')?.value.trim() || ''
     });
     const res = await fetch(`api/requests.php?${query}`);
@@ -5639,6 +5778,11 @@ function setAdminRequestFilter(status, button) {
         filterButton.setAttribute('aria-pressed', String(active));
     });
     loadAdminData().catch(() => showToast('Could not load requests.', 'error'));
+}
+
+function handleAdminPaymentFilterChange() {
+    adminRequestPage = 1;
+    loadAdminData().catch(() => showToast('Could not filter requests by payment.', 'error'));
 }
 
 function filterAdminRequests() {
@@ -5701,7 +5845,8 @@ function renderAdminRequests() {
         ]);
         const actionsCell = el('td', { attrs: { 'data-label': 'Actions' } }, [actionGroup]);
         const paymentStatus = getRequestPaymentStatus(r.payment_status, r.current_status, r.pickupDetails);
-        const fee = getDocumentFee(r.documentType);
+        const fee = getDocumentFee({ name: r.documentType, fee: r.fee_amount });
+        const paymentVerified = !requestPaymentIsRequired(fee, paymentStatus) || paymentStatus === 'Paid';
         if (r.current_status === 'Pending') {
             actionGroup.appendChild(el('button', {
                 className: 'action-btn btn-approve', text: 'Approve',
@@ -5716,13 +5861,23 @@ function renderAdminRequests() {
         } else if (r.current_status === 'Approved') {
             actionGroup.appendChild(el('button', {
                 className: 'action-btn btn-set-ready', text: 'Set ready',
-                attrs: { type: 'button', 'aria-label': `Set request ${tracking} ready for pickup` },
+                attrs: {
+                    type: 'button',
+                    ...(paymentVerified ? {} : { disabled: '' }),
+                    title: paymentVerified ? '' : 'Payment must be verified first.',
+                    'aria-label': `Set request ${tracking} ready for pickup${paymentVerified ? '' : ', disabled until payment is verified'}`
+                },
                 on: { click: () => processRequest(requestId, 'Ready', r) }
             }));
         } else if (r.current_status === 'Ready for Pickup') {
             actionGroup.appendChild(el('button', {
                 className: 'action-btn btn-ready', text: 'Mark as picked up',
-                attrs: { type: 'button', 'aria-label': `Mark request ${tracking} as picked up` },
+                attrs: {
+                    type: 'button',
+                    ...(paymentVerified ? {} : { disabled: '' }),
+                    title: paymentVerified ? '' : 'Payment must be verified first.',
+                    'aria-label': `Mark request ${tracking} as picked up${paymentVerified ? '' : ', disabled until payment is verified'}`
+                },
                 on: { click: () => processRequest(requestId, 'Pickup') }
             }));
         }
@@ -5754,7 +5909,7 @@ function renderAdminRequests() {
             el('td', { text: formatDate(r.created_at), attrs: { 'data-label': 'Requested', title: String(r.created_at ?? '') } }),
             el('td', { attrs: { 'data-label': 'Status' } }, [el('span', { className: statusClass(r.current_status), text: r.current_status })]),
             el('td', { attrs: { 'data-label': 'Payment' } }, [el('span', {
-                className: `payment-status-chip ${fee === 0 ? 'payment-free' : `payment-${paymentStatus.toLowerCase()}`}`,
+                className: `payment-status-chip ${fee === 0 ? 'payment-free' : paymentStatusClass(paymentStatus)}`,
                 text: fee === 0 ? 'No payment required' : paymentStatus
             })]),
             proofCell,
@@ -5765,7 +5920,7 @@ function renderAdminRequests() {
         if (mobileList) {
             const openRequest = () => openAdminRequestDetail(requestId);
             const paymentPill = el('span', {
-                className: `payment-status-chip ${fee === 0 ? 'payment-free' : `payment-${paymentStatus.toLowerCase()}`}`,
+                className: `payment-status-chip ${fee === 0 ? 'payment-free' : paymentStatusClass(paymentStatus)}`,
                 text: fee === 0 ? 'No payment required' : paymentStatus
             });
             const mobileProofActions = el('div', { className: 'admin-request-mobile-actions' }, [
@@ -5882,6 +6037,43 @@ async function updateAdminRequestPayment(requestId, paymentStatus, button) {
         button.textContent = originalText;
     }
 }
+
+async function saveAdminPaymentReview(requestId, action, reason = '') {
+    try {
+        const response = await fetch('api/review_request_payment.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ request_id: requestId, action, reason })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'Payment review could not be saved.');
+        showToast(action === 'verify' ? 'Payment verified.' : 'Payment proof rejected.', 'success');
+        invalidateAdminPanelCache('activity');
+        await openAdminRequestDetail(requestId);
+        return true;
+    } catch (error) {
+        showToast(error.message || 'Payment review could not be saved.', 'error');
+        return false;
+    }
+}
+
+function reviewAdminPaymentProof(requestId, action) {
+    if (action === 'verify') {
+        if (!window.confirm('Verify this payment proof and mark the request as paid?')) return;
+        void saveAdminPaymentReview(requestId, 'verify');
+        return;
+    }
+    openModal(
+        'Reject payment proof',
+        'Explain what is wrong so the resident knows what to correct.',
+        'Reason for rejection',
+        'For example, the reference is unclear or the amount does not match.',
+        reason => saveAdminPaymentReview(requestId, 'reject', reason),
+        'textarea',
+        { maxLength: 1000 }
+    );
+}
+
 async function openAdminRequestDetail(requestId) {
     switchAdminTab('requests');
     currentAdminDetailId = requestId;
@@ -5929,14 +6121,35 @@ async function openAdminRequestDetail(requestId) {
             ]));
         });
         const readyHistory = history.find(step => step.status === 'Ready for Pickup' && step.notes);
+        const paymentStatus = getRequestPaymentStatus(request.payment_status, request.current_status, readyHistory?.notes);
+        const fee = getDocumentFee({ name: request.document_type, fee: request.fee_amount });
+        const paymentVerified = !requestPaymentIsRequired(fee, paymentStatus) || paymentStatus === 'Paid';
         const actionGroup = el('div', { className: 'table-action-group request-detail-actions' });
         if (request.current_status === 'Pending') {
             actionGroup.appendChild(el('button', { className: 'action-btn btn-approve', text: 'Approve', attrs: { type: 'button' }, on: { click: () => processRequest(requestId, 'Approve') } }));
             actionGroup.appendChild(el('button', { className: 'action-btn btn-reject', text: 'Reject', attrs: { type: 'button' }, on: { click: () => processRequest(requestId, 'Reject') } }));
         } else if (request.current_status === 'Approved') {
-            actionGroup.appendChild(el('button', { className: 'action-btn btn-set-ready', text: 'Set ready', attrs: { type: 'button' }, on: { click: () => processRequest(requestId, 'Ready', actionRequest) } }));
+            actionGroup.appendChild(el('button', {
+                className: 'action-btn btn-set-ready', text: 'Set ready',
+                attrs: {
+                    type: 'button',
+                    ...(paymentVerified ? {} : { disabled: '' }),
+                    title: paymentVerified ? '' : 'Payment must be verified first.',
+                    'aria-label': `Set request ready for pickup${paymentVerified ? '' : ', disabled until payment is verified'}`
+                },
+                on: { click: () => processRequest(requestId, 'Ready', actionRequest) }
+            }));
         } else if (request.current_status === 'Ready for Pickup') {
-            actionGroup.appendChild(el('button', { className: 'action-btn btn-ready', text: 'Mark as picked up', attrs: { type: 'button' }, on: { click: () => processRequest(requestId, 'Pickup') } }));
+            actionGroup.appendChild(el('button', {
+                className: 'action-btn btn-ready', text: 'Mark as picked up',
+                attrs: {
+                    type: 'button',
+                    ...(paymentVerified ? {} : { disabled: '' }),
+                    title: paymentVerified ? '' : 'Payment must be verified first.',
+                    'aria-label': `Mark request as picked up${paymentVerified ? '' : ', disabled until payment is verified'}`
+                },
+                on: { click: () => processRequest(requestId, 'Pickup') }
+            }));
         } else if (!mobileRequestDetail) {
             actionGroup.appendChild(el('span', { className: 'action-dash', text: '—' }));
         }
@@ -5949,12 +6162,10 @@ async function openAdminRequestDetail(requestId) {
             el('strong', { text: request.tracking_code }),
             el('button', { className: 'link-button', text: 'Copy', attrs: { type: 'button', 'aria-label': 'Copy tracking number' }, on: { click: () => copyRequestTracking(request.tracking_code) } })
         ]);
-        const paymentStatus = getRequestPaymentStatus(request.payment_status, request.current_status, readyHistory?.notes);
-        const fee = getDocumentFee(request.document_type);
         const feeText = fee === null ? 'To be confirmed' : fee === 0 ? 'Free' : `₱${fee}`;
-        const paymentButton = fee === 0 ? null : el('button', {
+        const paymentButton = fee === 0 || paymentStatus === 'Pending Verification' || !['Approved', 'Ready for Pickup'].includes(request.current_status) ? null : el('button', {
             className: paymentStatus === 'Paid' ? 'btn-outline' : 'btn-solid',
-            text: paymentStatus === 'Paid' ? 'Mark as unpaid' : 'Mark as paid',
+            text: paymentStatus === 'Paid' ? 'Mark as unpaid' : 'Mark paid in person',
             attrs: { type: 'button' },
             on: { click: (event) => updateAdminRequestPayment(requestId, paymentStatus === 'Paid' ? 'Unpaid' : 'Paid', event.currentTarget) }
         });
@@ -5970,7 +6181,7 @@ async function openAdminRequestDetail(requestId) {
         ]);
         const paymentStatusPill = fee === 0
             ? el('span', { className: 'payment-status-chip payment-free', text: 'No payment required' })
-            : el('span', { className: `payment-status-chip payment-${paymentStatus.toLowerCase()}`, text: paymentStatus });
+            : el('span', { className: `payment-status-chip ${paymentStatusClass(paymentStatus)}`, text: paymentStatus });
         const mobilePaymentSummary = fee === 0
             ? el('div', { className: 'request-admin-payment-summary is-free' }, [paymentStatusPill])
             : el('div', { className: 'request-admin-payment-summary' }, [
@@ -5982,6 +6193,24 @@ async function openAdminRequestDetail(requestId) {
             paymentStatusPill
         ]);
         const paymentSummary = mobileRequestDetail ? mobilePaymentSummary : desktopPaymentSummary;
+        const paymentProofUrl = typeof request.payment_proof_url === 'string' && /^api\/payment_proof\.php\?id=\d+$/.test(request.payment_proof_url)
+            ? request.payment_proof_url
+            : null;
+        const paymentReviewActions = request.payment_status === 'Pending Verification' ? [
+            el('button', { className: 'btn-solid', text: 'Verify payment', attrs: { type: 'button' }, on: { click: () => reviewAdminPaymentProof(requestId, 'verify') } }),
+            el('button', { className: 'btn-outline admin-payment-reject', text: 'Reject proof', attrs: { type: 'button' }, on: { click: () => reviewAdminPaymentProof(requestId, 'reject') } })
+        ] : [];
+        const paymentDetails = [
+            request.payment_reference ? el('p', { className: 'field-help', text: `Reference: ${request.payment_reference}` }) : null,
+            request.payment_submitted_at ? el('p', { className: 'field-help', text: `Submitted ${formatDateTime(request.payment_submitted_at)}` }) : null,
+            paymentProofUrl ? el('a', { className: 'link-button request-payment-proof-link', text: 'View payment receipt', attrs: { href: paymentProofUrl, target: '_blank', rel: 'noopener noreferrer' } }) : null,
+            request.payment_status === 'Rejected' && request.payment_rejection_reason
+                ? el('p', { className: 'request-payment-rejection', text: `Rejection reason: ${request.payment_rejection_reason}` })
+                : null,
+            fee !== 0 ? el('p', { className: 'field-help', text: 'Use manual marking only for payments verified in person.' }) : null,
+            ...paymentReviewActions,
+            paymentButton
+        ];
         const saveNoteButton = el('button', { className: 'btn-solid', text: 'Save note', attrs: { id: 'save-request-internal-note', type: 'button' }, on: { click: () => saveRequestInternalNote(requestId) } });
         const detailGrid = el('div', { className: 'request-detail-grid' }, [
             el('section', { className: 'card request-detail-card' }, [
@@ -6001,7 +6230,7 @@ async function openAdminRequestDetail(requestId) {
             el('section', { className: 'card request-detail-card request-detail-payment' }, [
                 el('h3', { text: 'Payment' }),
                 paymentSummary,
-                paymentButton
+                ...paymentDetails
             ]),
             el('section', { className: 'card request-detail-card request-detail-notes' }, [
                 el('h3', { text: 'Internal notes' }),
@@ -7478,6 +7707,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (footerYear) footerYear.textContent = String(new Date().getFullYear());
     initAdminTableScrollFades();
     setupMobileCarousel(document.querySelector('.doc-strip'), document.getElementById('doc-carousel-dots'));
+    if (document.querySelector('[data-document-fee-for]')) {
+        void getDocumentTypes().then(types => { if (types) updatePublicDocumentFees(types); });
+    }
 
     window.addEventListener('resize', () => {
         if (window.innerWidth > 720) closeMobileMenu();

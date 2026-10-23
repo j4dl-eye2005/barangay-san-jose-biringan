@@ -206,10 +206,10 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <link rel="stylesheet" href="css/base.css?v=20261023-universal-custom-scrollbar-v1">
     <link rel="stylesheet" href="css/home.css?v=20261023-static-request-arrows-v1">
     <link rel="stylesheet" href="css/components.css?v=20261017-direct-password-change">
-    <link data-portal-route-css="auth" data-portal-css-href="css/auth.css?v=20261023-admin-mfa-mode-ui-v1">
+    <link data-portal-route-css="auth" data-portal-css-href="css/auth.css?v=20261023-payment-proof-review-v1">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin.css?v=20261023-server-disclosure-drafts-v1">
     <link rel="stylesheet" href="css/public.css?v=20261016-sticky-menu-stable">
-    <link data-portal-route-css="admin" data-portal-css-href="css/admin-tables.css?v=20261022-readable-activity-details-v1">
+    <link data-portal-route-css="admin" data-portal-css-href="css/admin-tables.css?v=20261023-payment-proof-review-v1">
     <link rel="stylesheet" href="css/shared-responsive.css?v=20261023-mobile-account-actions-v1">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261023-server-disclosure-drafts-v1">
     <link data-portal-route-css="unavailable" data-portal-css-href="css/unavailable.css?v=20261023-mobile-404-wrap-v2">
@@ -238,7 +238,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <div class="hero-document-chips" aria-label="Quick document requests">
                         <button type="button" data-action-click="requestDoc('Barangay Clearance')">Barangay Clearance</button>
                         <button type="button" data-action-click="requestDoc('Certificate of Residency')">Certificate of Residency</button>
-                        <button type="button" data-action-click="requestDoc('Barangay Business Clearance')">Business Clearance</button>
+                        <button type="button" data-action-click="requestDoc('Business Permit')">Business Permit</button>
                     </div>
                 </div>
 
@@ -262,7 +262,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                 <ol class="steps-strip doc-strip" role="list">
                     <li class="step-item doc-item">
                         <button class="doc-card-btn" type="button" data-action-click="requestDoc('Barangay Clearance')" aria-label="Request Barangay Clearance">
-                            <span class="doc-item-fee">Fee: ₱50</span>
+                            <span class="doc-item-fee" data-document-fee-for="Barangay Clearance">Fee confirmed at the barangay hall</span>
                             <h3>Barangay Clearance</h3>
                             <p>General-purpose clearance for employment, business, or personal use.</p>
                             <span class="doc-item-action">Start request <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
@@ -270,7 +270,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     </li>
                     <li class="step-item doc-item">
                         <button class="doc-card-btn" type="button" data-action-click="requestDoc('Certificate of Residency')" aria-label="Request Certificate of Residency">
-                            <span class="doc-item-fee">Fee: ₱50</span>
+                            <span class="doc-item-fee" data-document-fee-for="Certificate of Residency">Fee confirmed at the barangay hall</span>
                             <h3>Certificate of Residency</h3>
                             <p>Confirms you are a registered resident of Barangay San Jose.</p>
                             <span class="doc-item-action">Start request <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
@@ -278,16 +278,16 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     </li>
                     <li class="step-item doc-item">
                         <button class="doc-card-btn" type="button" data-action-click="requestDoc('Certificate of Indigency')" aria-label="Request Certificate of Indigency">
-                            <span class="doc-item-fee free">Free</span>
+                            <span class="doc-item-fee" data-document-fee-for="Certificate of Indigency">Fee confirmed at the barangay hall</span>
                             <h3>Certificate of Indigency</h3>
                             <p>For residents who need proof of financial need for government programs.</p>
                             <span class="doc-item-action">Start request <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
                         </button>
                     </li>
                     <li class="step-item doc-item">
-                        <button class="doc-card-btn" type="button" data-action-click="requestDoc('Barangay Business Clearance')" aria-label="Request Barangay Business Clearance">
-                            <span class="doc-item-fee">Fee: ₱200</span>
-                            <h3>Barangay Business Clearance</h3>
+                        <button class="doc-card-btn" type="button" data-action-click="requestDoc('Business Permit')" aria-label="Request Business Permit">
+                            <span class="doc-item-fee" data-document-fee-for="Business Permit">Fee confirmed at the barangay hall</span>
+                            <h3>Business Permit</h3>
                             <p>Barangay-level clearance required before applying for a city business permit.</p>
                             <span class="doc-item-action">Start request <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
                         </button>
@@ -887,7 +887,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <div class="card-heading"><h2 id="admin-profile-notifications-title">Notifications</h2></div>
                     <form id="admin-profile-notifications-form" data-action-submit="saveAdminNotificationPreferences(event)">
                         <label class="admin-profile-toggle-row" for="admin-notify-requests"><span class="admin-profile-toggle-copy"><strong>Email me about new requests</strong><small>Get an email when a resident submits a request.</small></span><input type="checkbox" id="admin-notify-requests" data-action-change="updateAdminNotificationSaveState()"><span class="admin-profile-switch" aria-hidden="true"></span></label>
-                        <label class="admin-profile-toggle-row" for="admin-notify-payments"><span class="admin-profile-toggle-copy"><strong>Email me about payments that need verifying</strong><small>Get an email when a payment needs your review.</small></span><input type="checkbox" id="admin-notify-payments" data-action-change="updateAdminNotificationSaveState()"><span class="admin-profile-switch" aria-hidden="true"></span></label>
+                        <label class="admin-profile-toggle-row" for="admin-notify-payments"><span class="admin-profile-toggle-copy"><strong>Email me when residents submit payment proof</strong><small>Get an email when a paid request needs your review.</small></span><input type="checkbox" id="admin-notify-payments" data-action-change="updateAdminNotificationSaveState()"><span class="admin-profile-switch" aria-hidden="true"></span></label>
                         <button type="submit" class="btn-outline" id="admin-profile-notifications-save" disabled>Save preferences</button>
                     </form>
                 </section>
@@ -987,7 +987,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <header class="policy-header policy-privacy">
                         <p class="eyebrow">Legal</p>
                         <h1 id="privacy-policy-title">Privacy Policy</h1>
-                    <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 21, 2026</span></p></header>
+                    <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 23, 2026</span></p></header>
                     <p class="policy-lead">This is an academic prototype, not an official barangay service. It may process information entered into its forms as described below. This notice models the protections expected for real personal information under the Philippine Data Privacy Act of 2012 (Republic Act No. 10173); the academic-project notice does not mean submitted data is fictional or automatically deleted.</p>
 
                     <h2 id="pp-collect">Information we collect</h2>
@@ -996,6 +996,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         <li>Identity and account details, including your name, email address, optional phone number, residential address, and password hash</li>
                         <li>Profile photos you choose to upload</li>
                         <li>Proof-of-residency files required for online requests, which may contain information from a government-issued ID</li>
+                        <li>Payment reference numbers and receipt files submitted for review on paid document requests</li>
                         <li>Document request information, including the document type, stated purpose, tracking number, status, and related processing or payment status</li>
                         <li>Registration, verification, request, and account activity dates and records</li>
                         <li>Technical and security information, such as IP address, browser or device details, session information, rate-limit records, audit entries, and server or error logs</li>
@@ -1005,16 +1006,16 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <p>Information entered into the forms is handled as potentially real personal information. Do not provide another person's information unless you are authorized to do so. The academic-project label does not guarantee that submissions are test data.</p>
 
                     <h2 id="pp-use">How we use it</h2>
-                    <p>The prototype uses account details to create and secure an account, verify email, and support account recovery. It uses request details and proof files to review and track document requests, and technical records to secure and maintain the application. Email details are used for verification, recovery, and service notifications. The prototype does not offer advertising or analytics features.</p>
+                    <p>The prototype uses account details to create and secure an account, verify email, and support account recovery. It uses request details, residency proofs, and payment references and receipt files to review and track requests. Administrators who opt in may receive an email when a resident submits payment proof. Technical records help secure and maintain the application. The prototype does not offer advertising or analytics features.</p>
                     <p>This academic prototype has not documented a final lawful-basis assessment for each processing purpose or a specific legal basis for processing government-issued ID information. This notice describes the project’s intended handling but does not by itself establish a lawful basis. Any real operator must complete that assessment before live use. Registration records acceptance of the Terms and acknowledgment of this Privacy Notice with one checkbox; that checkbox is not blanket consent for every use of information.</p>
 
                     <h2 id="pp-accounts">Accounts &amp; uploads</h2>
                     <p>Residents can create an account and sign in without administrator approval. Email verification is required before submitting an online document request. The request form requires a National ID or Certificate of Residency. Authorized administrators can view uploaded proofs and request details. Walk-in request details are entered by an administrator to demonstrate the in-person workflow.</p>
-                    <p>Request proofs and disclosure attachments are stored outside the public web root by default. Request proofs are served only through an administrator-only endpoint. Published disclosure attachments are intentionally available to the public; administrators should not publish an attachment containing personal information unless disclosure is authorized and necessary.</p>
+                    <p>Request proofs, payment receipts, and disclosure attachments are stored outside the public web root by default. Request proofs and payment receipts are served only through administrator-only endpoints. Published disclosure attachments are intentionally available to the public; administrators should not publish an attachment containing personal information unless disclosure is authorized and necessary.</p>
 
                     <h2 id="pp-retention">Data retention</h2>
                     <p>Unverified accounts with no request are marked archived after 30 days. Archiving disables access but does not itself delete the account record. Password-reset tokens expire after one hour and email-verification links after 24 hours; expired tokens may remain in the database until cleanup runs. Successfully sent email bodies are cleared and their queue records are removed after 30 days.</p>
-                    <p>The current prototype does not implement a fixed deletion schedule for resident account records, document requests, uploaded request proofs, profile photos, audit logs, failed email metadata, disclosure attachments, or backups. These records may therefore remain until manually deleted or otherwise removed by the project operator. No retention period for these records has been approved. A real service must set and implement periods consistent with applicable barangay records rules before accepting operational data.</p>
+                    <p>The current prototype does not implement a fixed deletion schedule for resident account records, document requests, uploaded residency and payment proofs, profile photos, audit logs, failed email metadata, disclosure attachments, or backups. These records may therefore remain until manually deleted or otherwise removed by the project operator. No retention period for these records has been approved. A real service must set and implement periods consistent with applicable barangay records rules before accepting operational data.</p>
 
                     <h2 id="pp-security">Security</h2>
                     <p>The application includes password hashing, role-based access checks, administrator multi-factor authentication, session protections, request protections, and restricted storage for request proofs. These are application controls, not a guarantee about the live host, database permissions, staff practices, or backups. A production operator must verify those controls and maintain an incident-response process. If a breach meets the legal notification requirements, the responsible controller must notify affected people and the National Privacy Commission as required by law. Report suspected exposure to the contact below.</p>
@@ -1080,7 +1081,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <header class="policy-header policy-terms">
                         <p class="eyebrow">Legal</p>
                         <h1 id="terms-title">Terms &amp; Conditions</h1>
-                    <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 21, 2026</span></p></header>
+                    <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 23, 2026</span></p></header>
                     <p class="policy-lead">This is an academic prototype, not an official barangay service. By creating an account or using its account features, you agree to these Terms. The separate Privacy Notice explains how information entered into the prototype is handled.</p>
 
                     <h2 id="tc-acceptance">Acceptance</h2>
@@ -1102,7 +1103,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     </ul>
 
                     <h2 id="tc-fees">Fees and pickup</h2>
-                    <p>Document types and payment-status fields in this prototype are examples for the academic exercise. The prototype does not collect payment or issue official documents. Any fee or pickup process for a real barangay service must be confirmed directly with that barangay.</p>
+                    <p>Document types and payment-status fields in this prototype are examples for the academic exercise. The prototype does not process or collect payments or issue official documents. For paid requests, residents can submit a reference and receipt for administrator review after paying through a method confirmed directly with the barangay. Listed fees must be confirmed before real use. Free requests do not require payment proof.</p>
 
                     <h2 id="tc-admin">Administration rights</h2>
                     <p>Project administrators may review submitted files and requests to demonstrate a review workflow. Walk-in records are sample entries. No decision in this prototype is an official eligibility determination, and no request can result in an official document. If you have a concern about a project account or sample request, contact the project email below.</p>
@@ -1282,7 +1283,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <?php require __DIR__ . '/includes/shared/site-footer.php'; ?>
 
     <?php require __DIR__ . '/includes/shared/dialogs.php'; ?>    <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true">Message</div>
-    <script src="script.js?v=20261023-server-disclosure-drafts-v1" defer></script>
+    <script src="script.js?v=20261023-payment-proof-review-v1" defer></script>
 </body>
 </html>
 

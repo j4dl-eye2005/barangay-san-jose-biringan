@@ -52,16 +52,21 @@ try {
         $message = 'Resident account restored.';
     } elseif ($action === 'delete') {
         $pdo->prepare("DELETE FROM password_reset_token WHERE account_type = 'resident' AND account_id = ?")->execute([$residentId]);
-        $requests = $pdo->prepare('SELECT request_id, proof_path FROM document_request WHERE resident_id = ? FOR UPDATE');
+        $requests = $pdo->prepare('SELECT request_id, tracking_code, proof_path, payment_proof_path FROM document_request WHERE resident_id = ? FOR UPDATE');
         $requests->execute([$residentId]);
         foreach ($requests->fetchAll(PDO::FETCH_ASSOC) as $requestRow) {
             if (is_string($requestRow['proof_path'] ?? null) && $requestRow['proof_path'] !== '') $filesToDelete[] = $requestRow['proof_path'];
+            if (is_string($requestRow['payment_proof_path'] ?? null) && $requestRow['payment_proof_path'] !== '') $filesToDelete[] = $requestRow['payment_proof_path'];
+            if (is_string($requestRow['tracking_code'] ?? null) && $requestRow['tracking_code'] !== '') {
+                $pdo->prepare('DELETE FROM portal_email_queue WHERE text_body LIKE ? OR html_body LIKE ?')->execute(['%' . $requestRow['tracking_code'] . '%', '%' . $requestRow['tracking_code'] . '%']);
+            }
             $requestRecordId = (int) ($requestRow['request_id'] ?? 0);
             if ($requestRecordId > 0) {
-                $redactRequestAudit = $pdo->prepare("UPDATE audit_log SET details = 'Related request details erased with resident account' WHERE details = ? OR details LIKE ? OR details = ? OR details LIKE ?");
+                $redactRequestAudit = $pdo->prepare("UPDATE audit_log SET details = 'Related request details erased with resident account' WHERE details = ? OR details LIKE ? OR details LIKE ? OR details = ? OR details LIKE ?");
                 $redactRequestAudit->execute([
                     'Request ID ' . $requestRecordId,
                     'Request ID ' . $requestRecordId . ';%',
+                    'Request ID ' . $requestRecordId . ' %',
                     'Internal note updated for request ID ' . $requestRecordId,
                     'Payment status changed for request ID ' . $requestRecordId . ' to %',
                 ]);
@@ -81,16 +86,21 @@ try {
             $pdo->prepare('DELETE FROM email_verification_token WHERE resident_id = ?')->execute([$residentId]);
         }
         $pdo->prepare("DELETE FROM password_reset_token WHERE account_type = 'resident' AND account_id = ?")->execute([$residentId]);
-        $requests = $pdo->prepare('SELECT request_id, proof_path FROM document_request WHERE resident_id = ? FOR UPDATE');
+        $requests = $pdo->prepare('SELECT request_id, tracking_code, proof_path, payment_proof_path FROM document_request WHERE resident_id = ? FOR UPDATE');
         $requests->execute([$residentId]);
         foreach ($requests->fetchAll(PDO::FETCH_ASSOC) as $requestRow) {
             if (is_string($requestRow['proof_path'] ?? null) && $requestRow['proof_path'] !== '') $filesToDelete[] = $requestRow['proof_path'];
+            if (is_string($requestRow['payment_proof_path'] ?? null) && $requestRow['payment_proof_path'] !== '') $filesToDelete[] = $requestRow['payment_proof_path'];
+            if (is_string($requestRow['tracking_code'] ?? null) && $requestRow['tracking_code'] !== '') {
+                $pdo->prepare('DELETE FROM portal_email_queue WHERE text_body LIKE ? OR html_body LIKE ?')->execute(['%' . $requestRow['tracking_code'] . '%', '%' . $requestRow['tracking_code'] . '%']);
+            }
             $requestRecordId = (int) ($requestRow['request_id'] ?? 0);
             if ($requestRecordId > 0) {
-                $redactRequestAudit = $pdo->prepare("UPDATE audit_log SET details = 'Related request details erased with resident account' WHERE details = ? OR details LIKE ? OR details = ? OR details LIKE ?");
+                $redactRequestAudit = $pdo->prepare("UPDATE audit_log SET details = 'Related request details erased with resident account' WHERE details = ? OR details LIKE ? OR details LIKE ? OR details = ? OR details LIKE ?");
                 $redactRequestAudit->execute([
                     'Request ID ' . $requestRecordId,
                     'Request ID ' . $requestRecordId . ';%',
+                    'Request ID ' . $requestRecordId . ' %',
                     'Internal note updated for request ID ' . $requestRecordId,
                     'Payment status changed for request ID ' . $requestRecordId . ' to %',
                 ]);

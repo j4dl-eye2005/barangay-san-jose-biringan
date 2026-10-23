@@ -79,7 +79,8 @@ CREATE TABLE IF NOT EXISTS admin_mfa_recovery_code (
 CREATE TABLE IF NOT EXISTS document_type (
     document_type_id INT AUTO_INCREMENT PRIMARY KEY,
     name             VARCHAR(150) NOT NULL,
-    is_active        TINYINT(1)   NOT NULL DEFAULT 1
+    is_active        TINYINT(1)   NOT NULL DEFAULT 1,
+    fee_amount       DECIMAL(10,2) DEFAULT NULL
 ) ENGINE=InnoDB;
 
 -- Document requests submitted by residents
@@ -96,16 +97,25 @@ CREATE TABLE IF NOT EXISTS document_request (
     proof_path       VARCHAR(500) DEFAULT NULL,
     proof_type       VARCHAR(40)  DEFAULT NULL,
     current_status   VARCHAR(50)  NOT NULL DEFAULT 'Pending',
-    payment_status   VARCHAR(20)  NOT NULL DEFAULT 'Unpaid',
+    payment_status   VARCHAR(24)  NOT NULL DEFAULT 'Unpaid',
+    payment_reference VARCHAR(120) DEFAULT NULL,
+    payment_proof_path VARCHAR(500) DEFAULT NULL,
+    payment_submitted_at DATETIME DEFAULT NULL,
+    payment_reviewed_at DATETIME DEFAULT NULL,
+    payment_reviewed_by_user_id INT DEFAULT NULL,
+    payment_rejection_reason VARCHAR(1000) DEFAULT NULL,
     rejection_reason TEXT         DEFAULT NULL,
     created_at       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_requests_status_created (current_status, created_at),
+    INDEX idx_requests_payment_status_created (payment_status, created_at, request_id),
     INDEX idx_requests_created (created_at, request_id),
     INDEX idx_requests_resident_created (resident_id, created_at),
     CONSTRAINT fk_request_resident FOREIGN KEY (resident_id)
         REFERENCES resident (resident_id) ON DELETE SET NULL,
     CONSTRAINT fk_request_doctype FOREIGN KEY (document_type_id)
-        REFERENCES document_type (document_type_id)
+        REFERENCES document_type (document_type_id),
+    CONSTRAINT fk_request_payment_reviewer FOREIGN KEY (payment_reviewed_by_user_id)
+        REFERENCES user (user_id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- Status change history for requests
@@ -258,11 +268,11 @@ CREATE TABLE IF NOT EXISTS portal_email_queue (
 ) ENGINE=InnoDB;
 
 -- Seed reference data
-INSERT INTO document_type (name, is_active) VALUES
-    ('Barangay Clearance', 1),
-    ('Certificate of Residency', 1),
-    ('Certificate of Indigency', 1),
-    ('Business Permit', 1);
+INSERT INTO document_type (name, is_active, fee_amount) VALUES
+    ('Barangay Clearance', 1, 50.00),
+    ('Certificate of Residency', 1, 50.00),
+    ('Certificate of Indigency', 1, 0.00),
+    ('Business Permit', 1, 200.00);
 
 INSERT INTO disclosure_category (category_id, category_name) VALUES
     (1, 'Announcements'),

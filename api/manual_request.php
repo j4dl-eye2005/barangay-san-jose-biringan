@@ -17,13 +17,14 @@ if ($name === '' || strlen($name) > 200 || !preg_match('/^[\p{L}\p{M} .\'-]{1,20
     || !$documentTypeId || $purpose === '' || $purposeLength > 2000) {
     http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Enter the resident name, document type, and purpose.']); exit;
 }
-$type = $pdo->prepare('SELECT document_type_id, name FROM document_type WHERE document_type_id = ? AND is_active = 1');
+$type = $pdo->prepare('SELECT document_type_id, name, fee_amount FROM document_type WHERE document_type_id = ? AND is_active = 1');
 $type->execute([$documentTypeId]);
 $documentType = $type->fetch();
 if (!$documentType) { http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Choose an available document type.']); exit; }
 $trackingCode = 'REQ-' . strtoupper(bin2hex(random_bytes(8)));
-$insert = $pdo->prepare("INSERT INTO document_request (tracking_code, resident_id, document_type_id, purpose, request_source, walk_in_name, walk_in_phone, walk_in_address) VALUES (?, NULL, ?, ?, 'walk_in', ?, ?, ?)");
-$insert->execute([$trackingCode, $documentTypeId, $purpose, $name, $phone ?: null, $address ?: null]);
+$paymentStatus = $documentType['fee_amount'] !== null && (float) $documentType['fee_amount'] === 0.0 ? 'Not Required' : 'Unpaid';
+$insert = $pdo->prepare("INSERT INTO document_request (tracking_code, resident_id, document_type_id, purpose, request_source, walk_in_name, walk_in_phone, walk_in_address, payment_status) VALUES (?, NULL, ?, ?, 'walk_in', ?, ?, ?, ?)");
+$insert->execute([$trackingCode, $documentTypeId, $purpose, $name, $phone ?: null, $address ?: null, $paymentStatus]);
 $requestId = (int) $pdo->lastInsertId();
 $audit = $pdo->prepare("INSERT INTO audit_log (user_id, action, details) VALUES (?, 'walk_in_request_created', ?)");
 $audit->execute([(int) $_SESSION['user_id'], 'Request ID ' . $requestId . '; Tracking ' . $trackingCode]);
