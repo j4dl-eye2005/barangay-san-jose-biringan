@@ -12,11 +12,12 @@ if ($method === 'GET') {
     $findPhoto = $pdo->prepare("SELECT profile_photo FROM $table WHERE $idColumn = ? LIMIT 1");
     $findPhoto->execute([$id]);
     $photo = $findPhoto->fetchColumn();
-    if (!is_string($photo) || !preg_match('/^[a-f0-9]{32}\.webp$/', $photo)) { http_response_code(404); exit; }
+    if (!is_string($photo) || !preg_match('/^[a-f0-9]{32}\.(?:webp|jpg)$/', $photo)) { http_response_code(404); exit; }
     $photoPath = $uploadDir . DIRECTORY_SEPARATOR . $photo;
     $photoInfo = is_file($photoPath) ? @getimagesize($photoPath) : false;
-    if (!is_array($photoInfo) || ($photoInfo['mime'] ?? '') !== 'image/webp') { http_response_code(404); exit; }
-    header('Content-Type: image/webp');
+    $expectedMime = str_ends_with($photo, '.webp') ? 'image/webp' : 'image/jpeg';
+    if (!is_array($photoInfo) || ($photoInfo['mime'] ?? '') !== $expectedMime) { http_response_code(404); exit; }
+    header('Content-Type: ' . $expectedMime);
     header('X-Content-Type-Options: nosniff');
     header('Content-Length: ' . (string) filesize($photoPath));
     readfile($photoPath);
@@ -30,7 +31,7 @@ if ($old === false) { http_response_code(404); echo json_encode(['success'=>fals
 if ($action === 'remove') {
     $pdo->prepare("UPDATE $table SET profile_photo = NULL WHERE $idColumn = ?")->execute([$id]);
     if ($isAdmin) $pdo->prepare("INSERT INTO audit_log (user_id, action, details) VALUES (?, 'admin_profile_photo_removed', 'Removed profile photo')")->execute([$id]);
-    if (is_string($old) && preg_match('/^[a-f0-9]{32}\.webp$/', $old)) { $path = $uploadDir . DIRECTORY_SEPARATOR . $old; if (is_file($path)) @unlink($path); }
+    if (is_string($old) && preg_match('/^[a-f0-9]{32}\.(?:webp|jpg)$/', $old)) { $path = $uploadDir . DIRECTORY_SEPARATOR . $old; if (is_file($path)) @unlink($path); }
     echo json_encode(['success'=>true,'photo'=>null]); exit;
 }
 if ($action !== 'upload' || !isset($_FILES['photo']) || !is_uploaded_file($_FILES['photo']['tmp_name'])) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Choose a photo to upload.']); exit; }
@@ -39,16 +40,22 @@ if ((int)$file['error'] !== UPLOAD_ERR_OK) { http_response_code(400); echo json_
 if ((int)$file['size'] < 1 || (int)$file['size'] > 2 * 1024 * 1024) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Choose an image under 2 MB.']); exit; }
 $imageInfo = @getimagesize($file['tmp_name']);
 $mime = is_array($imageInfo) ? (string)($imageInfo['mime'] ?? '') : '';
-if (!in_array($mime, ['image/jpeg','image/png','image/webp'], true) || !function_exists('imagecreatefromstring') || !function_exists('imagewebp')) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Choose a JPG, PNG, or WebP image.']); exit; }
+if (!in_array($mime, ['image/jpeg','image/png','image/webp'], true)) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Choose a JPG, PNG, or WebP image.']); exit; }
+if (!function_exists('imagecreatefromstring') || !function_exists('imagecreatetruecolor') || !function_exists('imagecopyresampled')) { http_response_code(503); echo json_encode(['success'=>false,'message'=>'Photo uploads are not enabled on this site.']); exit; }
+if (!function_exists('imagewebp') && !function_exists('imagejpeg')) { http_response_code(503); echo json_encode(['success'=>false,'message'=>'Photo uploads are not enabled on this site.']); exit; }
 if ((int)($imageInfo[0] ?? 0) < 1 || (int)($imageInfo[1] ?? 0) < 1 || (int)$imageInfo[0] * (int)$imageInfo[1] > 25000000) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Choose a smaller-dimension image.']); exit; }
 $bytes = file_get_contents($file['tmp_name']); $source = is_string($bytes) ? @imagecreatefromstring($bytes) : false;
 if (!$source) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'That image could not be read.']); exit; }
 $width = imagesx($source); $height = imagesy($source); $side = min($width, $height); $sx = (int)(($width - $side) / 2); $sy = (int)(($height - $side) / 2);
-$target = imagecreatetruecolor(256,256); imagealphablending($target,false); imagesavealpha($target,true);
+$useWebp = function_exists('imagewebp');
+$extension = $useWebp ? 'webp' : 'jpg';
+$target = imagecreatetruecolor(256,256);
+if ($useWebp) { imagealphablending($target,false); imagesavealpha($target,true); }
+else { $background = imagecolorallocate($target,255,255,255); imagefill($target,0,0,$background); imagealphablending($target,true); }
 if (!imagecopyresampled($target,$source,0,0,$sx,$sy,256,256,$side,$side)) { imagedestroy($source); imagedestroy($target); http_response_code(500); echo json_encode(['success'=>false,'message'=>'Could not prepare that image.']); exit; }
 if (!is_dir($uploadDir) && !@mkdir($uploadDir,0755,true) && !is_dir($uploadDir)) { imagedestroy($source); imagedestroy($target); http_response_code(500); echo json_encode(['success'=>false,'message'=>'Photo storage is unavailable.']); exit; }
-$name = bin2hex(random_bytes(16)) . '.webp'; $path = $uploadDir . DIRECTORY_SEPARATOR . $name;
-$saved = @imagewebp($target,$path,85); imagedestroy($source); imagedestroy($target);
+$name = bin2hex(random_bytes(16)) . '.' . $extension; $path = $uploadDir . DIRECTORY_SEPARATOR . $name;
+$saved = $useWebp ? @imagewebp($target,$path,85) : @imagejpeg($target,$path,88); imagedestroy($source); imagedestroy($target);
 if (!$saved) { http_response_code(500); echo json_encode(['success'=>false,'message'=>'Could not save that photo.']); exit; }
 try {
     $pdo->beginTransaction();
@@ -57,6 +64,6 @@ try {
     $pdo->commit();
 }
 catch (Throwable $e) { if ($pdo->inTransaction()) $pdo->rollBack(); @unlink($path); http_response_code(500); echo json_encode(['success'=>false,'message'=>'Could not save that photo.']); exit; }
-if (is_string($old) && preg_match('/^[a-f0-9]{32}\.webp$/',$old)) { $oldPath = $uploadDir . DIRECTORY_SEPARATOR . $old; if (is_file($oldPath)) @unlink($oldPath); }
+if (is_string($old) && preg_match('/^[a-f0-9]{32}\.(?:webp|jpg)$/',$old)) { $oldPath = $uploadDir . DIRECTORY_SEPARATOR . $old; if (is_file($oldPath)) @unlink($oldPath); }
 echo json_encode(['success'=>true,'photo'=>$name,'photoUrl'=>'api/profile_photo.php']);
 ?>

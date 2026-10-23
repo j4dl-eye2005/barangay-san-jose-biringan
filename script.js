@@ -4460,9 +4460,11 @@ async function prepareProfilePhoto(file) {
         const bitmap = await createImageBitmap(file);
         const side = Math.min(bitmap.width, bitmap.height);
         const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
-        canvas.getContext('2d').drawImage(bitmap, (bitmap.width-side)/2, (bitmap.height-side)/2, side, side, 0, 0, 256, 256);
+        const context = canvas.getContext('2d');
+        context.fillStyle = '#fff'; context.fillRect(0, 0, 256, 256);
+        context.drawImage(bitmap, (bitmap.width-side)/2, (bitmap.height-side)/2, side, side, 0, 0, 256, 256);
         bitmap.close?.();
-        profilePhotoPreviewBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', .88));
+        profilePhotoPreviewBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', .9));
         if (!profilePhotoPreviewBlob) throw new Error('Could not prepare that photo.');
         profilePhotoPreviewUrl = URL.createObjectURL(profilePhotoPreviewBlob);
         const image = document.getElementById('resident-profile-photo-image'); image.src = profilePhotoPreviewUrl; image.hidden = false;
@@ -4472,7 +4474,7 @@ async function prepareProfilePhoto(file) {
 }
 async function saveProfilePhoto() {
     if (!profilePhotoPreviewBlob) return;
-    const form = new FormData(); form.set('action', 'upload'); form.set('photo', profilePhotoPreviewBlob, 'profile.webp');
+    const form = new FormData(); form.set('action', 'upload'); form.set('photo', profilePhotoPreviewBlob, 'profile.jpg');
     try {
         const response = await fetch('api/profile_photo.php', { method: 'POST', body: form }); const result = await response.json();
         if (!response.ok || !result.success) throw new Error(result.message || 'Could not save that photo.');

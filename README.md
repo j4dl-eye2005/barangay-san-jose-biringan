@@ -5,6 +5,7 @@ A PHP and MySQL web portal for resident account registration, document requests,
 ## Requirements
 
 - PHP with PDO MySQL enabled
+- PHP GD with JPEG support for profile photo uploads (WebP support is optional)
 - MySQL or MariaDB
 - A local web server such as XAMPP
 - A modern browser
