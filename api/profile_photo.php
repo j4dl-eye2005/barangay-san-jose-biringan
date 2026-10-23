@@ -7,12 +7,13 @@ $isAdmin = $role === 'Admin' && !empty($_SESSION['user_id']);
 $id = $isAdmin ? (int) $_SESSION['user_id'] : (($role === 'Resident') ? (int) ($_SESSION['resident_id'] ?? 0) : 0);
 if ($id < 1) { http_response_code(401); header('Content-Type: application/json; charset=utf-8'); echo json_encode(['success'=>false,'message'=>'Log in to continue.']); exit; }
 $table = $isAdmin ? '`user`' : 'resident'; $idColumn = $isAdmin ? 'user_id' : 'resident_id';
-$uploadDir = privateStorageDirectory('profile-photos');
 if ($method === 'GET') {
     $findPhoto = $pdo->prepare("SELECT profile_photo FROM $table WHERE $idColumn = ? LIMIT 1");
     $findPhoto->execute([$id]);
     $photo = $findPhoto->fetchColumn();
     if (!is_string($photo) || !preg_match('/^[a-f0-9]{32}\.(?:webp|jpg)$/', $photo)) { http_response_code(404); exit; }
+    try { $uploadDir = privateStorageDirectory('profile-photos'); }
+    catch (Throwable $e) { http_response_code(503); exit; }
     $photoPath = $uploadDir . DIRECTORY_SEPARATOR . $photo;
     $photoInfo = is_file($photoPath) ? @getimagesize($photoPath) : false;
     $expectedMime = str_ends_with($photo, '.webp') ? 'image/webp' : 'image/jpeg';
@@ -29,9 +30,22 @@ $action = is_string($_POST['action'] ?? null) ? $_POST['action'] : '';
 $find = $pdo->prepare("SELECT profile_photo FROM $table WHERE $idColumn = ? LIMIT 1"); $find->execute([$id]); $old = $find->fetchColumn();
 if ($old === false) { http_response_code(404); echo json_encode(['success'=>false,'message'=>'Account not found.']); exit; }
 if ($action === 'remove') {
-    $pdo->prepare("UPDATE $table SET profile_photo = NULL WHERE $idColumn = ?")->execute([$id]);
-    if ($isAdmin) $pdo->prepare("INSERT INTO audit_log (user_id, action, details) VALUES (?, 'admin_profile_photo_removed', 'Removed profile photo')")->execute([$id]);
-    if (is_string($old) && preg_match('/^[a-f0-9]{32}\.(?:webp|jpg)$/', $old)) { $path = $uploadDir . DIRECTORY_SEPARATOR . $old; if (is_file($path)) @unlink($path); }
+    try {
+        $pdo->prepare("UPDATE $table SET profile_photo = NULL WHERE $idColumn = ?")->execute([$id]);
+    } catch (Throwable $e) {
+        http_response_code(500); echo json_encode(['success'=>false,'message'=>'Could not remove the profile photo.']); exit;
+    }
+    if ($isAdmin) {
+        try { $pdo->prepare("INSERT INTO audit_log (user_id, action, details) VALUES (?, 'admin_profile_photo_removed', 'Removed profile photo')")->execute([$id]); }
+        catch (Throwable $e) { error_log('Could not write the profile-photo removal audit entry.'); }
+    }
+    if (is_string($old) && preg_match('/^[a-f0-9]{32}\.(?:webp|jpg)$/', $old)) {
+        try {
+            $uploadDir = privateStorageDirectory('profile-photos');
+            $path = $uploadDir . DIRECTORY_SEPARATOR . $old;
+            if (is_file($path) && !@unlink($path)) error_log('Could not delete a removed profile photo from private storage.');
+        } catch (Throwable $e) { error_log('Could not access private storage to clean up a removed profile photo.'); }
+    }
     echo json_encode(['success'=>true,'photo'=>null]); exit;
 }
 if ($action !== 'upload' || !isset($_FILES['photo']) || !is_uploaded_file($_FILES['photo']['tmp_name'])) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Choose a photo to upload.']); exit; }
@@ -53,7 +67,8 @@ $target = imagecreatetruecolor(256,256);
 if ($useWebp) { imagealphablending($target,false); imagesavealpha($target,true); }
 else { $background = imagecolorallocate($target,255,255,255); imagefill($target,0,0,$background); imagealphablending($target,true); }
 if (!imagecopyresampled($target,$source,0,0,$sx,$sy,256,256,$side,$side)) { imagedestroy($source); imagedestroy($target); http_response_code(500); echo json_encode(['success'=>false,'message'=>'Could not prepare that image.']); exit; }
-if (!is_dir($uploadDir) && !@mkdir($uploadDir,0755,true) && !is_dir($uploadDir)) { imagedestroy($source); imagedestroy($target); http_response_code(500); echo json_encode(['success'=>false,'message'=>'Photo storage is unavailable.']); exit; }
+try { $uploadDir = privateStorageDirectory('profile-photos'); }
+catch (Throwable $e) { imagedestroy($source); imagedestroy($target); http_response_code(503); echo json_encode(['success'=>false,'message'=>'Photo storage is unavailable on this site.']); exit; }
 $name = bin2hex(random_bytes(16)) . '.' . $extension; $path = $uploadDir . DIRECTORY_SEPARATOR . $name;
 $saved = $useWebp ? @imagewebp($target,$path,85) : @imagejpeg($target,$path,88); imagedestroy($source); imagedestroy($target);
 if (!$saved) { http_response_code(500); echo json_encode(['success'=>false,'message'=>'Could not save that photo.']); exit; }

@@ -4241,15 +4241,22 @@ async function loadEnhancedProfile() {
         const initials = document.getElementById('resident-profile-initials');
         const remove = document.getElementById('resident-profile-photo-remove');
         if (data.photo && image) {
+            image.onload = () => profilePhotoError();
+            image.onerror = () => {
+                image.hidden = true;
+                if (initials) initials.hidden = false;
+                profilePhotoError('The saved photo could not be loaded.');
+            };
             image.src = `api/profile_photo.php?v=${Date.now()}`;
             image.hidden = false;
             if (initials) initials.hidden = true;
             if (remove) remove.hidden = false;
             currentUser.profilePhoto = data.photo;
         } else {
-            if (image) { image.hidden = true; image.removeAttribute('src'); }
+            if (image) { image.hidden = true; image.onload = null; image.onerror = null; image.removeAttribute('src'); }
             if (initials) initials.hidden = false;
             if (remove) remove.hidden = true;
+            profilePhotoError();
             currentUser.profilePhoto = null;
         }
         if (currentUser.role === 'Admin') {
