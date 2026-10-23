@@ -358,8 +358,7 @@ body[data-entry-route="password-reset"] .site-footer { display: none; }
     letter-spacing: normal;
 }
 .doc-card-btn:hover .doc-item-action, .doc-card-btn:focus-visible .doc-item-action { border-top-color: var(--color-accent-border); }
-.doc-item-action i { font-size: .85em; transition: transform .15s ease; }
-.doc-card-btn:hover .doc-item-action i, .doc-card-btn:focus-visible .doc-item-action i { transform: translateX(3px); }
+.doc-item-action i { font-size: .85em; }
 
 /* How-it-works section that now wraps the doc strip */
 .how-it-works { width: min(100% - 44px, var(--content-width)); margin: 0 auto; padding: 40px 0 0; }
