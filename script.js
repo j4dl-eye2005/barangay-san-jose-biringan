@@ -6719,7 +6719,7 @@ function renderAdminCollections(data) {
     clearNode(openBody);
     clearNode(historyBody);
     const outstanding = Array.isArray(data.outstanding) ? data.outstanding : [];
-    if (!outstanding.length) openBody.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No requests need payment action.', attrs: { colspan: '5' } })]));
+    if (!outstanding.length) openBody.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No requests need payment action.', attrs: { colspan: '6' } })]));
     outstanding.forEach(request => {
         const requestId = Number(request.request_id);
         const actions = el('div', { className: 'table-action-group collection-actions' });
@@ -6727,8 +6727,9 @@ function renderAdminCollections(data) {
         const businessRequest = String(request.document_type || '').toLowerCase().includes('business');
         const businessCategoryLabel = request.business_category === 'solo' ? 'Individual / sole proprietor' : request.business_category === 'organization' ? 'Organization' : '';
         if (fee === null && businessRequest) {
-            const feeField = el('input', { attrs: { id: `collection-fee-${requestId}`, type: 'number', min: '0', max: '999999.99', step: '0.01', inputmode: 'decimal', 'aria-label': `Approved fee for ${request.tracking_code}`, placeholder: 'Set approved fee' } });
-            actions.append(feeField, el('button', { className: 'action-btn btn-approve', text: 'Set fee', attrs: { type: 'button' }, on: { click: () => assessCollectionFee(requestId) } }));
+            const feeField = el('input', { className: 'collection-fee-field', attrs: { id: `collection-fee-${requestId}`, type: 'number', min: '0', max: '999999.99', step: '0.01', inputmode: 'decimal', 'aria-label': `Approved fee for ${request.tracking_code}`, placeholder: 'Set approved fee' } });
+            const feeEntry = el('div', { className: 'collection-fee-entry' }, [el('span', { className: 'collection-fee-prefix', text: '₱', attrs: { 'aria-hidden': 'true' } }), feeField]);
+            actions.append(feeEntry, el('button', { className: 'action-btn btn-approve collection-set-fee', text: 'Set fee', attrs: { type: 'button' }, on: { click: () => assessCollectionFee(requestId) } }));
         } else if (fee === null) {
             actions.appendChild(el('span', { className: 'field-help', text: 'Fee schedule missing; ask a super-admin to configure it.' }));
         } else if (request.payment_status === 'Pending Verification') {
@@ -6742,30 +6743,41 @@ function renderAdminCollections(data) {
         } else if (['Approved', 'Ready for Pickup'].includes(request.current_status) && fee > 0) {
             actions.appendChild(el('button', { className: 'action-btn btn-approve', text: 'Record cash', attrs: { type: 'button', 'aria-label': `Record cash for ${requestId}` }, on: { click: () => recordCollectionCash(requestId) } }));
         } else if (request.current_status === 'Pending') {
-            actions.appendChild(el('span', { className: 'field-help', text: 'Awaiting request review' }));
+            actions.appendChild(el('span', { className: 'field-help collection-muted', text: 'Awaiting request review' }));
         } else if (request.payment_status === 'Rejected') {
             actions.appendChild(el('span', { className: 'field-help', text: 'Resident must submit corrected proof' }));
         }
+        if (!actions.childElementCount) actions.appendChild(el('span', { className: 'collection-no-action', text: '—' }));
         const feeText = fee === null ? 'Not assessed' : fee === 0 ? 'No fee' : formatPhpAmount(fee);
+        const paymentStatus = String(request.payment_status || 'Not assessed');
+        const paymentStatusTone = ({
+            paid: 'is-green', unpaid: 'is-amber', 'pending verification': 'is-blue', rejected: 'is-red', 'not required': 'is-neutral'
+        })[paymentStatus.toLowerCase()] || 'is-neutral';
+        const residentName = businessRequest
+            ? [request.business_name || 'Business name not recorded', businessCategoryLabel].filter(Boolean).join(' · ')
+            : request.resident_name || 'Resident';
         openBody.appendChild(el('tr', {}, [
-            el('td', { attrs: { 'data-label': 'Tracking / resident' } }, [el('strong', { text: request.tracking_code }), el('span', { className: 'collection-secondary', text: businessRequest ? [request.business_name || 'Business name not recorded', businessCategoryLabel].filter(Boolean).join(' · ') : request.resident_name || 'Resident' })]),
+            el('td', { attrs: { 'data-label': 'Tracking' } }, [el('span', { className: 'collection-tracking-code', text: request.tracking_code })]),
+            el('td', { attrs: { 'data-label': 'Resident' } }, [el('span', { className: 'collection-resident-name', text: residentName })]),
             el('td', { text: request.document_type, attrs: { 'data-label': 'Document' } }),
-            el('td', { text: feeText, attrs: { 'data-label': 'Fee' } }),
-            el('td', { text: request.payment_status, attrs: { 'data-label': 'Payment status' } }),
+            el('td', { className: fee === null ? 'collection-fee-not-assessed' : '', text: feeText, attrs: { 'data-label': 'Assessed fee' } }),
+            el('td', { attrs: { 'data-label': 'Payment status' } }, [el('span', { className: `activity-badge ${paymentStatusTone} collection-status-pill`, text: paymentStatus })]),
             el('td', { attrs: { 'data-label': 'Actions' } }, [actions])
         ]));
     });
 
     const payments = Array.isArray(data.payments) ? data.payments : [];
-    if (!payments.length) historyBody.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No payment entries have been recorded.', attrs: { colspan: '6' } })]));
+    if (!payments.length) historyBody.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No payment entries have been recorded.', attrs: { colspan: '7' } })]));
     payments.forEach(payment => {
+        const paymentStatus = payment.status === 'reversed' ? 'Reversed' : 'Confirmed';
         historyBody.appendChild(el('tr', {}, [
-            el('td', { attrs: { 'data-label': 'Tracking / resident' } }, [el('strong', { text: payment.tracking_code }), el('span', { className: 'collection-secondary', text: payment.resident_name || 'Resident' })]),
+            el('td', { attrs: { 'data-label': 'Tracking' } }, [el('span', { className: 'collection-tracking-code', text: payment.tracking_code })]),
+            el('td', { attrs: { 'data-label': 'Resident' } }, [el('span', { className: 'collection-resident-name', text: payment.resident_name || 'Resident' })]),
             el('td', { text: payment.document_type, attrs: { 'data-label': 'Document' } }),
-            el('td', { attrs: { 'data-label': 'Amount / method' } }, [el('strong', { text: formatPhpAmount(payment.amount) }), el('span', { className: 'collection-secondary', text: payment.method === 'cash' ? 'In person' : payment.method === 'online_proof' ? 'Online proof' : 'Older entry · channel unknown' })]),
-            el('td', { text: payment.reference || '—', attrs: { 'data-label': 'Reference' } }),
-            el('td', { attrs: { 'data-label': 'Recorded' } }, [el('span', { text: formatDateTime(payment.recorded_at) }), el('span', { className: 'collection-secondary', text: payment.recorded_by || 'Staff account unavailable' })]),
-            el('td', { text: payment.status === 'reversed' ? 'Reversed' : 'Confirmed', attrs: { 'data-label': 'Status' } })
+            el('td', { className: 'collection-money-cell', attrs: { 'data-label': 'Amount / method' } }, [el('strong', { className: 'collection-primary-detail', text: formatPhpAmount(payment.amount) }), el('span', { className: 'collection-secondary', text: payment.method === 'cash' ? 'In person' : payment.method === 'online_proof' ? 'Online proof' : 'Older entry · channel unknown' })]),
+            el('td', { className: payment.reference ? '' : 'collection-reference-empty', text: payment.reference || '—', attrs: { 'data-label': 'Reference' } }),
+            el('td', { attrs: { 'data-label': 'Recorded' } }, [el('span', { className: 'collection-primary-detail', text: formatDateTime(payment.recorded_at) }), el('span', { className: 'collection-secondary', text: payment.recorded_by || 'Staff account unavailable' })]),
+            el('td', { attrs: { 'data-label': 'Status' } }, [el('span', { className: `activity-badge ${paymentStatus === 'Reversed' ? 'is-red' : 'is-green'} collection-status-pill`, text: paymentStatus })])
         ]));
     });
 }

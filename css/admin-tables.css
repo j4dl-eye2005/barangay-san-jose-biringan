@@ -268,3 +268,317 @@
     #tab-overview.admin-tab { width: auto; }
 }
 
+/* Collections page: use the same compact hierarchy as the other admin panels. */
+#admin-dashboard #admin-collections-panel {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+#admin-dashboard #admin-collections-panel .collection-page-header {
+    width: 100%;
+    min-width: 0;
+    align-items: flex-start;
+    margin: 0 0 24px;
+}
+#admin-dashboard #admin-collections-panel .collection-page-heading { width: 100%; min-width: 0; }
+#admin-dashboard #admin-collections-panel .collection-page-heading > .eyebrow { margin: 0 0 4px; }
+#admin-dashboard #admin-collections-panel .collection-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+#admin-dashboard #admin-collections-panel .collection-title-row h2 { margin: 0; }
+#admin-dashboard #admin-collections-panel .collection-title-row .btn-outline {
+    flex: 0 0 auto;
+    min-height: 36px;
+    height: 36px;
+    padding: 0 14px;
+    border: 1px solid #cfd8cf;
+    border-radius: 6px;
+    background: #fff;
+    color: #303a33;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    box-shadow: none;
+}
+#admin-dashboard #admin-collections-panel .collection-title-row .btn-outline:hover {
+    border-color: #2f6b45;
+    background: #f5f9f5;
+    color: #24583a;
+}
+#admin-dashboard #admin-collections-panel .collection-page-heading > p:last-child {
+    margin: 10px 0 0;
+    color: #5b6560;
+    font-size: 14px;
+    line-height: 1.5;
+}
+#admin-dashboard #admin-collections-panel .collection-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    width: 100%;
+    min-width: 0;
+    margin: 0 0 18px;
+}
+#admin-dashboard #admin-collections-panel .collection-summary-card {
+    display: flex;
+    min-width: 0;
+    min-height: 136px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 22px;
+    border: 1px solid #d9e0d9;
+    border-top: 2px solid #176b2c;
+    border-radius: 8px;
+    background: #fff;
+    color: #303a33;
+    box-shadow: none;
+}
+#admin-dashboard #admin-collections-panel .collection-summary-card > span {
+    color: #46514a;
+    font-size: 14px;
+    font-weight: 600;
+}
+#admin-dashboard #admin-collections-panel .collection-summary-card > strong {
+    color: #252a26;
+    font-size: 36px;
+    font-weight: 650;
+    line-height: 1.05;
+}
+#admin-dashboard #admin-collections-panel .collection-table-card {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 22px 24px;
+    overflow: hidden;
+    border: 1px solid #d9e0d9;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: none;
+}
+#admin-dashboard #admin-collections-panel .collection-table-card + .collection-table-card { margin-top: 16px; }
+#admin-dashboard #admin-collections-panel .collection-card-heading {
+    display: grid;
+    gap: 7px;
+    margin: 0 0 16px;
+}
+#admin-dashboard #admin-collections-panel .collection-card-heading h3 {
+    margin: 0;
+    color: #2e342f;
+    font-size: 18px;
+    font-weight: 650;
+    line-height: 1.3;
+}
+#admin-dashboard #admin-collections-panel .collection-card-heading p {
+    margin: 0;
+    color: #59645d;
+    font-size: 13px;
+    line-height: 1.5;
+}
+#admin-dashboard #admin-collections-panel .collection-table-scroll {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+}
+#admin-dashboard #admin-collections-panel .collection-admin-table {
+    width: 100%;
+    min-width: 1120px;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+    color: #38423c;
+    font-size: 13px;
+}
+#admin-dashboard #admin-collections-panel .collection-open-table { min-width: 1120px; }
+#admin-dashboard #admin-collections-panel .collection-open-table th:nth-child(1) { width: 14%; }
+#admin-dashboard #admin-collections-panel .collection-open-table th:nth-child(2) { width: 18%; }
+#admin-dashboard #admin-collections-panel .collection-open-table th:nth-child(3) { width: 18%; }
+#admin-dashboard #admin-collections-panel .collection-open-table th:nth-child(4) { width: 11%; }
+#admin-dashboard #admin-collections-panel .collection-open-table th:nth-child(5) { width: 14%; }
+#admin-dashboard #admin-collections-panel .collection-open-table th:nth-child(6) { width: 25%; }
+#admin-dashboard #admin-collections-panel .collection-history-table { min-width: 1180px; }
+#admin-dashboard #admin-collections-panel .collection-history-table th:nth-child(1) { width: 13%; }
+#admin-dashboard #admin-collections-panel .collection-history-table th:nth-child(2) { width: 15%; }
+#admin-dashboard #admin-collections-panel .collection-history-table th:nth-child(3) { width: 18%; }
+#admin-dashboard #admin-collections-panel .collection-history-table th:nth-child(4) { width: 15%; }
+#admin-dashboard #admin-collections-panel .collection-history-table th:nth-child(5) { width: 13%; }
+#admin-dashboard #admin-collections-panel .collection-history-table th:nth-child(6) { width: 18%; }
+#admin-dashboard #admin-collections-panel .collection-history-table th:nth-child(7) { width: 8%; }
+#admin-dashboard #admin-collections-panel .collection-admin-table thead th {
+    height: 38px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #dce3dc;
+    background: #eef2ee;
+    color: #46514a;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.25;
+    text-align: left;
+    vertical-align: middle;
+}
+#admin-dashboard #admin-collections-panel .collection-admin-table tbody tr:not(.table-empty-row) {
+    height: 58px;
+    background: #fff;
+}
+#admin-dashboard #admin-collections-panel .collection-admin-table tbody tr:not(.table-empty-row):hover { background: #f4f7f4; }
+#admin-dashboard #admin-collections-panel .collection-admin-table tbody td {
+    height: auto;
+    padding: 12px 14px;
+    border-bottom: 1px solid #e3e8e3;
+    color: #38423c;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.45;
+    text-align: left;
+    vertical-align: middle;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+#admin-dashboard #admin-collections-panel .collection-admin-table tbody tr:last-child > td,
+#admin-dashboard #admin-collections-panel .collection-admin-table tbody tr.table-empty-row > td { border-bottom: 0; }
+#admin-dashboard #admin-collections-panel .collection-open-table th:nth-child(4),
+#admin-dashboard #admin-collections-panel .collection-open-table td:nth-child(4),
+#admin-dashboard #admin-collections-panel .collection-history-table th:nth-child(4),
+#admin-dashboard #admin-collections-panel .collection-history-table td:nth-child(4) { text-align: right; }
+#admin-dashboard #admin-collections-panel .collection-admin-table th:last-child,
+#admin-dashboard #admin-collections-panel .collection-admin-table td[data-label="Actions"] { text-align: right; }
+#admin-dashboard #admin-collections-panel .collection-tracking-code {
+    display: block;
+    color: #303a33;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: -.02em;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+#admin-dashboard #admin-collections-panel .collection-resident-name { display: block; color: #38423c; font-weight: 400; }
+#admin-dashboard #admin-collections-panel .collection-primary-detail { display: block; color: #303a33; font-weight: 600; line-height: 1.35; }
+#admin-dashboard #admin-collections-panel .collection-secondary {
+    display: block;
+    margin-top: 3px;
+    color: #657169;
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+#admin-dashboard #admin-collections-panel .collection-fee-not-assessed,
+#admin-dashboard #admin-collections-panel .collection-reference-empty,
+#admin-dashboard #admin-collections-panel .collection-muted,
+#admin-dashboard #admin-collections-panel .collection-no-action { color: #77817a; }
+#admin-dashboard #admin-collections-panel .collection-status-pill {
+    min-height: 22px;
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+#admin-dashboard #admin-collections-panel .collection-actions {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    flex-wrap: wrap;
+    white-space: normal;
+}
+#admin-dashboard #admin-collections-panel .collection-fee-entry {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 170px;
+    align-items: center;
+    gap: 7px;
+}
+#admin-dashboard #admin-collections-panel .collection-fee-prefix {
+    flex: 0 0 auto;
+    color: #46514a;
+    font-size: 13px;
+    font-weight: 600;
+}
+#admin-dashboard #admin-collections-panel .collection-fee-field {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    height: 36px;
+    min-height: 36px;
+    margin: 0;
+    padding: 0 10px;
+    border: 1px solid #cfd8cf;
+    border-radius: 6px;
+    background: #fff;
+    color: #303a33;
+    font-family: inherit;
+    font-size: 12px;
+}
+#admin-dashboard #admin-collections-panel .collection-fee-field::placeholder { color: #657169; opacity: 1; }
+#admin-dashboard #admin-collections-panel .collection-fee-field:focus-visible { border-color: #2f6b45; outline: 3px solid rgba(47, 107, 69, .16); outline-offset: 1px; }
+#admin-dashboard #admin-collections-panel .collection-actions .collection-set-fee {
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    min-height: 36px;
+    height: 36px;
+    margin: 0;
+    padding: 0 12px;
+    border: 1px solid #176b2c;
+    border-radius: 6px;
+    background: #176b2c;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+}
+#admin-dashboard #admin-collections-panel .collection-actions .collection-set-fee:hover,
+#admin-dashboard #admin-collections-panel .collection-actions .collection-set-fee:focus-visible {
+    border-color: #125522;
+    background: #125522;
+    color: #fff;
+}
+#admin-dashboard #admin-collections-panel .collection-actions .field-help { margin: 0; color: #77817a; font-size: 12px; line-height: 1.4; }
+#admin-dashboard #admin-collections-panel .collection-admin-table .table-empty-state {
+    height: auto;
+    padding: 28px 16px;
+    color: #69736d;
+    text-align: center;
+    white-space: normal;
+}
+
+@media (max-width: 1000px) {
+    #admin-dashboard #admin-collections-panel .collection-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+    #admin-dashboard #admin-collections-panel .collection-summary-grid { grid-template-columns: 1fr; gap: 12px; }
+    #admin-dashboard #admin-collections-panel .collection-summary-card { min-height: 112px; padding: 18px; }
+    #admin-dashboard #admin-collections-panel .collection-summary-card > strong { font-size: 30px; }
+    #admin-dashboard #admin-collections-panel .collection-page-header { margin-bottom: 20px; }
+    #admin-dashboard #admin-collections-panel .collection-title-row { align-items: center; gap: 10px; }
+    #admin-dashboard #admin-collections-panel .collection-title-row h2 { min-width: 0; font-size: 24px; }
+    #admin-dashboard #admin-collections-panel .collection-title-row .btn-outline { min-height: 36px; height: 36px; padding: 0 11px; }
+    #admin-dashboard #admin-collections-panel .collection-page-heading > p:last-child { font-size: 13px; }
+    #admin-dashboard #admin-collections-panel .collection-table-card { padding: 18px 16px; }
+    #admin-dashboard #admin-collections-panel .collection-table-card + .collection-table-card { margin-top: 14px; }
+    #admin-dashboard #admin-collections-panel .collection-card-heading { margin-bottom: 12px; }
+    #admin-dashboard #admin-collections-panel .collection-open-table { width: max-content; min-width: 1120px; table-layout: fixed; }
+    #admin-dashboard #admin-collections-panel .collection-history-table { width: max-content; min-width: 1180px; table-layout: fixed; }
+    #admin-dashboard #admin-collections-panel .collection-admin-table tbody tr:not(.table-empty-row) { height: 58px; }
+    #admin-dashboard #admin-collections-panel .collection-admin-table tbody td { padding: 12px; }
+    #admin-dashboard #admin-collections-panel .collection-actions { flex-wrap: nowrap; }
+    #admin-dashboard #admin-collections-panel .collection-fee-entry { flex-basis: 170px; }
+}
+
