@@ -176,6 +176,7 @@ const delegatedActionNames = new Set([
     'sortActivity', 'submitModal', 'saveAdminNotificationPreferences', 'generateAdminProfileMfaRecoveryCodes', 'setPortalLanguage', 'switchAdminTab', 'toggleActivityExtraFilters',
     'toggleMobileMenu', 'toggleUserMenu', 'togglePassword', 'togglePickupCalendar', 'updatePickupReadback', 'updateLandingDocumentFinder',
     'loadAdminCollections', 'loadAdminStaff', 'resetStaffDirectoryForm', 'saveStaffDirectoryEntry',
+    'openResidentProfileEdit', 'cancelResidentProfileEdit', 'saveResidentProfileDetails', 'updateResidentProfileSaveState',
     'openFilePicker', 'openProfilePhotoPicker', 'saveProfilePhoto', 'cancelProfilePhotoPreview',
     'removeProfilePhoto', 'updateAdminNotificationSaveState', 'updateAdminProfileDetailsSaveState', 'scrollPageTop'
 ]);
@@ -4357,6 +4358,8 @@ function renderResidentProfile() {
     const phoneRow = document.getElementById('resident-profile-phone-row');
     const accountTypeRow = document.getElementById('admin-profile-account-type-row');
     const correctionNote = document.getElementById('resident-profile-correction-note');
+    const residentProfileEditButton = document.getElementById('resident-profile-edit-details');
+    const residentProfileEditForm = document.getElementById('resident-profile-details-form');
     const summaryStatus = document.getElementById('resident-profile-email-summary-status');
     const resend = document.getElementById('resident-profile-resend');
     const changeEmail = document.querySelector('#resident-profile .resident-security-row[aria-labelledby="resident-email-summary-label"] .resident-security-change');
@@ -4387,6 +4390,8 @@ function renderResidentProfile() {
     if (phoneRow) phoneRow.hidden = isAdmin;
     if (accountTypeRow) accountTypeRow.hidden = !isAdmin;
     if (correctionNote) correctionNote.hidden = isAdmin;
+    if (residentProfileEditButton) residentProfileEditButton.hidden = isAdmin;
+    if (isAdmin && residentProfileEditForm) residentProfileEditForm.hidden = true;
     if (changeEmail) changeEmail.hidden = false;
     if (changePassword) changePassword.hidden = false;
     document.querySelectorAll('#resident-profile .admin-profile-only').forEach(node => { node.hidden = !isAdmin; });
@@ -4456,12 +4461,24 @@ async function loadEnhancedProfile() {
         const changedLabel = changed && !Number.isNaN(changed.getTime()) ? `Last changed: ${changed.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}` : 'Last changed: Not available';
         document.querySelectorAll('.resident-password-last-changed').forEach(node => { node.textContent = changedLabel; node.hidden = false; });
         if (currentUser.role === 'Resident') {
+            const address = document.getElementById('resident-profile-address');
             const birthDate = document.getElementById('resident-profile-birthdate');
             const civilStatus = document.getElementById('resident-profile-civil-status');
             const gender = document.getElementById('resident-profile-gender');
+            const addressInput = document.getElementById('resident-profile-address-input');
+            const birthDateInput = document.getElementById('resident-profile-birthdate-input');
+            const genderInput = document.getElementById('resident-profile-gender-input');
+            const addressValue = String(data.address || '');
+            const birthDateValue = String(data.dateOfBirth || '');
+            const genderValue = String(data.gender || '');
+            if (address) address.textContent = addressValue || 'Not provided';
             if (birthDate) birthDate.textContent = data.dateOfBirth ? `${formatDate(data.dateOfBirth)} · ${calculateAge(data.dateOfBirth)} years old` : 'Not provided';
             if (civilStatus) civilStatus.textContent = data.civilStatus || 'Not provided';
             if (gender) gender.textContent = data.gender || 'Not provided';
+            if (addressInput) { addressInput.value = addressValue; addressInput.dataset.savedValue = addressValue; }
+            if (birthDateInput) { birthDateInput.value = birthDateValue; birthDateInput.dataset.savedValue = birthDateValue; }
+            if (genderInput) { genderInput.value = genderValue; genderInput.dataset.savedValue = genderValue; }
+            updateResidentProfileSaveState();
             if (data.name) {
                 const headerName = document.getElementById('resident-profile-header-name');
                 if (headerName) headerName.textContent = data.name;
@@ -4703,6 +4720,82 @@ async function postProfileAction(action, extra = {}) {
     const response = await fetch('api/profile.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...extra }) });
     const result = await response.json(); if (!response.ok || !result.success) throw new Error(result.message || 'Could not save profile settings.'); return result;
 }
+function updateResidentProfileSaveState() {
+    const address = document.getElementById('resident-profile-address-input');
+    const birthDate = document.getElementById('resident-profile-birthdate-input');
+    const gender = document.getElementById('resident-profile-gender-input');
+    const save = document.getElementById('resident-profile-details-save');
+    if (!address || !birthDate || !gender || !save) return;
+    const unchanged = address.value === (address.dataset.savedValue || '')
+        && birthDate.value === (birthDate.dataset.savedValue || '')
+        && gender.value === (gender.dataset.savedValue || '');
+    save.disabled = save.dataset.saving === 'true' || unchanged;
+}
+
+function openResidentProfileEdit() {
+    if (currentUser?.role !== 'Resident') return;
+    const form = document.getElementById('resident-profile-details-form');
+    const trigger = document.getElementById('resident-profile-edit-details');
+    if (!form || !trigger) return;
+    form.hidden = false;
+    trigger.hidden = true;
+    updateResidentProfileSaveState();
+    document.getElementById('resident-profile-address-input')?.focus();
+}
+
+function cancelResidentProfileEdit() {
+    const form = document.getElementById('resident-profile-details-form');
+    if (!form) return;
+    for (const id of ['resident-profile-address-input', 'resident-profile-birthdate-input', 'resident-profile-gender-input']) {
+        const field = document.getElementById(id);
+        if (field) field.value = field.dataset.savedValue || '';
+    }
+    form.hidden = true;
+    const trigger = document.getElementById('resident-profile-edit-details');
+    if (trigger) trigger.hidden = currentUser?.role !== 'Resident';
+    const feedback = document.getElementById('resident-profile-details-feedback');
+    if (feedback) feedback.textContent = '';
+    updateResidentProfileSaveState();
+}
+
+async function saveResidentProfileDetails(event) {
+    event.preventDefault();
+    if (currentUser?.role !== 'Resident') return;
+    const form = document.getElementById('resident-profile-details-form');
+    const address = document.getElementById('resident-profile-address-input');
+    const birthDate = document.getElementById('resident-profile-birthdate-input');
+    const gender = document.getElementById('resident-profile-gender-input');
+    const save = document.getElementById('resident-profile-details-save');
+    const feedback = document.getElementById('resident-profile-details-feedback');
+    if (!form || !address || !birthDate || !gender || !save || save.disabled) return;
+    if (!form.reportValidity()) return;
+    save.dataset.saving = 'true';
+    updateResidentProfileSaveState();
+    if (feedback) feedback.textContent = 'Saving…';
+    try {
+        const result = await postProfileAction('save_resident_profile', {
+            address: address.value.trim(),
+            dateOfBirth: birthDate.value,
+            gender: gender.value
+        });
+        address.dataset.savedValue = address.value.trim();
+        birthDate.dataset.savedValue = birthDate.value;
+        gender.dataset.savedValue = gender.value;
+        form.hidden = true;
+        const trigger = document.getElementById('resident-profile-edit-details');
+        if (trigger) trigger.hidden = false;
+        if (feedback) feedback.textContent = '';
+        await loadEnhancedProfile();
+        showToast(result.message || 'Profile details saved.', 'success');
+    } catch (error) {
+        if (feedback) feedback.textContent = error.message || 'Profile details could not be saved.';
+        showToast(error.message || 'Profile details could not be saved.', 'error');
+    } finally {
+        save.dataset.saving = 'false';
+        updateResidentProfileSaveState();
+    }
+}
+
 function updateAdminProfileDetailsSaveState(hideFeedback = true) {
     const position = document.getElementById('admin-profile-position');
     const contact = document.getElementById('admin-profile-contact');

@@ -43,6 +43,40 @@ if ($method === 'POST' && $action === 'save_admin_details' && $isAdmin) {
     echo json_encode(['success'=>true,'message'=>'Account details saved.']); exit;
 }
 
+if ($method === 'POST' && $action === 'save_resident_profile' && !$isAdmin && $role === 'Resident') {
+    $address = preg_replace('/\s+/u', ' ', trim(is_string($data['address'] ?? null) ? $data['address'] : '')) ?? '';
+    $birthDate = trim(is_string($data['dateOfBirth'] ?? null) ? $data['dateOfBirth'] : '');
+    $gender = trim(is_string($data['gender'] ?? null) ? $data['gender'] : '');
+    $addressLength = function_exists('mb_strlen') ? mb_strlen($address, 'UTF-8') : strlen($address);
+    $manilaTimezone = new DateTimeZone('Asia/Manila');
+    $todayInManila = new DateTimeImmutable('today', $manilaTimezone);
+    $dateOfBirth = DateTimeImmutable::createFromFormat('!Y-m-d', $birthDate, $manilaTimezone);
+    $birthDateValid = $dateOfBirth instanceof DateTimeImmutable
+        && $dateOfBirth->format('Y-m-d') === $birthDate
+        && $dateOfBirth <= $todayInManila
+        && $dateOfBirth >= $todayInManila->modify('-120 years');
+    $allowedGenders = ['', 'Female', 'Male', 'Other', 'Prefer not to say'];
+    if ($address === '' || $addressLength > 255 || preg_match('/[\x00-\x1F\x7F]/', $address)
+        || !$birthDateValid || !in_array($gender, $allowedGenders, true)) {
+        http_response_code(400);
+        echo json_encode(['success'=>false,'message'=>'Enter a valid home address and birthdate, and choose a valid gender option.']);
+        exit;
+    }
+    $save = $pdo->prepare('UPDATE resident SET address = ?, date_of_birth = ?, gender = ? WHERE resident_id = ? AND archived_at IS NULL');
+    $save->execute([$address, $birthDate, $gender !== '' ? $gender : null, $id]);
+    if ($save->rowCount() < 1) {
+        $exists = $pdo->prepare('SELECT COUNT(*) FROM resident WHERE resident_id = ? AND archived_at IS NULL');
+        $exists->execute([$id]);
+        if ((int) $exists->fetchColumn() < 1) {
+            http_response_code(404);
+            echo json_encode(['success'=>false,'message'=>'Resident profile not found.']);
+            exit;
+        }
+    }
+    echo json_encode(['success'=>true,'message'=>'Your home address and personal details were saved.','address'=>$address,'dateOfBirth'=>$birthDate,'gender'=>$gender]);
+    exit;
+}
+
 if ($method === 'POST' && $action === 'save_notifications' && $isAdmin) {
     $save = $pdo->prepare('UPDATE user SET notification_new_requests = ?, notification_payment_verification = ? WHERE user_id = ? AND role = ?');
     $save->execute([!empty($data['newRequests']) ? 1 : 0, !empty($data['paymentVerification']) ? 1 : 0, $id, 'Admin']);

@@ -864,6 +864,16 @@ img.proof-preview-media { width: auto; }
 .resident-profile-detail-copy { display: grid; min-width: 0; gap: 3px; }
 .resident-profile-details dt { color: #555d54; font-size: 14px; font-weight: 600; }
 .resident-profile-details dd { display: flex; min-width: 0; min-height: 22px; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; color: var(--color-ink); font-size: var(--text-13); font-weight: 500; overflow-wrap: anywhere; }
+.resident-profile-edit-trigger { width: 100%; margin-top: 12px; }
+.resident-profile-edit-trigger[hidden] { display: none !important; }
+.resident-profile-edit-form { display: grid; gap: 16px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-separator); }
+.resident-profile-edit-form[hidden] { display: none !important; }
+.resident-profile-edit-form .input-group { display: grid; gap: 6px; }
+.resident-profile-edit-form .input-group > label { color: #3f4a43; font-size: 14px; font-weight: 650; }
+.resident-profile-edit-form .field-help { margin: 0; color: var(--color-muted); font-size: 12px; line-height: 1.45; }
+.resident-profile-edit-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.resident-profile-edit-actions #resident-profile-details-feedback { flex: 1 1 100%; min-height: 18px; color: var(--color-muted); font-size: 12px; }
+.resident-profile-edit-actions #resident-profile-details-feedback:empty { display: none; }
 .resident-profile-email-row strong { min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
 .resident-email-status { display: inline-flex; align-items: center; min-height: 22px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
 .resident-email-status.is-verified { background: #e8f5e9; color: #12611a; }
@@ -1011,6 +1021,7 @@ body:has(#resident-profile.active) .site-footer { display: block !important; }
 .admin-profile-view #resident-profile .resident-profile-page > .admin-profile-only { margin-top: 24px; }
 .admin-profile-view #resident-profile .resident-profile-card > .card-heading { border-bottom: 1px solid var(--color-separator); }
 .admin-profile-view #resident-profile .resident-profile-details-card > .card-heading .resident-record-label { display: none; }
+.admin-profile-view #resident-profile .resident-profile-only { display: none !important; }
 .admin-profile-view #admin-profile-actions-card .card-heading + .admin-profile-list > li:first-child,
 .admin-profile-view #admin-profile-permissions-card .card-heading + .admin-profile-list > li:first-child { border-top: 0; }
 #resident-profile .resident-profile-identity { align-items: center; gap: 24px; }
