@@ -30,6 +30,7 @@ $payments = $pdo->query("SELECT rpt.payment_id, rpt.request_id, rpt.amount, rpt.
 
 $outstanding = $pdo->query("SELECT dr.request_id, dr.tracking_code, dr.payment_status, dr.current_status,
         COALESCE(dr.assessed_fee, dt.fee_amount) AS fee_amount, dr.business_name, dr.business_category,
+        EXISTS (SELECT 1 FROM request_payment_transaction rpt WHERE rpt.request_id = dr.request_id AND rpt.status = 'confirmed') AS has_confirmed_payment,
         dr.business_address, dr.business_activity,
         CASE WHEN dr.payment_proof_path IS NOT NULL THEN CONCAT('api/payment_proof.php?id=', dr.request_id) ELSE NULL END AS payment_proof_url,
         dt.name AS document_type,

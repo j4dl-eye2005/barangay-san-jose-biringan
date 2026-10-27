@@ -6729,11 +6729,24 @@ function renderAdminCollections(data) {
         const actions = el('div', { className: 'table-action-group collection-actions' });
         const fee = request.fee_amount == null ? null : Number(request.fee_amount);
         const businessRequest = String(request.document_type || '').toLowerCase().includes('business');
+        const requestCanBeAssessed = ['Pending', 'Approved'].includes(request.current_status)
+            && !['Paid', 'Pending Verification'].includes(request.payment_status)
+            && Number(request.has_confirmed_payment) !== 1;
+        const canManagePayments = staffHasPermission('payments.manage');
         const businessCategoryLabel = request.business_category === 'solo' ? 'Individual / sole proprietor' : request.business_category === 'organization' ? 'Organization' : '';
         if (fee === null && businessRequest) {
-            const feeField = el('input', { className: 'collection-fee-field', attrs: { id: `collection-fee-${requestId}`, type: 'number', min: '0', max: '999999.99', step: '0.01', inputmode: 'decimal', 'aria-label': `Approved fee for ${request.tracking_code}`, placeholder: 'Set approved fee' } });
-            const feeEntry = el('div', { className: 'collection-fee-entry' }, [el('span', { className: 'collection-fee-prefix', text: '₱', attrs: { 'aria-hidden': 'true' } }), feeField]);
-            actions.append(feeEntry, el('button', { className: 'action-btn btn-approve collection-set-fee', text: 'Set fee', attrs: { type: 'button' }, on: { click: event => assessCollectionFee(requestId, event.currentTarget) } }));
+            if (!canManagePayments) {
+                actions.appendChild(el('span', { className: 'field-help collection-muted', text: 'Payment management access is required to set a fee.' }));
+            } else if (!requestCanBeAssessed) {
+                const blockedReason = !['Pending', 'Approved'].includes(request.current_status)
+                    ? 'Fee can only be set while the request is pending or approved.'
+                    : 'Payment has already been submitted or recorded; the fee cannot be changed.';
+                actions.appendChild(el('span', { className: 'field-help collection-muted', text: blockedReason }));
+            } else {
+                const feeField = el('input', { className: 'collection-fee-field', attrs: { id: `collection-fee-${requestId}`, type: 'number', min: '0', max: '999999.99', step: '0.01', inputmode: 'decimal', 'aria-label': `Approved fee for ${request.tracking_code}`, placeholder: 'Set approved fee' } });
+                const feeEntry = el('div', { className: 'collection-fee-entry' }, [el('span', { className: 'collection-fee-prefix', text: '₱', attrs: { 'aria-hidden': 'true' } }), feeField]);
+                actions.append(feeEntry, el('button', { className: 'action-btn btn-approve collection-set-fee', text: 'Set fee', attrs: { type: 'button' }, on: { click: event => assessCollectionFee(requestId, event.currentTarget) } }));
+            }
         } else if (fee === null) {
             actions.appendChild(el('span', { className: 'field-help', text: 'Fee schedule missing; ask a super-admin to configure it.' }));
         } else if (request.payment_status === 'Pending Verification') {

@@ -45,12 +45,16 @@ try {
                                     LIMIT 1 FOR UPDATE");
     $paymentLookup->execute([$requestId]);
     $hasConfirmedPayment = $paymentLookup->fetchColumn() !== false;
-    if (!in_array($request['current_status'], ['Pending', 'Approved'], true)
-        || in_array($request['payment_status'], ['Paid', 'Pending Verification'], true)
-        || $hasConfirmedPayment) {
+    if (!in_array($request['current_status'], ['Pending', 'Approved'], true)) {
         $pdo->rollBack();
         http_response_code(409);
-        echo json_encode(['success' => false, 'message' => 'The request cannot be re-assessed in its current state.']);
+        echo json_encode(['success' => false, 'message' => 'Fee can only be set while the request is pending or approved.']);
+        exit;
+    }
+    if (in_array($request['payment_status'], ['Paid', 'Pending Verification'], true) || $hasConfirmedPayment) {
+        $pdo->rollBack();
+        http_response_code(409);
+        echo json_encode(['success' => false, 'message' => 'Payment has already been submitted or recorded; the fee cannot be changed.']);
         exit;
     }
     $paymentStatus = (float) $amount === 0.0 ? 'Not Required' : 'Unpaid';

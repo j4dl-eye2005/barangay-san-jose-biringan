@@ -205,8 +205,8 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <title>Barangay San Jose Digital Portal</title>
     <link rel="stylesheet" href="css/base.css?v=20261023-universal-custom-scrollbar-v1">
     <link rel="stylesheet" href="css/home.css?v=20261023-static-request-arrows-v1">
-    <link rel="stylesheet" href="css/components.css?v=20261017-direct-password-change">
-    <link data-portal-route-css="auth" data-portal-css-href="css/auth.css?v=20261027-resident-profile-edit-v2">
+    <link rel="stylesheet" href="css/components.css?v=20261027-admin-shared-action-modal-v1">
+    <link data-portal-route-css="auth" data-portal-css-href="css/auth.css?v=20261027-shared-action-dialog-v1">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin.css?v=20261023-server-disclosure-drafts-v1">
     <link rel="stylesheet" href="css/public.css?v=20261016-sticky-menu-stable">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin-tables.css?v=20261027-collections-action-buttons-v1">
@@ -1326,7 +1326,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <?php require __DIR__ . '/includes/shared/site-footer.php'; ?>
 
     <?php require __DIR__ . '/includes/shared/dialogs.php'; ?>    <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true">Message</div>
-    <script src="script.js?v=20261027-collections-fee-save-v2" defer></script>
+    <script src="script.js?v=20261027-fee-assessment-eligibility-v1" defer></script>
 </body>
 </html>
 
