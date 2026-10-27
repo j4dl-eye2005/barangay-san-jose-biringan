@@ -2604,3 +2604,154 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
     }
 }
 
+/* Desktop requests table: preserve full names and keep row controls aligned. */
+@media (min-width: 768px) {
+    #admin-dashboard #admin-requests-panel .request-admin-table-wrap {
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table {
+        width: 100% !important;
+        min-width: 1420px !important;
+        table-layout: fixed !important;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(1),
+    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(1) { width: 17% !important; }
+    #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(2),
+    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(2) { width: 21% !important; }
+    #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(3),
+    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(3) { width: 15% !important; }
+    #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(4),
+    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(4) { width: 9% !important; }
+    #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(5),
+    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(5) { width: 9% !important; }
+    #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(6),
+    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(6) { width: 12% !important; }
+    #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(7),
+    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(7) { width: 5% !important; }
+    #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(8),
+    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(8) { width: 12% !important; }
+    #admin-dashboard #admin-requests-panel .request-admin-table tbody tr:not(.table-empty-row) {
+        height: auto !important;
+        min-height: 52px;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table tbody tr:not(.table-empty-row) > td {
+        height: auto !important;
+        overflow: hidden;
+        text-overflow: clip !important;
+        vertical-align: middle;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table tbody tr:not(.table-empty-row) > td[data-label="Tracking"] {
+        overflow: visible !important;
+        text-overflow: clip !important;
+        white-space: nowrap !important;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table tbody tr:not(.table-empty-row) > td[data-label="Resident"] {
+        overflow: visible !important;
+        overflow-wrap: anywhere !important;
+        text-overflow: clip !important;
+        white-space: normal !important;
+        line-height: 1.4;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table tbody tr:not(.table-empty-row) > td[data-label="Resident"] > span {
+        display: block;
+        overflow-wrap: anywhere;
+        white-space: normal;
+    }
+    #admin-dashboard #admin-requests-panel .request-tracking-cell {
+        display: grid;
+        width: 100%;
+        box-sizing: border-box;
+        grid-template-columns: minmax(0, 1fr) 24px;
+        align-items: center;
+        gap: 6px;
+        padding: 0;
+    }
+    #admin-dashboard #admin-requests-panel .request-tracking-code {
+        display: block;
+        min-width: 0;
+        overflow: visible;
+        text-overflow: clip;
+        white-space: nowrap;
+    }
+    #admin-dashboard #admin-requests-panel .request-tracking-cell > .request-tracking-copy {
+        position: static;
+        width: 24px;
+        height: 24px;
+        margin: 0;
+        justify-self: end;
+        transform: none;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table td[data-label="Actions"] > .table-action-group {
+        display: flex;
+        width: 100%;
+        max-width: none;
+        align-items: center;
+        justify-content: flex-start;
+        flex-wrap: nowrap;
+        gap: 5px;
+        overflow: visible;
+        white-space: nowrap;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table .request-disabled-action-tooltip {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        border-radius: 5px;
+        cursor: not-allowed;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table .request-disabled-action-tooltip:focus-visible {
+        outline: 2px solid rgba(47, 107, 69, .3);
+        outline-offset: 2px;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table .table-action-group > .action-btn,
+    #admin-dashboard #admin-requests-panel .request-admin-table .table-action-group > .request-disabled-action-tooltip > .action-btn {
+        box-sizing: border-box;
+        min-height: 30px;
+        height: 30px;
+        padding: 0 8px;
+        border-radius: 5px;
+        font-size: 11px;
+        line-height: 1;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table .table-action-group > .btn-reject {
+        margin-left: 7px;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table .request-disabled-action-tooltip > .btn-set-ready {
+        border-color: #a8e4d8;
+        color: #0f766e;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table .request-row-view {
+        display: inline-flex;
+        min-width: 48px !important;
+        min-height: 30px !important;
+        height: 30px;
+        align-items: center;
+        justify-content: center;
+        padding: 0 9px !important;
+        border: 1px solid #cbd4cb !important;
+        border-radius: 5px !important;
+        background: #fff !important;
+        color: #285b3a !important;
+        font-size: 11px !important;
+        font-weight: 600;
+        line-height: 1;
+        text-decoration: none !important;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table .request-row-view:hover,
+    #admin-dashboard #admin-requests-panel .request-admin-table .request-row-view:focus-visible {
+        border-color: #9eafa0 !important;
+        background: #f4f7f4 !important;
+        color: #285b3a !important;
+        text-decoration: none !important;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table .table-action-group > .action-btn:disabled,
+    #admin-dashboard #admin-requests-panel .request-admin-table .table-action-group > .request-disabled-action-tooltip > .action-btn:disabled {
+        cursor: not-allowed;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table tr.request-row-pending > td:first-child {
+        background: linear-gradient(90deg, #fff9e8 0, #fff 56px);
+        box-shadow: inset 3px 0 0 #e7c768;
+    }
+}
+
