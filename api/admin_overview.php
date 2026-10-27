@@ -2,7 +2,7 @@
 require_once 'db.php';
 header('Content-Type: application/json');
 
-requireAdminAccess();
+requireAdminAccess('requests.view');
 
 $needsActionRequests = (int) $pdo->query("SELECT COUNT(*) FROM document_request WHERE current_status = 'Approved'")->fetchColumn();
 $readyForPickup = (int) $pdo->query("SELECT COUNT(*) FROM document_request WHERE current_status = 'Ready for Pickup'")->fetchColumn();

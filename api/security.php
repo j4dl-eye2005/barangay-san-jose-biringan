@@ -278,10 +278,37 @@ function denyAdminEntryAccess(?bool $asJson = null): void
 }
 
 /** Enforce the secret entry gate and then the normal authenticated-admin requirement. */
-function requireAdminAccess(): void
+function requireAdminAccess(?string $permission = null): void
 {
     if (!hasAdminEntryAuthorization()) denyAdminEntryAccess(true);
-    if (isset($_SESSION['user_id']) && ($_SESSION['role'] ?? '') === 'Admin' && !empty($_SESSION['admin_mfa_verified_at'])) return;
+    if (isset($_SESSION['user_id']) && ($_SESSION['role'] ?? '') === 'Admin' && !empty($_SESSION['admin_mfa_verified_at'])) {
+        if ($permission === null) return;
+        $roleQuery = $GLOBALS['pdo']->prepare("SELECT u.staff_role, bs.is_active AS linked_staff_active
+            FROM user u LEFT JOIN barangay_staff bs ON bs.portal_user_id = u.user_id
+            WHERE u.user_id = ? AND u.role = ? LIMIT 1");
+        $roleQuery->execute([(int) $_SESSION['user_id'], 'Admin']);
+        $roleRecord = $roleQuery->fetch(PDO::FETCH_ASSOC) ?: [];
+        if (array_key_exists('linked_staff_active', $roleRecord) && $roleRecord['linked_staff_active'] !== null && (int) $roleRecord['linked_staff_active'] !== 1) {
+            http_response_code(403);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'message' => 'Portal access has been disabled for this staff account.']);
+            exit;
+        }
+        $staffRole = (string) ($roleRecord['staff_role'] ?? '');
+        $rolePermissions = [
+            'super_admin' => ['*'],
+            'service_clerk' => ['requests.view', 'requests.manage', 'requests.create', 'residents.view', 'documents.preview'],
+            'cashier' => ['payments.view', 'payments.manage', 'collections.view'],
+            'document_issuer' => ['requests.view', 'documents.preview', 'documents.issue'],
+        ];
+        $allowed = $rolePermissions[$staffRole] ?? [];
+        if (in_array('*', $allowed, true) || in_array($permission, $allowed, true)) return;
+        if (function_exists('logPermissionFailure')) logPermissionFailure();
+        http_response_code(403);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['success' => false, 'message' => 'You do not have permission to use this function.']);
+        exit;
+    }
 
     if (function_exists('logPermissionFailure')) logPermissionFailure();
     http_response_code(403);

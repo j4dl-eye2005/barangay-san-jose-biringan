@@ -168,7 +168,7 @@ if ($resetContext === 'admin' && !$adminEntryAuthorized) {
     renderUnavailablePage();
 }
 $adminInitialSection = $adminInitialSection ?? null;
-$validAdminSections = ['overview', 'requests', 'residents', 'disclosures', 'activity'];
+$validAdminSections = ['overview', 'requests', 'residents', 'collections', 'staff', 'disclosures', 'activity'];
 if (!in_array($adminInitialSection, $validAdminSections, true)) {
     $adminInitialSection = null;
 }
@@ -642,7 +642,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         <button class="back-button" type="button" data-action-click="showSection('landing')"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to home</button>
                         <p class="eyebrow">Resident enrollment</p>
                         <h1 id="register-title">Create your account</h1>
-                        <p class="form-subtitle">Create an account to browse the portal and track your document requests.<br><span class="reg-required-note">* Required. Middle name, suffix, and phone number are optional. Verify your email before submitting a request.</span></p>
+                        <p class="form-subtitle">Create an account to browse the portal and track your document requests.<br><span class="reg-required-note">* Required. Middle name, suffix, civil status, gender, and phone number are optional. Verify your email before submitting a request.</span></p>
 
                         <form id="register-form" data-action-submit="handleRegister(event)" novalidate>
                             <div class="visually-hidden" aria-hidden="true"><label for="register-website">Leave this field empty</label><input id="register-website" name="website" tabindex="-1" autocomplete="off"></div>
@@ -674,6 +674,23 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                                         <option value="III">III</option>
                                         <option value="IV">IV</option>
                                     </select>
+                                </div>
+                            </div>
+
+                            <p class="reg-group-label">Resident information</p>
+                            <div class="reg-grid">
+                                <div class="reg-field reg-col-4">
+                                    <label for="register-birth-date">Birthdate <span class="req-star" aria-hidden="true">*</span></label>
+                                    <input type="date" id="register-birth-date" name="birthDate" autocomplete="bday" required max="<?= (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d') ?>" aria-describedby="register-birth-date-hint">
+                                    <span class="reg-hint" id="register-birth-date-hint">Age is calculated from this date when a document needs it.</span>
+                                </div>
+                                <div class="reg-field reg-col-4">
+                                    <label for="register-civil-status">Civil status</label>
+                                    <select id="register-civil-status" name="civilStatus"><option value="">Prefer not to provide</option><option>Single</option><option>Married</option><option>Widowed</option><option>Separated</option><option>Prefer not to say</option></select>
+                                </div>
+                                <div class="reg-field reg-col-4">
+                                    <label for="register-gender">Gender</label>
+                                    <select id="register-gender" name="gender"><option value="">Prefer not to provide</option><option>Female</option><option>Male</option><option>Other</option><option>Prefer not to say</option></select>
                                 </div>
                             </div>
 
@@ -794,6 +811,14 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                                     <span class="reg-field-error" id="request-purpose-other-error" role="alert"></span>
                                 </div>
                             </div>
+                            <fieldset id="online-business-fields" class="input-group business-request-fields" hidden>
+                                <legend>Business details</legend>
+                                <label for="request-business-name">Business name</label><input id="request-business-name" name="businessName" maxlength="180" autocomplete="organization" disabled>
+                                <label for="request-business-category">Business registration type</label><select id="request-business-category" name="businessCategory" disabled><option value="">Choose type</option><option value="solo">Individual / sole proprietor</option><option value="organization">Organization / partnership / corporation</option></select>
+                                <label for="request-business-address">Business address</label><input id="request-business-address" name="businessAddress" maxlength="255" disabled>
+                                <label for="request-business-activity">Business activity</label><input id="request-business-activity" name="businessActivity" maxlength="180" placeholder="e.g. sari-sari store, food services" disabled>
+                                <p class="form-hint">The barangay will confirm the applicable fee. A barangay business clearance does not replace a city or municipal business permit or required inspections.</p>
+                            </fieldset>
                             <fieldset class="input-group request-proof-group">
                                 <label for="request-proof-type">Proof of Residency</label>
                                 <select id="request-proof-type" name="proofType" required aria-describedby="request-proof-type-error"><option value="" selected disabled>Select proof type</option><option value="National ID">National ID</option><option value="Certificate of Residency">Certificate of Residency</option></select>
@@ -844,6 +869,9 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         <div class="card-heading resident-profile-card-heading"><h2 id="resident-profile-details-title">Your details</h2><span class="resident-record-label"><i class="fas fa-lock" aria-hidden="true"></i> Official record</span></div>
                         <dl class="resident-profile-details">
                             <div class="resident-profile-detail-row" id="resident-profile-phone-row"><span class="resident-profile-item-icon"><i class="fas fa-phone" aria-hidden="true"></i></span><div class="resident-profile-detail-copy"><dt>Phone number</dt><dd id="resident-profile-phone"></dd></div></div>
+                            <div class="resident-profile-detail-row"><span class="resident-profile-item-icon"><i class="fas fa-cake-candles" aria-hidden="true"></i></span><div class="resident-profile-detail-copy"><dt>Birthdate / age</dt><dd id="resident-profile-birthdate"></dd></div></div>
+                            <div class="resident-profile-detail-row"><span class="resident-profile-item-icon"><i class="fas fa-id-card" aria-hidden="true"></i></span><div class="resident-profile-detail-copy"><dt>Civil status</dt><dd id="resident-profile-civil-status"></dd></div></div>
+                            <div class="resident-profile-detail-row"><span class="resident-profile-item-icon"><i class="fas fa-user" aria-hidden="true"></i></span><div class="resident-profile-detail-copy"><dt>Gender</dt><dd id="resident-profile-gender"></dd></div></div>
                         </dl>
                         <form id="admin-profile-details-form" class="admin-profile-form admin-profile-only" data-action-submit="saveAdminProfileDetails(event)" hidden>
                             <div class="resident-profile-detail-row admin-profile-edit-row"><span class="resident-profile-item-icon"><i class="fas fa-user-shield" aria-hidden="true"></i></span><div class="resident-profile-detail-copy"><span class="admin-profile-row-label">Account type</span><span class="admin-profile-readonly-value">Administrator<i class="fas fa-lock" aria-hidden="true"></i></span></div></div>
@@ -987,17 +1015,21 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <header class="policy-header policy-privacy">
                         <p class="eyebrow">Legal</p>
                         <h1 id="privacy-policy-title">Privacy Policy</h1>
-                    <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 23, 2026</span></p></header>
+                    <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 27, 2026</span></p></header>
                     <p class="policy-lead">This is an academic prototype, not an official barangay service. It may process information entered into its forms as described below. This notice models the protections expected for real personal information under the Philippine Data Privacy Act of 2012 (Republic Act No. 10173); the academic-project notice does not mean submitted data is fictional or automatically deleted.</p>
 
                     <h2 id="pp-collect">Information we collect</h2>
                     <p>Depending on the features you use, the portal may collect:</p>
                     <ul>
-                        <li>Identity and account details, including your name, email address, optional phone number, residential address, and password hash</li>
+                        <li>Identity and account details, including your name, email address, optional phone number, residential address, date of birth, and optional civil status and gender. Age is calculated from the stored date of birth when displayed; age is not stored as a separate value.</li>
                         <li>Profile photos you choose to upload</li>
                         <li>Proof-of-residency files required for online requests, which may contain information from a government-issued ID</li>
                         <li>Payment reference numbers and receipt files submitted for review on paid document requests</li>
                         <li>Document request information, including the document type, stated purpose, tracking number, status, and related processing or payment status</li>
+                        <li>Business request details such as the business name, type, address, and activity when a business clearance is requested</li>
+                        <li>Request-linked collection records, including assessed amount, payment channel, receipt reference, staff account, and any correction or reversal</li>
+                        <li>Staff directory information entered by a super-administrator, including staff name, position, contact details, and linked portal role</li>
+                        <li>Document sample preparation records, including a sample document number, request reference, staff account, preparation time, and a content hash</li>
                         <li>Registration, verification, request, and account activity dates and records</li>
                         <li>Technical and security information, such as IP address, browser or device details, session information, rate-limit records, audit entries, and server or error logs</li>
                         <li>Browser storage: a language preference in local storage and a temporary session copy of an administrator disclosure draft when needed; saved drafts are also stored with the administrator account</li>
@@ -1006,11 +1038,13 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <p>Information entered into the forms is handled as potentially real personal information. Do not provide another person's information unless you are authorized to do so. The academic-project label does not guarantee that submissions are test data.</p>
 
                     <h2 id="pp-use">How we use it</h2>
-                    <p>The prototype uses account details to create and secure an account, verify email, and support account recovery. It uses request details, residency proofs, and payment references and receipt files to review and track requests. Administrators who opt in may receive an email when a resident submits payment proof. Technical records help secure and maintain the application. The prototype does not offer advertising or analytics features.</p>
+                    <p>The prototype uses account details to create and secure an account, verify email, and support account recovery. It uses resident information to pre-fill a resident’s own request, request details and residency proofs to review requests, and payment references and receipt files to reconcile request-linked fees. Business details support business-clearance requests. A staff directory supports internal contact and role assignment. A watermarked sample document may be previewed or printed after the request is approved and the fee is confirmed. Administrators who opt in may receive an email when a resident submits payment proof. Technical records help secure and maintain the application. The prototype does not offer advertising or analytics features.</p>
                     <p>This academic prototype has not documented a final lawful-basis assessment for each processing purpose or a specific legal basis for processing government-issued ID information. This notice describes the project’s intended handling but does not by itself establish a lawful basis. Any real operator must complete that assessment before live use. Registration records acceptance of the Terms and acknowledgment of this Privacy Notice with one checkbox; that checkbox is not blanket consent for every use of information.</p>
 
                     <h2 id="pp-accounts">Accounts &amp; uploads</h2>
-                    <p>Residents can create an account and sign in without administrator approval. Email verification is required before submitting an online document request. The request form requires a National ID or Certificate of Residency. Authorized administrators can view uploaded proofs and request details. Walk-in request details are entered by an administrator to demonstrate the in-person workflow.</p>
+                    <p>Residents can create an account and sign in without administrator approval. Email verification is required before submitting an online document request. The request form requires a National ID or Certificate of Residency. Access is role-limited: service clerks can review resident accounts and request proofs; cashiers can view payment and collection details; document issuers can access only the request information needed for document preparation; and super-administrators can manage staff roles. Walk-in request details are entered by an administrator to demonstrate the in-person workflow. Do not use another person’s account to request a document for a child or other resident; the prototype does not yet provide a verified representative or guardian workflow.
+                    </p>
+                    <p>The portal currently does not provide blotter-record or 4Ps-data modules. Do not enter those sensitive records in request purposes, notes, uploads, or other free-text fields. The printable output is permanently marked as a sample and is not an official barangay document.</p>
                     <p>Request proofs, payment receipts, and disclosure attachments are stored outside the public web root by default. Request proofs and payment receipts are served only through administrator-only endpoints. Published disclosure attachments are intentionally available to the public; administrators should not publish an attachment containing personal information unless disclosure is authorized and necessary.</p>
 
                     <h2 id="pp-retention">Data retention</h2>

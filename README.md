@@ -36,8 +36,8 @@ php -r "echo password_hash('Choose-a-strong-password', PASSWORD_DEFAULT), PHP_EO
 In phpMyAdmin, select the `barangay_portal` database, open the SQL tab, and insert an account using the generated hash:
 
 ```sql
-INSERT INTO user (first_name, last_name, email, password_hash, role)
-VALUES ('Admin', 'User', 'admin@example.com', 'PASTE_GENERATED_HASH_HERE', 'Admin');
+INSERT INTO user (first_name, last_name, email, password_hash, role, staff_role)
+VALUES ('Admin', 'User', 'admin@example.com', 'PASTE_GENERATED_HASH_HERE', 'Admin', 'super_admin');
 ```
 
 Then sign in through `http://localhost/barangay_portal_new/index.php#admin-login`. Use the email and original password you chose. The login checks the stored hash; it does not accept a resident account. The legacy `index.html` URL forwards to `index.php`.
@@ -66,19 +66,22 @@ For an existing database, run `database/query_performance_migration.sql` once to
 
 For an existing database, run `database/policy_acceptance_migration.sql` once before deploying the updated registration endpoint. It adds nullable fields to record the Terms version accepted and Privacy Notice version acknowledged at registration. Existing accounts remain blank because the earlier version did not retain this evidence.
 
+For an existing database, apply `database/keep_but_change_migration.sql` once after the earlier account, request, payment-review, and policy-acceptance migrations and before deploying these features. It adds staff roles and the directory, resident birthdate/civil-status/gender fields, business request details and per-request fee snapshots, the payment ledger, and document sample records. It preserves current administrators as super-admins, sets future administrator accounts to the service-clerk role by default, and backfills old paid requests as legacy ledger entries because their original payment channel may not be known. Confirm the barangay’s approved fee schedule before assessing any request.
+
 Migration repeatability depends on the individual file. Follow each migration's instructions and run files marked “once” only once. The SQL syntax targets the MariaDB 10.4.32 server shown in the supplied database dump.
 
 ## Main areas
 
 - **Resident portal:** registration, login, document requests, and request status tracking.
-- **Admin workspace:** overview, request queue and detail, resident account management, disclosure publishing, and activity log. Residency proof is attached to each request and reviewed from its request detail.
+- **Admin workspace:** overview, request queue and detail, resident accounts, collections, officials and staff, disclosure publishing, and activity log. Service clerks, cashiers, document issuers, and super-admins receive different access. Residency proof is available only to staff with resident-record access.
+- **Document samples:** authorized staff can preview an approved, payment-confirmed request and use the browser’s Print dialog to save a PDF. Every generated page stays watermarked as a sample; payment alone does not approve its factual statements or create an official signature.
 - **Public records:** bulletin categories and published disclosures (`bulletin.html`).
 
-The main interface and routing are in `index.php` and `script.js`. Admin sections have direct PHP routes at the project root (`admin_overview.php`, `admin_requests.php`, `admin_residents.php`, `admin_disclosures.php`, and `admin_activity.php`). Styles are split under `css/` into shared, home, authentication, admin, public-records, and responsive files. Shared page markup and admin sections are organized under `includes/shared/` and `includes/admin/`. API endpoints are in `api/`; the base schema is in `database/schema.sql`, and the new performance and policy migrations are grouped under `database/`.
+The main interface and routing are in `index.php` and `script.js`. Admin sections have direct PHP routes at the project root, including `admin_collections.php` and `admin_staff.php`. Styles are split under `css/` into shared, home, authentication, admin, public-records, and responsive files. Shared page markup and admin sections are organized under `includes/shared/` and `includes/admin/`. API endpoints are in `api/`; the base schema is in `database/schema.sql`, and migrations are grouped under `database/`.
 
 ## Database tables
 
-The schema defines administrator and resident accounts, document types and requests, request status history, admin-only request notes, disclosure categories and posts, attachments, email verification, rate limits, and an audit log. Uploaded proofs, disclosure attachments, and profile photos are stored outside the web root by default in a sibling `barangay_portal_private` directory. If the host blocks that location, the app can fall back to `private_storage/` under the application only when its `.htaccess` denies all direct access. Set `APP_PRIVATE_STORAGE` to a writable, protected directory when deploying.
+The schema defines administrator and resident accounts, staff roles and directory entries, document types and requests, payment transactions and reversals, reviewed sample document records, request status history, admin-only request notes, disclosure categories and posts, attachments, email verification, rate limits, and an audit log. Uploaded proofs, disclosure attachments, and profile photos are stored outside the web root by default in a sibling `barangay_portal_private` directory. If the host blocks that location, the app can fall back to `private_storage/` under the application only when its `.htaccess` denies all direct access. Set `APP_PRIVATE_STORAGE` to a writable, protected directory when deploying.
 
 ## Configuration and security
 

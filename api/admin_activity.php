@@ -2,7 +2,7 @@
 require_once 'db.php';
 header('Content-Type: application/json');
 
-requireAdminAccess();
+requireAdminAccess('staff.manage');
 
 $page = max(1, min(1000, filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT) ?: 1));
 $perPage = 10;

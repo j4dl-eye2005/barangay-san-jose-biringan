@@ -175,6 +175,7 @@ const delegatedActionNames = new Set([
     'setActivityPreset', 'setAdminRequestFilter', 'setBulletinFilter', 'showSection', 'updateAdminMfaCode', 'updateAdminMfaDigits',
     'sortActivity', 'submitModal', 'saveAdminNotificationPreferences', 'generateAdminProfileMfaRecoveryCodes', 'setPortalLanguage', 'switchAdminTab', 'toggleActivityExtraFilters',
     'toggleMobileMenu', 'toggleUserMenu', 'togglePassword', 'togglePickupCalendar', 'updatePickupReadback', 'updateLandingDocumentFinder',
+    'loadAdminCollections', 'loadAdminStaff', 'resetStaffDirectoryForm', 'saveStaffDirectoryEntry',
     'openFilePicker', 'openProfilePhotoPicker', 'saveProfilePhoto', 'cancelProfilePhotoPreview',
     'removeProfilePhoto', 'updateAdminNotificationSaveState', 'updateAdminProfileDetailsSaveState', 'scrollPageTop'
 ]);
@@ -862,6 +863,7 @@ document.addEventListener('change', event => {
     if (field.id === 'doc-type') {
         setRequestFieldError(field.id, 'request-doc-type-error', '');
         updateDocumentTypeInfo();
+        updateBusinessRequestFields(field.value, 'online');
     } else if (field.id === 'doc-purpose') {
         setRequestFieldError(field.id, 'request-purpose-error', '');
         updateRequestPurposeFields();
@@ -869,7 +871,10 @@ document.addEventListener('change', event => {
         setRequestFieldError(field.id, 'request-proof-type-error', '');
     } else if (field.id === 'request-proof') {
         handleRequestProofSelection(event);
+    } else if (field.id === 'walkin-doc-type') {
+        updateBusinessRequestFields(field.value, 'walkin');
     }
+    if (field.id === 'staff-portal-user') updateStaffPortalRoleState();
 }, true);
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1128,7 +1133,7 @@ window.addEventListener('hashchange', () => {
     const resetQuery = new URLSearchParams(query);
     const invalidResetToken = route === 'forgot-password' && resetQuery.has('token') && !/^[a-f0-9]{64}$/i.test(resetQuery.get('token') || '');
 
-    const adminTabs = ['overview', 'requests', 'residents', 'disclosures', 'activity'];
+    const adminTabs = ['overview', 'requests', 'residents', 'collections', 'staff', 'disclosures', 'activity'];
     if (route.startsWith('admin-') && adminTabs.includes(route.slice(6))) {
         if (document.body.dataset.adminEntryAuthorized === '0') {
             showSection('page-unavailable');
@@ -1318,6 +1323,41 @@ function loadAdminSidebarAvatarPhoto() {
         });
 }
 
+const ADMIN_STAFF_PERMISSIONS = {
+    super_admin: ['*'],
+    service_clerk: ['requests.view', 'requests.manage', 'requests.create', 'residents.view', 'documents.preview'],
+    cashier: ['payments.view', 'payments.manage', 'collections.view'],
+    document_issuer: ['requests.view', 'documents.preview', 'documents.issue']
+};
+
+function staffHasPermission(permission) {
+    const role = currentUser?.staffRole || 'service_clerk';
+    const allowed = ADMIN_STAFF_PERMISSIONS[role] || [];
+    return allowed.includes('*') || allowed.includes(permission);
+}
+
+function applyStaffRoleVisibility() {
+    if (currentUser?.role !== 'Admin') return;
+    const sectionPermissions = {
+        overview: 'requests.view', requests: 'requests.view', residents: 'residents.view',
+        collections: 'collections.view', staff: 'staff.manage', disclosures: 'staff.manage', activity: 'staff.manage'
+    };
+    for (const [section, permission] of Object.entries(sectionPermissions)) {
+        const allowed = staffHasPermission(permission);
+        const sideButton = document.getElementById(`tab-${section}`);
+        const navButton = document.getElementById(`nav-tab-${section}`);
+        if (sideButton) {
+            sideButton.hidden = !allowed;
+            sideButton.style.display = allowed ? '' : 'none';
+        }
+        const navItem = navButton?.closest('li');
+        if (navItem) {
+            navItem.hidden = !allowed;
+            navItem.style.display = allowed ? '' : 'none';
+        }
+    }
+}
+
 function updateNavBar() {
     const info = document.getElementById('user-info');
     const dashboardLink = document.getElementById('dashboard-nav-link');
@@ -1334,6 +1374,7 @@ function updateNavBar() {
     const adminMobileProfileLink = document.getElementById('admin-mobile-profile-nav-item');
     const adminMobileLogoutLink = document.getElementById('admin-mobile-logout-nav-item');
     const adminSidebarAccount = document.getElementById('admin-sidebar-account');
+    applyStaffRoleVisibility();
     document.body.classList.toggle('admin-user-view', currentUser?.role === 'Admin');
     document.body.classList.toggle('resident-user-view', currentUser?.role === 'Resident');
     document.body.classList.toggle('guest-user-view', !currentUser);
@@ -3118,7 +3159,7 @@ async function handleAdminMfaSubmit(event) {
         const data = await response.json();
         if (data.pageUnavailable) { showSection('page-unavailable'); return; }
         if (!response.ok || !data.success) throw new Error(data.message || 'We could not verify that code.');
-        currentUser = { id: data.id, name: data.name, email: data.email || '', role: 'Admin' };
+        currentUser = { id: data.id, name: data.name, email: data.email || '', role: 'Admin', staffRole: data.staffRole || 'service_clerk' };
         startAdminSessionExpiry(data.createdAt);
         document.getElementById('admin-login-signin-step')?.classList.remove('hidden');
         document.getElementById('admin-login-form')?.classList.remove('hidden');
@@ -3220,7 +3261,7 @@ async function returnFromPasswordReset() {
             const response = await fetch('api/session.php');
             const sessionData = await response.json();
             if (response.ok && sessionData.loggedIn && sessionData.role === 'Resident') {
-                currentUser = { id: sessionData.id, name: sessionData.name, role: sessionData.role, email: sessionData.email || '', phoneNumber: sessionData.phoneNumber || '', emailVerified: sessionData.emailVerified === true };
+                currentUser = { id: sessionData.id, name: sessionData.name, role: sessionData.role, staffRole: sessionData.staffRole || 'service_clerk', email: sessionData.email || '', phoneNumber: sessionData.phoneNumber || '', emailVerified: sessionData.emailVerified === true };
                 updateNavBar();
             }
         } catch { /* Fall back to sign-in if the profile session is no longer available. */ }
@@ -3300,7 +3341,7 @@ async function completePasswordReset(event) {
             const sessionResponse = await fetch('api/session.php');
             const sessionData = await sessionResponse.json();
             if (sessionResponse.ok && sessionData.loggedIn && sessionData.role === 'Resident') {
-                currentUser = { id: sessionData.id, name: sessionData.name, role: sessionData.role, email: sessionData.email || '', phoneNumber: sessionData.phoneNumber || '', emailVerified: sessionData.emailVerified === true };
+                currentUser = { id: sessionData.id, name: sessionData.name, role: sessionData.role, staffRole: sessionData.staffRole || 'service_clerk', email: sessionData.email || '', phoneNumber: sessionData.phoneNumber || '', emailVerified: sessionData.emailVerified === true };
                 passwordResetToken = '';
                 updateNavBar();
                 showToast('Your password has been changed.', 'success');
@@ -3391,7 +3432,7 @@ async function performLogin(email, password, context) {
                 showToast('This account must use its designated login page.', 'error');
                 return;
             }
-            currentUser = { id: data.id, name: data.name, role: data.role, email: data.email || '', phoneNumber: data.phoneNumber || '', emailVerified: data.role === 'Admin' ? true : data.emailVerified === true };
+            currentUser = { id: data.id, name: data.name, role: data.role, staffRole: data.staffRole || 'service_clerk', email: data.email || '', phoneNumber: data.phoneNumber || '', emailVerified: data.role === 'Admin' ? true : data.emailVerified === true };
             updateNavBar();
             showSection(context === 'admin' ? 'admin-dashboard' : 'resident-dashboard');
         } else {
@@ -3983,14 +4024,38 @@ function updateDocumentTypeInfo() {
     if (processingGuidance) processingGuidance.textContent = name && processingTime ? ` Processing time: ${processingTime}.` : '';
 }
 
+function updateBusinessRequestFields(documentTypeId, surface) {
+    const selectId = surface === 'walkin' ? 'walkin-doc-type' : 'doc-type';
+    const fieldset = document.getElementById(surface === 'walkin' ? 'walkin-business-fields' : 'online-business-fields');
+    const select = document.getElementById(selectId);
+    if (!fieldset || !select) return;
+    const selectedName = surface === 'walkin'
+        ? select.selectedOptions[0]?.textContent || ''
+        : select.selectedOptions[0]?.dataset.name || '';
+    const isBusinessClearance = /business/i.test(selectedName);
+    fieldset.hidden = !isBusinessClearance;
+    fieldset.querySelectorAll('input, select').forEach(field => {
+        field.disabled = !isBusinessClearance;
+        field.required = isBusinessClearance;
+        if (!isBusinessClearance) field.value = '';
+    });
+}
+
+function calculateAge(dateValue, onDate = new Date()) {
+    const match = String(dateValue || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return '';
+    const year = Number(match[1]), month = Number(match[2]) - 1, day = Number(match[3]);
+    let age = onDate.getFullYear() - year;
+    if (onDate.getMonth() < month || (onDate.getMonth() === month && onDate.getDate() < day)) age -= 1;
+    return age >= 0 ? age : '';
+}
+
 function getDocumentFee(documentType) {
     if (documentType && typeof documentType === 'object' && Object.prototype.hasOwnProperty.call(documentType, 'fee')) {
         return documentType.fee == null || documentType.fee === '' ? null : Number(documentType.fee);
     }
     const name = String(documentType?.name ?? documentType ?? '').trim().toLowerCase();
     if (name.includes('indigency')) return 0;
-    if (name.includes('business')) return 200;
-    if (name.includes('clearance') || name.includes('residency')) return 50;
     return null;
 }
 
@@ -4167,6 +4232,15 @@ async function handleRequest(e) {
         setRequestFieldError('doc-purpose-other', 'request-purpose-other-error', purpose.value === 'Other' && !otherPurpose?.value.trim() ? 'Enter your purpose.' : ''),
         setRequestFieldError('request-proof-type', 'request-proof-type-error', proofType.value ? '' : 'Choose a proof type.')
     ];
+    const businessFields = document.getElementById('online-business-fields');
+    if (businessFields && !businessFields.hidden) {
+        for (const field of businessFields.querySelectorAll('input, select')) {
+            if (!field.value.trim()) {
+                field.setAttribute('aria-invalid', 'true');
+                errors.push(true);
+            } else field.setAttribute('aria-invalid', 'false');
+        }
+    }
 
     const selectedProof = proof.files?.[0];
     if (!selectedProof) {
@@ -4381,6 +4455,18 @@ async function loadEnhancedProfile() {
         const changed = data.passwordChangedAt ? new Date(`${String(data.passwordChangedAt).replace(' ', 'T')}Z`) : null;
         const changedLabel = changed && !Number.isNaN(changed.getTime()) ? `Last changed: ${changed.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}` : 'Last changed: Not available';
         document.querySelectorAll('.resident-password-last-changed').forEach(node => { node.textContent = changedLabel; node.hidden = false; });
+        if (currentUser.role === 'Resident') {
+            const birthDate = document.getElementById('resident-profile-birthdate');
+            const civilStatus = document.getElementById('resident-profile-civil-status');
+            const gender = document.getElementById('resident-profile-gender');
+            if (birthDate) birthDate.textContent = data.dateOfBirth ? `${formatDate(data.dateOfBirth)} · ${calculateAge(data.dateOfBirth)} years old` : 'Not provided';
+            if (civilStatus) civilStatus.textContent = data.civilStatus || 'Not provided';
+            if (gender) gender.textContent = data.gender || 'Not provided';
+            if (data.name) {
+                const headerName = document.getElementById('resident-profile-header-name');
+                if (headerName) headerName.textContent = data.name;
+            }
+        }
         if (currentUser.role !== 'Admin') return;
         const position = document.getElementById('admin-profile-position');
         const contact = document.getElementById('admin-profile-contact');
@@ -4933,6 +5019,12 @@ async function submitManualRequest(event) {
     const form = event.currentTarget;
     const phoneField = document.getElementById('walkin-phone');
     if (phoneField && !setPhoneValidation(phoneField)) { phoneField.reportValidity(); return; }
+    const businessFields = document.getElementById('walkin-business-fields');
+    if (businessFields && !businessFields.hidden && !Array.from(businessFields.querySelectorAll('input, select')).every(field => field.value.trim())) {
+        showToast('Complete the business details before saving this request.', 'error');
+        businessFields.querySelector('input:invalid, select:invalid')?.focus();
+        return;
+    }
     const payload = Object.fromEntries(new FormData(form));
     try {
         const response = await fetch('api/manual_request.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -5835,7 +5927,7 @@ function renderAdminRequests() {
         const paymentStatus = getRequestPaymentStatus(r.payment_status, r.current_status, r.pickupDetails);
         const fee = getDocumentFee({ name: r.documentType, fee: r.fee_amount });
         const paymentVerified = !requestPaymentIsRequired(fee, paymentStatus) || paymentStatus === 'Paid';
-        if (r.current_status === 'Pending') {
+        if (staffHasPermission('requests.manage') && r.current_status === 'Pending') {
             actionGroup.appendChild(el('button', {
                 className: 'action-btn btn-approve', text: 'Approve',
                 attrs: { type: 'button', 'aria-label': `Approve request ${tracking}` },
@@ -5846,7 +5938,7 @@ function renderAdminRequests() {
                 attrs: { type: 'button', 'aria-label': `Reject request ${tracking}` },
                 on: { click: () => processRequest(requestId, 'Reject') }
             }));
-        } else if (r.current_status === 'Approved') {
+        } else if (staffHasPermission('requests.manage') && r.current_status === 'Approved') {
             actionGroup.appendChild(el('button', {
                 className: 'action-btn btn-set-ready', text: 'Set ready',
                 attrs: {
@@ -5857,7 +5949,7 @@ function renderAdminRequests() {
                 },
                 on: { click: () => processRequest(requestId, 'Ready', r) }
             }));
-        } else if (r.current_status === 'Ready for Pickup') {
+        } else if (staffHasPermission('requests.manage') && r.current_status === 'Ready for Pickup') {
             actionGroup.appendChild(el('button', {
                 className: 'action-btn btn-ready', text: 'Mark as picked up',
                 attrs: {
@@ -6004,7 +6096,7 @@ async function saveRequestInternalNote(requestId) {
     }
 }
 
-async function updateAdminRequestPayment(requestId, paymentStatus, button) {
+async function updateAdminRequestPayment(requestId, paymentStatus, button, reference = '') {
     if (!button) return;
     const originalText = button.textContent;
     button.disabled = true;
@@ -6013,12 +6105,13 @@ async function updateAdminRequestPayment(requestId, paymentStatus, button) {
         const response = await fetch('api/admin_request_payment.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ request_id: requestId, payment_status: paymentStatus })
+            body: JSON.stringify({ request_id: requestId, payment_status: paymentStatus, reference })
         });
         const result = await response.json();
         if (!response.ok || !result.success) throw new Error(result.message || 'Could not update payment status.');
-        showToast(`Payment marked ${paymentStatus.toLowerCase()}.`, 'success');
-        await openAdminRequestDetail(requestId);
+        showToast(paymentStatus === 'Paid' ? 'In-person payment recorded.' : 'Cash payment reversed.', 'success');
+        if (currentUser?.staffRole === 'cashier') await loadAdminCollections();
+        else await openAdminRequestDetail(requestId);
     } catch (error) {
         showToast(error.message || 'Could not update payment status.', 'error');
         button.disabled = false;
@@ -6037,7 +6130,8 @@ async function saveAdminPaymentReview(requestId, action, reason = '') {
         if (!response.ok || !result.success) throw new Error(result.message || 'Payment review could not be saved.');
         showToast(action === 'verify' ? 'Payment verified.' : 'Payment proof rejected.', 'success');
         invalidateAdminPanelCache('activity');
-        await openAdminRequestDetail(requestId);
+        if (currentUser?.staffRole === 'cashier') await loadAdminCollections();
+        else await openAdminRequestDetail(requestId);
         return true;
     } catch (error) {
         showToast(error.message || 'Payment review could not be saved.', 'error');
@@ -6077,7 +6171,7 @@ async function openAdminRequestDetail(requestId) {
         if (!response.ok || !data.success) throw new Error(data.message || 'Could not load this request.');
         const mobileRequestDetail = window.matchMedia('(max-width: 767px)').matches;
         const request = data.request;
-        const residentName = titleCaseName([request.first_name, request.middle_name, request.last_name].filter(Boolean).join(' ')) || request.walk_in_name || 'Resident';
+        const residentName = titleCaseName([request.first_name, request.middle_name, request.last_name, request.suffix].filter(Boolean).join(' ')) || request.walk_in_name || 'Resident';
         const actionRequest = {
             request_id: Number(request.request_id),
             tracking_code: request.tracking_code,
@@ -6113,33 +6207,33 @@ async function openAdminRequestDetail(requestId) {
         const fee = getDocumentFee({ name: request.document_type, fee: request.fee_amount });
         const paymentVerified = !requestPaymentIsRequired(fee, paymentStatus) || paymentStatus === 'Paid';
         const actionGroup = el('div', { className: 'table-action-group request-detail-actions' });
-        if (request.current_status === 'Pending') {
-            actionGroup.appendChild(el('button', { className: 'action-btn btn-approve', text: 'Approve', attrs: { type: 'button' }, on: { click: () => processRequest(requestId, 'Approve') } }));
-            actionGroup.appendChild(el('button', { className: 'action-btn btn-reject', text: 'Reject', attrs: { type: 'button' }, on: { click: () => processRequest(requestId, 'Reject') } }));
-        } else if (request.current_status === 'Approved') {
-            actionGroup.appendChild(el('button', {
-                className: 'action-btn btn-set-ready', text: 'Set ready',
-                attrs: {
-                    type: 'button',
-                    ...(paymentVerified ? {} : { disabled: '' }),
-                    title: paymentVerified ? '' : 'Payment must be verified first.',
-                    'aria-label': `Set request ready for pickup${paymentVerified ? '' : ', disabled until payment is verified'}`
-                },
-                on: { click: () => processRequest(requestId, 'Ready', actionRequest) }
-            }));
-        } else if (request.current_status === 'Ready for Pickup') {
-            actionGroup.appendChild(el('button', {
-                className: 'action-btn btn-ready', text: 'Mark as picked up',
-                attrs: {
-                    type: 'button',
-                    ...(paymentVerified ? {} : { disabled: '' }),
-                    title: paymentVerified ? '' : 'Payment must be verified first.',
-                    'aria-label': `Mark request as picked up${paymentVerified ? '' : ', disabled until payment is verified'}`
-                },
-                on: { click: () => processRequest(requestId, 'Pickup') }
-            }));
-        } else if (!mobileRequestDetail) {
-            actionGroup.appendChild(el('span', { className: 'action-dash', text: '—' }));
+        if (staffHasPermission('requests.manage')) {
+            if (request.current_status === 'Pending') {
+                actionGroup.appendChild(el('button', { className: 'action-btn btn-approve', text: 'Approve', attrs: { type: 'button' }, on: { click: () => processRequest(requestId, 'Approve') } }));
+                actionGroup.appendChild(el('button', { className: 'action-btn btn-reject', text: 'Reject', attrs: { type: 'button' }, on: { click: () => processRequest(requestId, 'Reject') } }));
+            } else if (request.current_status === 'Approved') {
+                actionGroup.appendChild(el('button', {
+                    className: 'action-btn btn-set-ready', text: 'Set ready',
+                    attrs: {
+                        type: 'button',
+                        ...(paymentVerified ? {} : { disabled: '' }),
+                        title: paymentVerified ? '' : 'Payment must be verified first.',
+                        'aria-label': `Set request ready for pickup${paymentVerified ? '' : ', disabled until payment is verified'}`
+                    },
+                    on: { click: () => processRequest(requestId, 'Ready', actionRequest) }
+                }));
+            } else if (request.current_status === 'Ready for Pickup') {
+                actionGroup.appendChild(el('button', {
+                    className: 'action-btn btn-ready', text: 'Mark as picked up',
+                    attrs: {
+                        type: 'button',
+                        ...(paymentVerified ? {} : { disabled: '' }),
+                        title: paymentVerified ? '' : 'Payment must be verified first.',
+                        'aria-label': `Mark request as picked up${paymentVerified ? '' : ', disabled until payment is verified'}`
+                    },
+                    on: { click: () => processRequest(requestId, 'Pickup') }
+                }));
+            }
         }
 
         const requestHeading = el('div', { className: 'panel-header request-detail-header' }, [
@@ -6151,11 +6245,19 @@ async function openAdminRequestDetail(requestId) {
             el('button', { className: 'link-button', text: 'Copy', attrs: { type: 'button', 'aria-label': 'Copy tracking number' }, on: { click: () => copyRequestTracking(request.tracking_code) } })
         ]);
         const feeText = fee === null ? 'To be confirmed' : fee === 0 ? 'Free' : `₱${fee}`;
-        const paymentButton = fee === 0 || paymentStatus === 'Pending Verification' || !['Approved', 'Ready for Pickup'].includes(request.current_status) ? null : el('button', {
+        const canReverseCash = request.latest_payment_method === 'cash';
+        const paymentButton = !staffHasPermission('payments.manage') || fee === null || fee === 0 || paymentStatus === 'Pending Verification' || !['Approved', 'Ready for Pickup'].includes(request.current_status) || (paymentStatus === 'Paid' && !canReverseCash) ? null : el('button', {
             className: paymentStatus === 'Paid' ? 'btn-outline' : 'btn-solid',
-            text: paymentStatus === 'Paid' ? 'Mark as unpaid' : 'Mark paid in person',
+            text: paymentStatus === 'Paid' ? 'Reverse recorded cash' : 'Record cash received',
             attrs: { type: 'button' },
-            on: { click: (event) => updateAdminRequestPayment(requestId, paymentStatus === 'Paid' ? 'Unpaid' : 'Paid', event.currentTarget) }
+            on: { click: (event) => {
+                if (paymentStatus === 'Paid') {
+                    if (window.confirm('Reverse the cash payment entry? This does not refund money; it corrects the payment record.')) void updateAdminRequestPayment(requestId, 'Unpaid', event.currentTarget);
+                    return;
+                }
+                const reference = window.prompt('Optional official receipt number:');
+                if (reference !== null) void updateAdminRequestPayment(requestId, 'Paid', event.currentTarget, reference.trim());
+            } }
         });
         const pickupText = typeof readyHistory?.notes === 'string' ? readyHistory.notes.trim() : '';
         const mobilePickupCard = pickupText ? el('section', { className: 'card request-detail-card request-detail-pickup' }, [
@@ -6184,22 +6286,37 @@ async function openAdminRequestDetail(requestId) {
         const paymentProofUrl = typeof request.payment_proof_url === 'string' && /^api\/payment_proof\.php\?id=\d+$/.test(request.payment_proof_url)
             ? request.payment_proof_url
             : null;
-        const paymentReviewActions = request.payment_status === 'Pending Verification' ? [
+        const paymentReviewActions = staffHasPermission('payments.manage') && request.payment_status === 'Pending Verification' ? [
             el('button', { className: 'btn-solid', text: 'Verify payment', attrs: { type: 'button' }, on: { click: () => reviewAdminPaymentProof(requestId, 'verify') } }),
             el('button', { className: 'btn-outline admin-payment-reject', text: 'Reject proof', attrs: { type: 'button' }, on: { click: () => reviewAdminPaymentProof(requestId, 'reject') } })
         ] : [];
         const paymentDetails = [
-            request.payment_reference ? el('p', { className: 'field-help', text: `Reference: ${request.payment_reference}` }) : null,
-            request.payment_submitted_at ? el('p', { className: 'field-help', text: `Submitted ${formatDateTime(request.payment_submitted_at)}` }) : null,
-            paymentProofUrl ? el('a', { className: 'link-button request-payment-proof-link', text: 'View payment receipt', attrs: { href: paymentProofUrl, target: '_blank', rel: 'noopener noreferrer' } }) : null,
-            request.payment_status === 'Rejected' && request.payment_rejection_reason
+            staffHasPermission('payments.view') && request.payment_reference ? el('p', { className: 'field-help', text: `Reference: ${request.payment_reference}` }) : null,
+            staffHasPermission('payments.view') && request.payment_submitted_at ? el('p', { className: 'field-help', text: `Submitted ${formatDateTime(request.payment_submitted_at)}` }) : null,
+            staffHasPermission('payments.view') && paymentProofUrl ? el('a', { className: 'link-button request-payment-proof-link', text: 'View payment receipt', attrs: { href: paymentProofUrl, target: '_blank', rel: 'noopener noreferrer' } }) : null,
+            staffHasPermission('payments.view') && request.payment_status === 'Rejected' && request.payment_rejection_reason
                 ? el('p', { className: 'request-payment-rejection', text: `Rejection reason: ${request.payment_rejection_reason}` })
                 : null,
-            fee !== 0 ? el('p', { className: 'field-help', text: 'Use manual marking only for payments verified in person.' }) : null,
+            staffHasPermission('payments.manage') && fee !== 0 ? el('p', { className: 'field-help', text: 'Record a counter payment only after receiving cash and issuing the proper receipt.' }) : null,
             ...paymentReviewActions,
             paymentButton
         ];
-        const saveNoteButton = el('button', { className: 'btn-solid', text: 'Save note', attrs: { id: 'save-request-internal-note', type: 'button' }, on: { click: () => saveRequestInternalNote(requestId) } });
+        const canPreviewDocument = staffHasPermission('documents.preview') && fee !== null && paymentVerified && ['Approved', 'Ready for Pickup', 'Completed'].includes(request.current_status);
+        if (canPreviewDocument) {
+            actionGroup.appendChild(el('a', { className: 'action-btn btn-view', text: 'Preview / print sample', attrs: { href: `api/admin_document_preview.php?id=${encodeURIComponent(requestId)}`, target: '_blank', rel: 'noopener noreferrer' } }));
+        }
+        const businessCategory = request.business_category === 'solo' ? 'Individual / sole proprietor' : request.business_category === 'organization' ? 'Organization / partnership / corporation' : '';
+        const hasBusinessDetails = String(request.document_type || '').toLowerCase().includes('business') && [request.business_name, request.business_category, request.business_address, request.business_activity].some(Boolean);
+        const businessInfoCard = hasBusinessDetails ? el('section', { className: 'card request-detail-card' }, [
+            el('h3', { text: 'Business details' }),
+            infoList([
+                ['Business name', request.business_name],
+                ['Business type', businessCategory],
+                ['Business address', request.business_address],
+                ['Business activity', request.business_activity]
+            ])
+        ]) : null;
+        const saveNoteButton = staffHasPermission('requests.manage') ? el('button', { className: 'btn-solid', text: 'Save note', attrs: { id: 'save-request-internal-note', type: 'button' }, on: { click: () => saveRequestInternalNote(requestId) } }) : null;
         const detailGrid = el('div', { className: 'request-detail-grid' }, [
             el('section', { className: 'card request-detail-card' }, [
                 el('h3', { text: 'Resident details' }),
@@ -6214,27 +6331,30 @@ async function openAdminRequestDetail(requestId) {
                 el('h3', { text: 'Request timeline' }),
                 el('ol', { className: 'request-timeline' }, timelineItems)
             ]),
+            businessInfoCard,
             mobileRequestDetail ? mobilePickupCard : desktopPickupCard,
             el('section', { className: 'card request-detail-card request-detail-payment' }, [
                 el('h3', { text: 'Payment' }),
                 paymentSummary,
                 ...paymentDetails
             ]),
-            el('section', { className: 'card request-detail-card request-detail-notes' }, [
+            staffHasPermission('requests.manage') ? el('section', { className: 'card request-detail-card request-detail-notes' }, [
                 el('h3', { text: 'Internal notes' }),
                 el('p', { className: 'field-help', text: 'Visible only to administrators.' }),
                 el('textarea', { attrs: { id: 'request-internal-note', rows: '4', 'aria-label': 'Internal notes' } }),
                 saveNoteButton
-            ]),
-            (actionGroup.children.length && (mobileRequestDetail || request.current_status !== 'Completed' && request.current_status !== 'Rejected')) ? el('section', { className: 'card request-detail-card request-detail-action-card' }, [
+            ]) : null,
+            actionGroup.children.length ? el('section', { className: 'card request-detail-card request-detail-action-card' }, [
                 el('h3', { text: 'Actions' }), actionGroup
             ]) : null
         ]);
         content.replaceChildren(requestHeading, trackingLine, detailGrid);
         const noteField = document.getElementById('request-internal-note');
-        noteField.value = data.internal_note?.note_text || '';
-        saveNoteButton.disabled = mobileRequestDetail && !noteField.value.trim();
-        noteField.addEventListener('input', () => { saveNoteButton.disabled = mobileRequestDetail && !noteField.value.trim(); });
+        if (noteField && saveNoteButton) {
+            noteField.value = data.internal_note?.note_text || '';
+            saveNoteButton.disabled = mobileRequestDetail && !noteField.value.trim();
+            noteField.addEventListener('input', () => { saveNoteButton.disabled = mobileRequestDetail && !noteField.value.trim(); });
+        }
     } catch (error) {
         content.replaceChildren(el('p', { className: 'empty-state', text: error.message || 'Request details are unavailable.' }));
     }
@@ -6313,31 +6433,36 @@ async function loadResidentAccounts() {
     if (next) next.disabled = residentAccountPage >= residentAccountPages || residentAccountPages === 0;
 
     if (!residents.length) {
-        if (tbody) tbody.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No accounts found.', attrs: { colspan: '7' } })]));
+        if (tbody) tbody.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No accounts found.', attrs: { colspan: '10' } })]));
         if (mobileList) mobileList.appendChild(el('p', { className: 'resident-mobile-empty', text: 'No resident accounts have been registered.' }));
         return;
     }
 
     residents.forEach(r => {
         const id = Number(r.resident_id);
-        const name = titleCaseName(`${r.first_name ?? ''} ${r.middle_name ?? ''} ${r.last_name ?? ''}`);
+        const name = titleCaseName(`${r.first_name ?? ''} ${r.middle_name ?? ''} ${r.last_name ?? ''} ${r.suffix ?? ''}`);
+        const age = calculateAge(r.date_of_birth);
+        const birthdate = r.date_of_birth ? `${formatDate(r.date_of_birth)}${age !== '' ? ` · age ${age}` : ''}` : 'Not provided';
         const archived = Boolean(r.archived_at);
         const status = el('span', { className: `resident-account-status${archived ? ' is-archived' : ' is-active'}`, text: archived ? 'Archived' : 'Active' });
         const actionButtons = (surface) => {
-            return el('div', { className: 'table-action-group resident-account-actions' }, [
+            return el('div', { className: 'table-action-group resident-account-actions' }, staffHasPermission('residents.manage') ? [
                 el('button', {
                     className: 'action-btn btn-delete resident-account-archive-delete',
                     text: 'Archive & Delete',
                     attrs: { type: 'button', 'aria-label': `Archive and delete resident account ${name}` },
                     on: { click: () => confirmResidentAccountAction(id, 'archive_delete', name, archived) }
                 })
-            ]);
+            ] : [el('span', { className: 'action-dash', text: 'View only' })]);
         };
         if (tbody) tbody.appendChild(el('tr', {}, [
             el('td', { attrs: { 'data-label': 'Name', title: name } }, [el('strong', { className: 'resident-admin-name', text: name || 'Name not provided' })]),
             el('td', { attrs: { 'data-label': 'Email', title: r.email || '' } }, [el('span', { className: 'resident-admin-cell-text resident-admin-email', text: r.email || '—' })]),
             el('td', { attrs: { 'data-label': 'Phone', title: r.phone_number || '' } }, [el('span', { className: 'resident-admin-cell-text resident-admin-phone', text: r.phone_number || '—' })]),
             el('td', { attrs: { 'data-label': 'Address', title: r.address || '' } }, [el('span', { className: 'resident-admin-cell-text resident-admin-address', text: r.address || '—' })]),
+            el('td', { attrs: { 'data-label': 'Birthdate / age' } }, [el('span', { className: 'resident-admin-cell-text', text: birthdate })]),
+            el('td', { attrs: { 'data-label': 'Civil status' } }, [el('span', { className: 'resident-admin-cell-text', text: r.civil_status || '—' })]),
+            el('td', { attrs: { 'data-label': 'Gender' } }, [el('span', { className: 'resident-admin-cell-text', text: r.gender || '—' })]),
             el('td', { attrs: { 'data-label': 'Registered' } }, [el('span', { className: 'resident-admin-cell-text resident-admin-registered', text: formatDate(r.created_at) })]),
             el('td', { attrs: { 'data-label': 'Status' } }, [status]),
             el('td', { attrs: { 'data-label': 'Actions' } }, [actionButtons('desktop')])
@@ -6350,6 +6475,8 @@ async function loadResidentAccounts() {
                 ]),
                 el('p', { className: 'resident-mobile-registered', text: `Phone: ${r.phone_number || 'Not provided'}` }),
                 el('p', { className: 'resident-mobile-registered', text: `Address: ${r.address || 'Not provided'}` }),
+                el('p', { className: 'resident-mobile-registered', text: `Birthdate / age: ${birthdate}` }),
+                el('p', { className: 'resident-mobile-registered', text: `Civil status / gender: ${r.civil_status || 'Not provided'} / ${r.gender || 'Not provided'}` }),
                 el('div', { className: 'resident-mobile-status-row' }, [status.cloneNode(true), el('span', { className: 'resident-mobile-registered', text: `Registered ${formatDate(r.created_at)}` })]),
                 actionButtons('mobile')
             ]));
@@ -6368,7 +6495,9 @@ async function loadResidentAccounts() {
                 el('div', { className: 'resident-mobile-contacts' }, [
                     contactRow('fa-envelope', 'Email', r.email || 'No email provided', r.email || ''),
                     contactRow('fa-phone', 'Phone', r.phone_number || 'Not provided'),
-                    contactRow('fa-location-dot', 'Address', r.address || 'Not provided')
+                    contactRow('fa-location-dot', 'Address', r.address || 'Not provided'),
+                    contactRow('fa-calendar', 'Birthdate / age', birthdate),
+                    contactRow('fa-id-card', 'Civil status / gender', `${r.civil_status || 'Not provided'} / ${r.gender || 'Not provided'}`)
                 ]),
                 el('span', { className: 'resident-mobile-registered', text: `Registered ${formatDate(r.created_at)}` }),
                 actionButtons('mobile')
@@ -6426,6 +6555,212 @@ function titleCaseName(name) {
     return String(name || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-PH').replace(/(^|[\s'-])([\p{L}])/gu, (_, boundary, letter) => boundary + letter.toLocaleUpperCase('en-PH'));
 }
 
+function formatPhpAmount(value) {
+    const amount = Number(value);
+    return Number.isFinite(amount) ? new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount) : 'To be assessed';
+}
+
+async function loadAdminCollections() {
+    const response = await fetch('api/admin_collections.php', { cache: 'no-store' });
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data.message || 'Could not load collections.');
+    markAdminPanelLoaded('collections');
+    const today = document.getElementById('collection-total-today');
+    const month = document.getElementById('collection-total-month');
+    const openCount = document.getElementById('collection-open-count');
+    if (today) today.textContent = formatPhpAmount(data.summary?.today || 0);
+    if (month) month.textContent = formatPhpAmount(data.summary?.month || 0);
+    if (openCount) openCount.textContent = String(data.summary?.open ?? 0);
+    renderAdminCollections(data);
+}
+
+function renderAdminCollections(data) {
+    const openBody = document.getElementById('admin-collection-open-list');
+    const historyBody = document.getElementById('admin-collection-history');
+    if (!openBody || !historyBody) return;
+    clearNode(openBody);
+    clearNode(historyBody);
+    const outstanding = Array.isArray(data.outstanding) ? data.outstanding : [];
+    if (!outstanding.length) openBody.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No requests need payment action.', attrs: { colspan: '5' } })]));
+    outstanding.forEach(request => {
+        const requestId = Number(request.request_id);
+        const actions = el('div', { className: 'table-action-group collection-actions' });
+        const fee = request.fee_amount == null ? null : Number(request.fee_amount);
+        const businessRequest = String(request.document_type || '').toLowerCase().includes('business');
+        const businessCategoryLabel = request.business_category === 'solo' ? 'Individual / sole proprietor' : request.business_category === 'organization' ? 'Organization' : '';
+        if (fee === null && businessRequest) {
+            const feeField = el('input', { attrs: { id: `collection-fee-${requestId}`, type: 'number', min: '0', max: '999999.99', step: '0.01', inputmode: 'decimal', 'aria-label': `Approved fee for ${request.tracking_code}`, placeholder: 'Set approved fee' } });
+            actions.append(feeField, el('button', { className: 'action-btn btn-approve', text: 'Set fee', attrs: { type: 'button' }, on: { click: () => assessCollectionFee(requestId) } }));
+        } else if (fee === null) {
+            actions.appendChild(el('span', { className: 'field-help', text: 'Fee schedule missing; ask a super-admin to configure it.' }));
+        } else if (request.payment_status === 'Pending Verification') {
+            if (typeof request.payment_proof_url === 'string' && /^api\/payment_proof\.php\?id=\d+$/.test(request.payment_proof_url)) {
+                actions.appendChild(el('a', { className: 'action-btn btn-view', text: 'View receipt', attrs: { href: request.payment_proof_url, target: '_blank', rel: 'noopener noreferrer' } }));
+            }
+            actions.append(
+                el('button', { className: 'action-btn btn-approve', text: 'Verify', attrs: { type: 'button' }, on: { click: () => reviewAdminPaymentProof(requestId, 'verify') } }),
+                el('button', { className: 'action-btn btn-reject', text: 'Reject', attrs: { type: 'button' }, on: { click: () => reviewAdminPaymentProof(requestId, 'reject') } })
+            );
+        } else if (['Approved', 'Ready for Pickup'].includes(request.current_status) && fee > 0) {
+            actions.appendChild(el('button', { className: 'action-btn btn-approve', text: 'Record cash', attrs: { type: 'button', 'aria-label': `Record cash for ${requestId}` }, on: { click: () => recordCollectionCash(requestId) } }));
+        } else if (request.current_status === 'Pending') {
+            actions.appendChild(el('span', { className: 'field-help', text: 'Awaiting request review' }));
+        } else if (request.payment_status === 'Rejected') {
+            actions.appendChild(el('span', { className: 'field-help', text: 'Resident must submit corrected proof' }));
+        }
+        const feeText = fee === null ? 'Not assessed' : fee === 0 ? 'No fee' : formatPhpAmount(fee);
+        openBody.appendChild(el('tr', {}, [
+            el('td', { attrs: { 'data-label': 'Tracking / resident' } }, [el('strong', { text: request.tracking_code }), el('span', { className: 'collection-secondary', text: businessRequest ? [request.business_name || 'Business name not recorded', businessCategoryLabel].filter(Boolean).join(' · ') : request.resident_name || 'Resident' })]),
+            el('td', { text: request.document_type, attrs: { 'data-label': 'Document' } }),
+            el('td', { text: feeText, attrs: { 'data-label': 'Fee' } }),
+            el('td', { text: request.payment_status, attrs: { 'data-label': 'Payment status' } }),
+            el('td', { attrs: { 'data-label': 'Actions' } }, [actions])
+        ]));
+    });
+
+    const payments = Array.isArray(data.payments) ? data.payments : [];
+    if (!payments.length) historyBody.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No payment entries have been recorded.', attrs: { colspan: '6' } })]));
+    payments.forEach(payment => {
+        historyBody.appendChild(el('tr', {}, [
+            el('td', { attrs: { 'data-label': 'Tracking / resident' } }, [el('strong', { text: payment.tracking_code }), el('span', { className: 'collection-secondary', text: payment.resident_name || 'Resident' })]),
+            el('td', { text: payment.document_type, attrs: { 'data-label': 'Document' } }),
+            el('td', { attrs: { 'data-label': 'Amount / method' } }, [el('strong', { text: formatPhpAmount(payment.amount) }), el('span', { className: 'collection-secondary', text: payment.method === 'cash' ? 'In person' : payment.method === 'online_proof' ? 'Online proof' : 'Older entry · channel unknown' })]),
+            el('td', { text: payment.reference || '—', attrs: { 'data-label': 'Reference' } }),
+            el('td', { attrs: { 'data-label': 'Recorded' } }, [el('span', { text: formatDateTime(payment.recorded_at) }), el('span', { className: 'collection-secondary', text: payment.recorded_by || 'Staff account unavailable' })]),
+            el('td', { text: payment.status === 'reversed' ? 'Reversed' : 'Confirmed', attrs: { 'data-label': 'Status' } })
+        ]));
+    });
+}
+
+async function assessCollectionFee(requestId) {
+    const amount = document.getElementById(`collection-fee-${requestId}`)?.value || '';
+    if (!amount.trim()) { showToast('Enter the fee from the barangay’s approved schedule.', 'error'); return; }
+    try {
+        const response = await fetch('api/admin_assess_fee.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ request_id: requestId, amount }) });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'Fee could not be saved.');
+        showToast(`Approved fee set to ${formatPhpAmount(result.fee)}.`, 'success');
+        await loadAdminCollections();
+    } catch (error) { showToast(error.message || 'Fee could not be saved.', 'error'); }
+}
+
+async function recordCollectionCash(requestId) {
+    if (!window.confirm('Record this request as paid in person? Confirm that the cash was received and an official receipt was issued.')) return;
+    const reference = window.prompt('Optional official receipt number:');
+    if (reference === null) return;
+    const button = document.querySelector(`#admin-collection-open-list button[aria-label="Record cash for ${requestId}"]`);
+    await updateAdminRequestPayment(requestId, 'Paid', button || { disabled: false, textContent: 'Record cash' }, reference.trim());
+}
+
+async function loadAdminStaff() {
+    const response = await fetch('api/admin_staff.php', { cache: 'no-store' });
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data.message || 'Could not load staff directory.');
+    markAdminPanelLoaded('staff');
+    renderAdminStaff(data);
+}
+
+function renderAdminStaff(data) {
+    const body = document.getElementById('admin-staff-list');
+    const accountSelect = document.getElementById('staff-portal-user');
+    if (!body || !accountSelect) return;
+    const selectedAccount = accountSelect.value;
+    clearNode(accountSelect);
+    accountSelect.appendChild(el('option', { text: 'No portal login', attrs: { value: '' } }));
+    (data.accounts || []).forEach(account => accountSelect.appendChild(el('option', { text: `${account.full_name} · ${account.email}`, attrs: { value: String(account.user_id) } })));
+    accountSelect.value = selectedAccount;
+    updateStaffPortalRoleState();
+    clearNode(body);
+    const staff = Array.isArray(data.staff) ? data.staff : [];
+    if (!staff.length) body.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No officials or staff have been added.', attrs: { colspan: '7' } })]));
+    staff.forEach(person => {
+        const actions = el('div', { className: 'table-action-group' }, [
+            el('button', { className: 'link-button', text: 'Edit', attrs: { type: 'button' }, on: { click: () => editStaffDirectoryEntry(person) } }),
+            el('button', { className: 'link-button', text: person.is_active ? 'Mark inactive' : 'Restore', attrs: { type: 'button' }, on: { click: () => toggleStaffDirectoryEntry(person) } })
+        ]);
+        const portal = person.portal_user_id ? `${person.staff_role || 'service_clerk'}` : 'No login linked';
+        body.appendChild(el('tr', {}, [
+            el('td', { text: person.full_name, attrs: { 'data-label': 'Name' } }),
+            el('td', { text: person.position_title, attrs: { 'data-label': 'Position' } }),
+            el('td', { text: person.staff_kind === 'official' ? 'Official' : 'Staff', attrs: { 'data-label': 'Category' } }),
+            el('td', { attrs: { 'data-label': 'Contact' } }, [el('span', { text: person.contact_number || '—' }), person.email ? el('span', { className: 'collection-secondary', text: person.email }) : null]),
+            el('td', { text: portal.replaceAll('_', ' '), attrs: { 'data-label': 'Portal access' } }),
+            el('td', { text: person.is_active ? 'Active' : 'Inactive', attrs: { 'data-label': 'Status' } }),
+            el('td', { attrs: { 'data-label': 'Actions' } }, [actions])
+        ]));
+    });
+}
+
+function updateStaffPortalRoleState() {
+    const account = document.getElementById('staff-portal-user');
+    const role = document.getElementById('staff-portal-role');
+    if (role) role.disabled = !account?.value;
+}
+
+function resetStaffDirectoryForm() {
+    document.getElementById('staff-directory-form')?.reset();
+    const recordId = document.getElementById('staff-record-id');
+    const role = document.getElementById('staff-portal-role');
+    const feedback = document.getElementById('staff-directory-feedback');
+    if (recordId) recordId.value = '';
+    if (role) role.value = 'service_clerk';
+    if (feedback) feedback.textContent = '';
+    updateStaffPortalRoleState();
+}
+
+function editStaffDirectoryEntry(person) {
+    document.getElementById('staff-record-id').value = person.staff_id;
+    document.getElementById('staff-full-name').value = person.full_name || '';
+    document.getElementById('staff-position-title').value = person.position_title || '';
+    document.getElementById('staff-kind').value = person.staff_kind || 'staff';
+    document.getElementById('staff-contact-number').value = person.contact_number || '';
+    document.getElementById('staff-email').value = person.email || '';
+    document.getElementById('staff-portal-user').value = person.portal_user_id ? String(person.portal_user_id) : '';
+    document.getElementById('staff-portal-role').value = person.staff_role || 'service_clerk';
+    updateStaffPortalRoleState();
+    document.getElementById('staff-directory-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('staff-full-name').focus({ preventScroll: true });
+}
+
+async function toggleStaffDirectoryEntry(person) {
+    const action = person.is_active ? 'deactivate' : 'restore';
+    if (action === 'deactivate' && !window.confirm(`Mark ${person.full_name} as inactive? Their linked portal account will lose access to staff functions until the record is restored.`)) return;
+    try {
+        const response = await fetch('api/admin_staff.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, staff_id: Number(person.staff_id) }) });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'Staff record could not be changed.');
+        showToast(result.message || 'Staff record updated.', 'success');
+        await loadAdminStaff();
+    } catch (error) { showToast(error.message || 'Staff record could not be changed.', 'error'); }
+}
+
+async function saveStaffDirectoryEntry(event) {
+    event.preventDefault();
+    const feedback = document.getElementById('staff-directory-feedback');
+    const payload = {
+        staff_id: document.getElementById('staff-record-id').value || null,
+        full_name: document.getElementById('staff-full-name').value.trim(),
+        position_title: document.getElementById('staff-position-title').value.trim(),
+        staff_kind: document.getElementById('staff-kind').value,
+        contact_number: document.getElementById('staff-contact-number').value.trim(),
+        email: document.getElementById('staff-email').value.trim(),
+        portal_user_id: document.getElementById('staff-portal-user').value || null,
+        staff_role: document.getElementById('staff-portal-role').value
+    };
+    try {
+        const response = await fetch('api/admin_staff.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'Staff details could not be saved.');
+        if (feedback) feedback.textContent = result.message || 'Staff details saved.';
+        resetStaffDirectoryForm();
+        showToast(result.message || 'Staff details saved.', 'success');
+        await loadAdminStaff();
+    } catch (error) {
+        if (feedback) feedback.textContent = error.message || 'Staff details could not be saved.';
+        showToast(error.message || 'Staff details could not be saved.', 'error');
+    }
+}
+
 /* ============================================================
    ADMIN TABS
    ============================================================ */
@@ -6459,9 +6794,20 @@ function switchAdminTab(tab, options = {}) {
         overview: 'overview',
         requests: 'requests',
         residents: 'residents',
+        collections: 'collections',
+        staff: 'staff',
         disclosures: 'disclosures',
         activity: 'activity'
     };
+    const requiredPermissions = {
+        overview: 'requests.view', requests: 'requests.view', residents: 'residents.view',
+        collections: 'collections.view', staff: 'staff.manage', disclosures: 'staff.manage', activity: 'staff.manage'
+    };
+    if (currentUser?.role === 'Admin' && requiredPermissions[tab] && !staffHasPermission(requiredPermissions[tab])) {
+        const fallback = ['collections', 'requests', 'residents', 'overview', 'staff'].find(section => staffHasPermission(requiredPermissions[section]));
+        if (fallback && fallback !== tab) switchAdminTab(fallback, options);
+        return;
+    }
     const routeChanged = currentUser?.role === 'Admin' && adminRoutes[tab] && window.INITIAL_ADMIN_SECTION !== tab;
     // The hamburger keeps workspace tabs available while an admin browses
     // Public Records. Return to the dashboard before changing its hidden tab.
@@ -6481,6 +6827,8 @@ function switchAdminTab(tab, options = {}) {
         overview: document.getElementById('admin-overview-panel'),
         requests: document.getElementById('admin-requests-panel'),
         residents: document.getElementById('admin-residents-panel'),
+        collections: document.getElementById('admin-collections-panel'),
+        staff: document.getElementById('admin-staff-panel'),
         disclosures: document.getElementById('admin-disclosures-panel'),
         activity: document.getElementById('admin-activity-panel')
     };
@@ -6488,6 +6836,8 @@ function switchAdminTab(tab, options = {}) {
         overview: document.getElementById('tab-overview'),
         requests: document.getElementById('tab-requests'),
         residents: document.getElementById('tab-residents'),
+        collections: document.getElementById('tab-collections'),
+        staff: document.getElementById('tab-staff'),
         disclosures: document.getElementById('tab-disclosures'),
         activity: document.getElementById('tab-activity')
     };
@@ -6496,6 +6846,8 @@ function switchAdminTab(tab, options = {}) {
         overview:    document.getElementById('nav-tab-overview'),
         requests:    document.getElementById('nav-tab-requests'),
         residents:   document.getElementById('nav-tab-residents'),
+        collections: document.getElementById('nav-tab-collections'),
+        staff:       document.getElementById('nav-tab-staff'),
         disclosures: document.getElementById('nav-tab-disclosures'),
         activity:    document.getElementById('nav-tab-activity'),
     };
@@ -6524,6 +6876,8 @@ function switchAdminTab(tab, options = {}) {
         if (tab === 'overview' && adminPanelNeedsRefresh('overview')) loadAdminOverview();
         if (tab === 'requests' && adminPanelNeedsRefresh('requests')) loadAdminData();
         if (tab === 'residents' && adminPanelNeedsRefresh('residents')) loadResidentAccounts();
+        if (tab === 'collections' && adminPanelNeedsRefresh('collections')) loadAdminCollections();
+        if (tab === 'staff' && adminPanelNeedsRefresh('staff')) loadAdminStaff();
         if (tab === 'disclosures') {
             initDisclosureComposer();
             const adminId = Number(currentUser?.id) || 0;
@@ -7809,7 +8163,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (sessionRes.ok) {
         sessionData = await sessionRes.json();
         if (sessionData.loggedIn) {
-            currentUser = { id: sessionData.id, name: sessionData.name, role: sessionData.role, email: sessionData.email || '', phoneNumber: sessionData.phoneNumber || '', emailVerified: sessionData.role === 'Admin' ? true : sessionData.emailVerified === true };
+            currentUser = { id: sessionData.id, name: sessionData.name, role: sessionData.role, staffRole: sessionData.staffRole || 'service_clerk', email: sessionData.email || '', phoneNumber: sessionData.phoneNumber || '', emailVerified: sessionData.role === 'Admin' ? true : sessionData.emailVerified === true };
             if (sessionData.role === 'Admin') startAdminSessionExpiry(sessionData.createdAt);
             updateNavBar();
             if (location.hash === '#admin-login') {
@@ -7877,8 +8231,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const initialHasResetToken = initialParams.has('token');
     const initialResetTokenValid = initialHasResetToken && /^[a-f0-9]{64}$/i.test(initialParams.get('token') || '');
     const invalidInitialResetToken = initialResetRoute && (initialRoute === 'password-reset' ? !initialResetTokenValid : initialHasResetToken && !initialResetTokenValid);
-    const initialIsKnown = validHashRoutes.includes(initialRoute) || (initialRoute.startsWith('admin-') && ['overview', 'requests', 'residents', 'disclosures', 'activity'].includes(initialRoute.slice(6)));
-    const initialIsAdminRoute = initialRoute === 'admin-dashboard' || (initialRoute.startsWith('admin-') && ['overview', 'requests', 'residents', 'disclosures', 'activity'].includes(initialRoute.slice(6)));
+    const initialAdminSections = ['overview', 'requests', 'residents', 'collections', 'staff', 'disclosures', 'activity'];
+    const initialIsKnown = validHashRoutes.includes(initialRoute) || (initialRoute.startsWith('admin-') && initialAdminSections.includes(initialRoute.slice(6)));
+    const initialIsAdminRoute = initialRoute === 'admin-dashboard' || (initialRoute.startsWith('admin-') && initialAdminSections.includes(initialRoute.slice(6)));
     const start = (passwordResetToken && /^[a-f0-9]{64}$/i.test(passwordResetToken)) || initialResetTokenValid
         ? 'forgot-password'
         : (initialIsAdminRoute

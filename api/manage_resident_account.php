@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 header('Content-Type: application/json; charset=utf-8');
-requireAdminAccess();
+requireAdminAccess('residents.manage');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     http_response_code(405);

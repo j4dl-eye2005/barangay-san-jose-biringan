@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS user (
     password_hash VARCHAR(255) NOT NULL,
     auth_version  INT UNSIGNED NOT NULL DEFAULT 0,
     role          VARCHAR(50)  NOT NULL DEFAULT 'Admin',
+    staff_role    VARCHAR(30) NOT NULL DEFAULT 'service_clerk',
     admin_mfa_secret_enc TEXT DEFAULT NULL,
     admin_mfa_enabled_at DATETIME DEFAULT NULL,
     admin_mfa_last_counter BIGINT DEFAULT NULL,
@@ -34,9 +35,13 @@ CREATE TABLE IF NOT EXISTS resident (
     first_name    VARCHAR(100) NOT NULL,
     middle_name   VARCHAR(100) DEFAULT NULL,
     last_name     VARCHAR(100) NOT NULL,
+    suffix        VARCHAR(20) DEFAULT NULL,
     email         VARCHAR(190) NOT NULL UNIQUE,
     phone_number  VARCHAR(30)  DEFAULT NULL,
     address       VARCHAR(255) DEFAULT NULL,
+    date_of_birth DATE DEFAULT NULL,
+    civil_status  VARCHAR(30) DEFAULT NULL,
+    gender        VARCHAR(40) DEFAULT NULL,
     proof_path    VARCHAR(500) DEFAULT NULL,
     password_hash VARCHAR(255) NOT NULL,
     profile_photo VARCHAR(80) DEFAULT NULL,
@@ -76,6 +81,26 @@ CREATE TABLE IF NOT EXISTS admin_mfa_recovery_code (
         REFERENCES user (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- Internal directory of barangay officials and staff. Directory records do not
+-- grant login access; an optional linked portal account receives a separate role.
+CREATE TABLE IF NOT EXISTS barangay_staff (
+    staff_id INT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(180) NOT NULL,
+    position_title VARCHAR(120) NOT NULL,
+    staff_kind VARCHAR(20) NOT NULL DEFAULT 'staff',
+    contact_number VARCHAR(30) DEFAULT NULL,
+    email VARCHAR(190) DEFAULT NULL,
+    portal_user_id INT DEFAULT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    updated_by_user_id INT DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_barangay_staff_portal_user (portal_user_id),
+    INDEX idx_barangay_staff_active (is_active, staff_kind, full_name),
+    CONSTRAINT fk_barangay_staff_portal_user FOREIGN KEY (portal_user_id) REFERENCES user (user_id) ON DELETE SET NULL,
+    CONSTRAINT fk_barangay_staff_updated_by FOREIGN KEY (updated_by_user_id) REFERENCES user (user_id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
 -- Types of documents a resident can request
 CREATE TABLE IF NOT EXISTS document_type (
     document_type_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -105,6 +130,11 @@ CREATE TABLE IF NOT EXISTS document_request (
     payment_reviewed_at DATETIME DEFAULT NULL,
     payment_reviewed_by_user_id INT DEFAULT NULL,
     payment_rejection_reason VARCHAR(1000) DEFAULT NULL,
+    assessed_fee DECIMAL(10,2) DEFAULT NULL,
+    business_name VARCHAR(180) DEFAULT NULL,
+    business_category VARCHAR(20) DEFAULT NULL,
+    business_address VARCHAR(255) DEFAULT NULL,
+    business_activity VARCHAR(180) DEFAULT NULL,
     rejection_reason TEXT         DEFAULT NULL,
     created_at       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_requests_status_created (current_status, created_at),
@@ -117,6 +147,38 @@ CREATE TABLE IF NOT EXISTS document_request (
         REFERENCES document_type (document_type_id),
     CONSTRAINT fk_request_payment_reviewer FOREIGN KEY (payment_reviewed_by_user_id)
         REFERENCES user (user_id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- Request-linked payment ledger. Reversals are retained for auditability.
+CREATE TABLE IF NOT EXISTS request_payment_transaction (
+    payment_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    request_id INT NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    method VARCHAR(24) NOT NULL,
+    reference VARCHAR(120) DEFAULT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'confirmed',
+    recorded_by_user_id INT DEFAULT NULL,
+    recorded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reversed_by_user_id INT DEFAULT NULL,
+    reversed_at DATETIME DEFAULT NULL,
+    INDEX idx_payment_request_recorded (request_id, recorded_at, payment_id),
+    INDEX idx_payment_recorded_at (recorded_at, status),
+    CONSTRAINT fk_payment_tx_request FOREIGN KEY (request_id) REFERENCES document_request (request_id) ON DELETE CASCADE,
+    CONSTRAINT fk_payment_tx_recorder FOREIGN KEY (recorded_by_user_id) REFERENCES user (user_id) ON DELETE SET NULL,
+    CONSTRAINT fk_payment_tx_reverser FOREIGN KEY (reversed_by_user_id) REFERENCES user (user_id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- Record staff-reviewed print output. This is an application audit trail, not a digital signature.
+CREATE TABLE IF NOT EXISTS document_issuance (
+    issuance_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    request_id INT NOT NULL,
+    document_number VARCHAR(40) NOT NULL UNIQUE,
+    content_hash CHAR(64) NOT NULL,
+    issued_by_user_id INT NOT NULL,
+    issued_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_issuance_request (request_id, issued_at),
+    CONSTRAINT fk_issuance_request FOREIGN KEY (request_id) REFERENCES document_request (request_id) ON DELETE CASCADE,
+    CONSTRAINT fk_issuance_user FOREIGN KEY (issued_by_user_id) REFERENCES user (user_id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
 -- Status change history for requests
@@ -273,7 +335,7 @@ INSERT INTO document_type (name, is_active, fee_amount) VALUES
     ('Barangay Clearance', 1, 50.00),
     ('Certificate of Residency', 1, 50.00),
     ('Certificate of Indigency', 1, 0.00),
-    ('Barangay Business Clearance', 1, 200.00);
+    ('Barangay Business Clearance', 1, NULL);
 
 INSERT INTO disclosure_category (category_id, category_name) VALUES
     (1, 'Announcements'),

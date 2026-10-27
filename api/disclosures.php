@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 } 
 
 elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    requireAdminAccess();
+    requireAdminAccess('staff.manage');
 
     try {
         $title = trim(is_string($_POST['title'] ?? null) ? $_POST['title'] : '');
@@ -160,7 +160,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-    requireAdminAccess();
+    requireAdminAccess('staff.manage');
     $data = jsonBody(12000);
     $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
     $title = trim(is_string($data['title'] ?? null) ? $data['title'] : '');
@@ -190,7 +190,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 }
 
 elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-    requireAdminAccess();
+    requireAdminAccess('staff.manage');
     $data = jsonBody(8192);
     $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
     if (!$id) {

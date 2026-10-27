@@ -18,11 +18,15 @@ try {
     $firstName = trim(is_string($_POST['firstName'] ?? null) ? $_POST['firstName'] : '');
     $middleName = trim(is_string($_POST['middleName'] ?? null) ? $_POST['middleName'] : '');
     $lastName = trim(is_string($_POST['lastName'] ?? null) ? $_POST['lastName'] : '');
+    $suffix = trim(is_string($_POST['suffix'] ?? null) ? $_POST['suffix'] : '');
     $phone = trim(is_string($_POST['phone'] ?? null) ? $_POST['phone'] : '');
     $address = trim(is_string($_POST['address'] ?? null) ? $_POST['address'] : '');
+    $birthDate = trim(is_string($_POST['birthDate'] ?? null) ? $_POST['birthDate'] : '');
+    $civilStatus = trim(is_string($_POST['civilStatus'] ?? null) ? $_POST['civilStatus'] : '');
+    $gender = trim(is_string($_POST['gender'] ?? null) ? $_POST['gender'] : '');
     $termsAccepted = ($_POST['termsAccepted'] ?? '') === '1';
     $privacyNoticeAcknowledged = ($_POST['privacyNoticeAcknowledged'] ?? '') === '1';
-    if (!$email || !$password || !$firstName || !$lastName || !$address || !$termsAccepted) {
+    if (!$email || !$password || !$firstName || !$lastName || !$address || !$birthDate || !$termsAccepted) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Registration could not be completed. Check your details and try again.']);
         exit;
@@ -36,9 +40,21 @@ try {
         exit;
     }
     $validName = static fn(string $name): bool => (bool) preg_match('/^[\p{L}\p{M} .\'-]{1,100}$/u', $name);
+    $manilaTimezone = new DateTimeZone('Asia/Manila');
+    $todayInManila = new DateTimeImmutable('today', $manilaTimezone);
+    $dateOfBirth = DateTimeImmutable::createFromFormat('!Y-m-d', $birthDate, $manilaTimezone);
+    $birthDateValid = $dateOfBirth instanceof DateTimeImmutable
+        && $dateOfBirth->format('Y-m-d') === $birthDate
+        && $dateOfBirth <= $todayInManila
+        && $dateOfBirth >= $todayInManila->modify('-120 years');
+    $allowedSuffixes = ['', 'Jr.', 'Sr.', 'II', 'III', 'IV'];
+    $allowedCivilStatuses = ['', 'Single', 'Married', 'Widowed', 'Separated', 'Prefer not to say'];
+    $allowedGenders = ['', 'Female', 'Male', 'Other', 'Prefer not to say'];
     if (strlen($email) > 190 || !isAllowedEmailProvider($email)
         || !passwordMeetsPolicy($password)
         || !$validName($firstName) || !$validName($lastName) || ($middleName !== '' && !$validName($middleName))
+        || !in_array($suffix, $allowedSuffixes, true) || !$birthDateValid
+        || !in_array($civilStatus, $allowedCivilStatuses, true) || !in_array($gender, $allowedGenders, true)
         || strlen($address) > 255 || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', $address)
         || ($phone !== '' && !isValidPhilippineMobile($phone))) {
         http_response_code(400);
@@ -76,9 +92,9 @@ try {
 
     $passwordHash = password_hash($password, PASSWORD_DEFAULT);
     $stmt = $pdo->prepare(
-        "INSERT INTO resident (first_name, middle_name, last_name, email, phone_number, address, password_hash, is_active, terms_accepted_at, terms_version, privacy_notice_acknowledged_at, privacy_notice_version) VALUES (?, ?, ?, ?, ?, ?, ?, 1, UTC_TIMESTAMP(), '2026-10-21', ?, ?)"
+        "INSERT INTO resident (first_name, middle_name, last_name, suffix, email, phone_number, address, date_of_birth, civil_status, gender, password_hash, is_active, terms_accepted_at, terms_version, privacy_notice_acknowledged_at, privacy_notice_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, UTC_TIMESTAMP(), '2026-10-27', ?, ?)"
     );
-    $stmt->execute([$firstName, $middleName, $lastName, $email, $phone, $address, $passwordHash, $privacyNoticeAcknowledged ? gmdate('Y-m-d H:i:s') : null, $privacyNoticeAcknowledged ? '2026-10-21' : null]);
+    $stmt->execute([$firstName, $middleName, $lastName, $suffix ?: null, $email, $phone, $address, $birthDate, $civilStatus ?: null, $gender ?: null, $passwordHash, $privacyNoticeAcknowledged ? gmdate('Y-m-d H:i:s') : null, $privacyNoticeAcknowledged ? '2026-10-27' : null]);
     $residentId = (int) $pdo->lastInsertId();
 
     $rawToken = bin2hex(random_bytes(32));

@@ -1,6 +1,6 @@
 <?php
 require_once 'db.php';
-requireAdminAccess();
+requireAdminAccess('residents.view');
 $requestId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
 if (!$requestId) { http_response_code(400); exit('Invalid request.'); }
 $stmt = $pdo->prepare('SELECT proof_path FROM document_request WHERE request_id = ? AND request_source = \'online\'');

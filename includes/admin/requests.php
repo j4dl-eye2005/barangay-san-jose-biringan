@@ -17,6 +17,14 @@
                                     <div class="input-group"><label for="walkin-address">Address (optional)</label><input id="walkin-address" name="address" maxlength="255" placeholder="Enter address"></div>
                                     <div class="input-group"><label for="walkin-doc-type">Document type *</label><select id="walkin-doc-type" name="documentTypeId" required><option value="" selected disabled>Select a document</option></select></div>
                                     <div class="input-group"><label for="walkin-purpose">Purpose *</label><textarea id="walkin-purpose" name="purpose" required maxlength="2000" rows="3" placeholder="Briefly state why the document is needed"></textarea></div>
+                                    <fieldset id="walkin-business-fields" class="input-group business-request-fields" hidden>
+                                        <legend>Business details</legend>
+                                        <label for="walkin-business-name">Business name</label><input id="walkin-business-name" name="businessName" maxlength="180" disabled>
+                                        <label for="walkin-business-category">Business type</label><select id="walkin-business-category" name="businessCategory" disabled><option value="">Choose type</option><option value="solo">Individual / sole proprietor</option><option value="organization">Organization / partnership / corporation</option></select>
+                                        <label for="walkin-business-address">Business address</label><input id="walkin-business-address" name="businessAddress" maxlength="255" disabled>
+                                        <label for="walkin-business-activity">Business activity</label><input id="walkin-business-activity" name="businessActivity" maxlength="180" placeholder="e.g. sari-sari store, food services" disabled>
+                                        <p class="field-help">The barangay will confirm the applicable fee. City or municipal permits and inspections remain separate.</p>
+                                    </fieldset>
                                 </div>
                             </div>
                             <div class="walkin-form-actions"><button class="btn-solid" type="submit">Save walk-in request</button><button class="walkin-cancel" type="button" data-action-click="cancelWalkInRequest()">Cancel</button></div>

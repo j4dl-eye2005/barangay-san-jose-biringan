@@ -2,7 +2,7 @@
 require_once 'db.php';
 require_once __DIR__ . '/email.php';
 header('Content-Type: application/json; charset=utf-8');
-requireAdminAccess();
+requireAdminAccess('requests.create');
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') { http_response_code(405); echo json_encode(['success'=>false, 'message'=>'Method not allowed']); exit; }
 if (!rateLimit($pdo, 'walk-in-request', 30, 3600)) { http_response_code(429); echo json_encode(['success'=>false, 'message'=>'Too many walk-in entries. Try again later.']); exit; }
 $data = jsonBody(12000);
@@ -21,10 +21,22 @@ $type = $pdo->prepare('SELECT document_type_id, name, fee_amount FROM document_t
 $type->execute([$documentTypeId]);
 $documentType = $type->fetch();
 if (!$documentType) { http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Choose an available document type.']); exit; }
+$isBusinessClearance = stripos((string) $documentType['name'], 'business') !== false;
+$businessName = trim(is_string($data['businessName'] ?? null) ? $data['businessName'] : '');
+$businessCategory = is_string($data['businessCategory'] ?? null) ? $data['businessCategory'] : '';
+$businessAddress = trim(is_string($data['businessAddress'] ?? null) ? $data['businessAddress'] : '');
+$businessActivity = trim(is_string($data['businessActivity'] ?? null) ? $data['businessActivity'] : '');
+if ($isBusinessClearance && ($businessName === '' || strlen($businessName) > 180
+    || !in_array($businessCategory, ['solo', 'organization'], true)
+    || $businessAddress === '' || strlen($businessAddress) > 255
+    || $businessActivity === '' || strlen($businessActivity) > 180)) {
+    http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Enter the business name, type, address, and activity.']); exit;
+}
 $trackingCode = 'REQ-' . strtoupper(bin2hex(random_bytes(8)));
-$paymentStatus = $documentType['fee_amount'] !== null && (float) $documentType['fee_amount'] === 0.0 ? 'Not Required' : 'Unpaid';
-$insert = $pdo->prepare("INSERT INTO document_request (tracking_code, resident_id, document_type_id, purpose, request_source, walk_in_name, walk_in_phone, walk_in_address, payment_status) VALUES (?, NULL, ?, ?, 'walk_in', ?, ?, ?, ?)");
-$insert->execute([$trackingCode, $documentTypeId, $purpose, $name, $phone ?: null, $address ?: null, $paymentStatus]);
+$assessedFee = $isBusinessClearance ? null : $documentType['fee_amount'];
+$paymentStatus = $assessedFee !== null && (float) $assessedFee === 0.0 ? 'Not Required' : 'Unpaid';
+$insert = $pdo->prepare("INSERT INTO document_request (tracking_code, resident_id, document_type_id, purpose, request_source, walk_in_name, walk_in_phone, walk_in_address, payment_status, assessed_fee, business_name, business_category, business_address, business_activity) VALUES (?, NULL, ?, ?, 'walk_in', ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+$insert->execute([$trackingCode, $documentTypeId, $purpose, $name, $phone ?: null, $address ?: null, $paymentStatus, $assessedFee, $isBusinessClearance ? $businessName : null, $isBusinessClearance ? $businessCategory : null, $isBusinessClearance ? $businessAddress : null, $isBusinessClearance ? $businessActivity : null]);
 $requestId = (int) $pdo->lastInsertId();
 $audit = $pdo->prepare("INSERT INTO audit_log (user_id, action, details) VALUES (?, 'walk_in_request_created', ?)");
 $audit->execute([(int) $_SESSION['user_id'], 'Request ID ' . $requestId . '; Tracking ' . $trackingCode]);

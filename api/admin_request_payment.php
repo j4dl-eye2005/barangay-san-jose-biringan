@@ -1,7 +1,7 @@
 <?php
 require_once 'db.php';
 header('Content-Type: application/json; charset=utf-8');
-requireAdminAccess();
+requireAdminAccess('payments.manage');
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     header('Allow: POST');
     http_response_code(405);
@@ -12,7 +12,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 $data = jsonBody(8192);
 $requestId = filter_var($data['request_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 $status = is_string($data['payment_status'] ?? null) ? $data['payment_status'] : '';
-if (!$requestId || !in_array($status, ['Paid', 'Unpaid'], true)) {
+ $reference = trim(is_string($data['reference'] ?? null) ? $data['reference'] : '');
+if (!$requestId || !in_array($status, ['Paid', 'Unpaid'], true) || strlen($reference) > 120 || preg_match('/[\x00-\x1F\x7F]/', $reference)) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'A valid request and payment status are required']);
     exit;
@@ -20,7 +21,10 @@ if (!$requestId || !in_array($status, ['Paid', 'Unpaid'], true)) {
 
 try {
     $pdo->beginTransaction();
-    $lookup = $pdo->prepare('SELECT dr.payment_status, dr.current_status, dt.fee_amount FROM document_request dr JOIN document_type dt ON dt.document_type_id = dr.document_type_id WHERE dr.request_id = ? FOR UPDATE');
+    $lookup = $pdo->prepare("SELECT dr.payment_status, dr.current_status, COALESCE(dr.assessed_fee, dt.fee_amount) AS fee_amount,
+                                    (SELECT rpt.payment_id FROM request_payment_transaction rpt WHERE rpt.request_id = dr.request_id AND rpt.status = 'confirmed' ORDER BY rpt.recorded_at DESC, rpt.payment_id DESC LIMIT 1) AS latest_payment_id,
+                                    (SELECT rpt.method FROM request_payment_transaction rpt WHERE rpt.request_id = dr.request_id AND rpt.status = 'confirmed' ORDER BY rpt.recorded_at DESC, rpt.payment_id DESC LIMIT 1) AS latest_payment_method
+                             FROM document_request dr JOIN document_type dt ON dt.document_type_id = dr.document_type_id WHERE dr.request_id = ? FOR UPDATE");
     $lookup->execute([$requestId]);
     $request = $lookup->fetch();
     if (!$request) {
@@ -29,10 +33,10 @@ try {
         echo json_encode(['success' => false, 'message' => 'Request not found']);
         exit;
     }
-    if ($request['fee_amount'] !== null && (float) $request['fee_amount'] === 0.0) {
+    if ($request['fee_amount'] === null || (float) $request['fee_amount'] <= 0) {
         $pdo->rollBack();
         http_response_code(409);
-        echo json_encode(['success' => false, 'message' => 'This document does not require payment']);
+        echo json_encode(['success' => false, 'message' => 'A positive assessed fee is required before recording payment.']);
         exit;
     }
     if ($request['payment_status'] === 'Pending Verification') {
@@ -48,10 +52,34 @@ try {
         exit;
     }
 
-    $update = $pdo->prepare('UPDATE document_request SET payment_status = ?, payment_reviewed_at = UTC_TIMESTAMP(), payment_reviewed_by_user_id = ?, payment_rejection_reason = NULL WHERE request_id = ?');
-    $update->execute([$status, (int) $_SESSION['user_id'], $requestId]);
+    if ($status === 'Paid') {
+        if ($request['payment_status'] === 'Paid') {
+            $pdo->rollBack();
+            http_response_code(409);
+            echo json_encode(['success' => false, 'message' => 'This request is already recorded as paid.']);
+            exit;
+        }
+        $record = $pdo->prepare("INSERT INTO request_payment_transaction (request_id, amount, method, reference, recorded_by_user_id, recorded_at) VALUES (?, ?, 'cash', ?, ?, UTC_TIMESTAMP())");
+        $record->execute([$requestId, $request['fee_amount'], $reference !== '' ? $reference : null, (int) $_SESSION['user_id']]);
+        $update = $pdo->prepare('UPDATE document_request SET payment_status = \'Paid\', payment_reference = ?, payment_reviewed_at = UTC_TIMESTAMP(), payment_reviewed_by_user_id = ?, payment_rejection_reason = NULL WHERE request_id = ?');
+        $update->execute([$reference !== '' ? $reference : null, (int) $_SESSION['user_id'], $requestId]);
+        $actionText = 'cash payment recorded';
+    } else {
+        if ($request['payment_status'] !== 'Paid' || $request['latest_payment_method'] !== 'cash' || !$request['latest_payment_id']) {
+            $pdo->rollBack();
+            http_response_code(409);
+            echo json_encode(['success' => false, 'message' => 'Only an in-person cash payment can be reversed here. Online proof decisions must be corrected by the payment reviewer.']);
+            exit;
+        }
+        $reverse = $pdo->prepare("UPDATE request_payment_transaction SET status = 'reversed', reversed_by_user_id = ?, reversed_at = UTC_TIMESTAMP() WHERE payment_id = ? AND status = 'confirmed'");
+        $reverse->execute([(int) $_SESSION['user_id'], (int) $request['latest_payment_id']]);
+        if ($reverse->rowCount() !== 1) throw new RuntimeException('Payment transaction changed before reversal.');
+        $update = $pdo->prepare("UPDATE document_request SET payment_status = 'Unpaid', payment_reference = NULL, payment_reviewed_at = UTC_TIMESTAMP(), payment_reviewed_by_user_id = ?, payment_rejection_reason = NULL WHERE request_id = ?");
+        $update->execute([(int) $_SESSION['user_id'], $requestId]);
+        $actionText = 'cash payment reversed';
+    }
     $audit = $pdo->prepare('INSERT INTO audit_log (user_id, action, details) VALUES (?, ?, ?)');
-    $audit->execute([(int) $_SESSION['user_id'], 'request_payment_updated', 'Request ID ' . $requestId . ' payment manually marked ' . strtolower($status)]);
+    $audit->execute([(int) $_SESSION['user_id'], 'request_payment_updated', 'Request ID ' . $requestId . ' ' . $actionText . ($reference !== '' ? '; reference recorded' : '')]);
     $pdo->commit();
     echo json_encode(['success' => true, 'payment_status' => $status]);
 } catch (Throwable $error) {

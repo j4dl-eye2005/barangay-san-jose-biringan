@@ -46,7 +46,7 @@ $oldStoredPath = null;
 try {
     $pdo->beginTransaction();
     $lookup = $pdo->prepare("SELECT dr.request_id, dr.tracking_code, dr.current_status, dr.payment_status, dr.payment_proof_path,
-                                    dt.name AS document_name, dt.fee_amount, r.email
+                                    dt.name AS document_name, COALESCE(dr.assessed_fee, dt.fee_amount) AS fee_amount, r.email
                              FROM document_request dr
                              JOIN document_type dt ON dt.document_type_id = dr.document_type_id
                              JOIN resident r ON r.resident_id = dr.resident_id

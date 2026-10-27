@@ -3,7 +3,7 @@ require_once 'db.php';
 require_once __DIR__ . '/email.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, private');
-requireAdminAccess();
+requireAdminAccess('payments.manage');
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     header('Allow: POST');
     http_response_code(405);
@@ -26,7 +26,7 @@ if (!$requestId || !in_array($action, ['verify', 'reject'], true)
 try {
     $pdo->beginTransaction();
     $lookup = $pdo->prepare("SELECT dr.payment_status, dr.payment_proof_path, dr.tracking_code, dr.current_status,
-                                    dt.name AS document_name, dt.fee_amount, r.email, r.first_name
+                                    dt.name AS document_name, COALESCE(dr.assessed_fee, dt.fee_amount) AS fee_amount, dr.payment_reference, r.email, r.first_name
                              FROM document_request dr
                              JOIN document_type dt ON dt.document_type_id = dr.document_type_id
                              LEFT JOIN resident r ON r.resident_id = dr.resident_id
@@ -62,6 +62,10 @@ try {
 
     $newStatus = $action === 'verify' ? 'Paid' : 'Rejected';
     $reviewReason = $action === 'reject' ? $reason : null;
+    if ($action === 'verify') {
+        $record = $pdo->prepare("INSERT INTO request_payment_transaction (request_id, amount, method, reference, recorded_by_user_id, recorded_at) VALUES (?, ?, 'online_proof', ?, ?, UTC_TIMESTAMP())");
+        $record->execute([$requestId, $request['fee_amount'], $request['payment_reference'], (int) $_SESSION['user_id']]);
+    }
     $update = $pdo->prepare('UPDATE document_request SET payment_status = ?, payment_reviewed_at = UTC_TIMESTAMP(), payment_reviewed_by_user_id = ?, payment_rejection_reason = ? WHERE request_id = ? AND payment_status = \'Pending Verification\'');
     $update->execute([$newStatus, (int) $_SESSION['user_id'], $reviewReason, $requestId]);
     if ($update->rowCount() !== 1) throw new RuntimeException('Payment review state changed before the update completed.');

@@ -2,7 +2,7 @@
 require_once 'db.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, private');
-requireAdminAccess();
+requireAdminAccess('staff.manage');
 
 $adminId = (int) $_SESSION['user_id'];
 $method = $_SERVER['REQUEST_METHOD'] ?? '';

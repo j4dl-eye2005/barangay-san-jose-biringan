@@ -106,20 +106,27 @@ if ($method === 'POST' && $isAdmin && in_array($action, ['mfa_begin','mfa_confir
 
 if ($method !== 'GET') { http_response_code(405); echo json_encode(['success'=>false,'message'=>'Method not allowed.']); exit; }
 $fields = $isAdmin
-    ? 'email, first_name, middle_name, last_name, profile_photo, position_title, contact_number, notification_new_requests, notification_payment_verification, password_changed_at, admin_mfa_enabled_at'
-    : 'email, first_name, middle_name, last_name, phone_number, profile_photo, password_changed_at, email_verified_at';
+    ? 'email, first_name, middle_name, last_name, profile_photo, position_title, contact_number, staff_role, notification_new_requests, notification_payment_verification, password_changed_at, admin_mfa_enabled_at'
+    : 'email, first_name, middle_name, last_name, suffix, phone_number, address, date_of_birth, civil_status, gender, profile_photo, password_changed_at, email_verified_at';
 $stmt = $pdo->prepare("SELECT $fields FROM $table WHERE $idColumn = ? LIMIT 1"); $stmt->execute([$id]); $profile = $stmt->fetch();
 if (!$profile) { http_response_code(404); echo json_encode(['success'=>false,'message'=>'Profile not found.']); exit; }
 $payload = ['success'=>true,'photo'=>$profile['profile_photo'] ?: null,'passwordChangedAt'=>$profile['password_changed_at']];
 if ($isAdmin) {
-    $payload['permissions'] = ['Approve, reject, and update document requests','Create walk-in requests','Manage resident accounts','Publish and manage public disclosures','Review administrative activity and security events'];
+    $payload['staffRole'] = $profile['staff_role'] ?: 'service_clerk';
+    $permissionLabels = [
+        'super_admin' => ['Manage staff access', 'Review requests, residents, collections, disclosures, and security activity', 'Issue reviewed print-ready documents'],
+        'service_clerk' => ['Review and update requests', 'Create walk-in requests', 'View resident accounts', 'Preview documents'],
+        'cashier' => ['Review payment submissions', 'Record in-person collections', 'View collection history'],
+        'document_issuer' => ['View requests needed to prepare documents', 'Preview and record staff-reviewed document printouts'],
+    ];
+    $payload['permissions'] = $permissionLabels[$payload['staffRole']] ?? [];
     $payload += ['position'=>$profile['position_title'] ?: '','contactNumber'=>$profile['contact_number'] ?: '','mfaEnabled'=>!empty($profile['admin_mfa_enabled_at']),'mfaEnabledAt'=>$profile['admin_mfa_enabled_at'],'notifications'=>['newRequests'=>(bool)$profile['notification_new_requests'],'paymentVerification'=>(bool)$profile['notification_payment_verification']]];
     $sessionList = $pdo->prepare('SELECT session_key, user_agent, created_at, last_active_at FROM account_session WHERE account_type = ? AND account_id = ? AND last_active_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY) ORDER BY last_active_at DESC LIMIT 20');
     $sessionList->execute(['admin',$id]); $payload['sessions'] = array_map(static function($row) { return ['current'=>hash_equals((string)$row['session_key'],hash('sha256',session_id())),'device'=>substr((string)$row['user_agent'],0,120) ?: 'Unknown device','createdAt'=>$row['created_at'],'lastActiveAt'=>$row['last_active_at']]; }, $sessionList->fetchAll());
     $signin = $pdo->prepare("SELECT action, details, created_at FROM audit_log WHERE user_id = ? AND action IN ('admin_login_mfa','admin_mfa_failed','failed_admin_login') ORDER BY created_at DESC LIMIT 10"); $signin->execute([$id]); $payload['signIns'] = $signin->fetchAll();
     $actions = $pdo->prepare("SELECT action, details, created_at FROM audit_log WHERE user_id = ? AND action NOT IN ('admin_login_mfa','admin_mfa_failed') ORDER BY created_at DESC LIMIT 10"); $actions->execute([$id]); $payload['recentActions'] = $actions->fetchAll();
 } else {
-    $payload += ['phoneNumber'=>$profile['phone_number'] ?: '', 'emailVerified'=>!empty($profile['email_verified_at'])];
+    $payload += ['name'=>trim(implode(' ', array_filter([$profile['first_name'], $profile['middle_name'], $profile['last_name'], $profile['suffix']]))), 'phoneNumber'=>$profile['phone_number'] ?: '', 'address'=>$profile['address'] ?: '', 'dateOfBirth'=>$profile['date_of_birth'] ?: null, 'civilStatus'=>$profile['civil_status'] ?: '', 'gender'=>$profile['gender'] ?: '', 'emailVerified'=>!empty($profile['email_verified_at'])];
 }
 echo json_encode($payload);
 ?>

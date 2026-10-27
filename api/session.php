@@ -10,11 +10,13 @@ header('Content-Type: application/json');
 header('Cache-Control: no-store, private');
 
 if (isset($_SESSION['user_id'])) {
-    $adminProfile = $pdo->prepare('SELECT email FROM user WHERE user_id = ? AND role = ? LIMIT 1');
+    $adminProfile = $pdo->prepare('SELECT email, staff_role FROM user WHERE user_id = ? AND role = ? LIMIT 1');
     $adminProfile->execute([(int) $_SESSION['user_id'], 'Admin']);
-    $adminEmail = (string) ($adminProfile->fetchColumn() ?: ($_SESSION['email'] ?? ''));
+    $adminRecord = $adminProfile->fetch(PDO::FETCH_ASSOC) ?: [];
+    $adminEmail = (string) ($adminRecord['email'] ?? ($_SESSION['email'] ?? ''));
+    $staffRole = (string) ($adminRecord['staff_role'] ?? '');
     $_SESSION['email'] = $adminEmail;
-    echo json_encode(['loggedIn' => true, 'id' => (int) $_SESSION['user_id'], 'name' => (string) ($_SESSION['fullName'] ?? ''), 'email' => $adminEmail, 'role' => 'Admin', 'createdAt' => (int) ($_SESSION['_created_at'] ?? time())]);
+    echo json_encode(['loggedIn' => true, 'id' => (int) $_SESSION['user_id'], 'name' => (string) ($_SESSION['fullName'] ?? ''), 'email' => $adminEmail, 'role' => 'Admin', 'staffRole' => $staffRole, 'createdAt' => (int) ($_SESSION['_created_at'] ?? time())]);
 } elseif (isset($_SESSION['resident_id'])) {
     $profile = $pdo->prepare('SELECT email, phone_number, email_verified_at, archived_at FROM resident WHERE resident_id = ?');
     $profile->execute([(int) $_SESSION['resident_id']]);

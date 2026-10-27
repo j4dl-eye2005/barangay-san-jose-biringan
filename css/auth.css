@@ -47,6 +47,7 @@
 
 /* Column spans */
 .reg-col-3  { grid-column: span 3; }
+.reg-col-4  { grid-column: span 4; }
 .reg-col-6  { grid-column: span 6; }
 .reg-col-12 { grid-column: span 12; }
 
@@ -221,7 +222,7 @@ body[data-route-start="register"] #register .reg-right-panel {
     .reg-right-panel { grid-column: 1; min-height: auto !important; margin-top: 180px; }
     #register .reg-right-panel { padding-top: 52px; }
     .reg-form-container { width: min(100% - 40px, 600px); padding: 0 0 20px; }
-    .reg-col-3, .reg-col-6, .reg-col-12 { grid-column: span 12; }
+    .reg-col-3, .reg-col-4, .reg-col-6, .reg-col-12 { grid-column: span 12; }
     .reg-proof-row { flex-direction: column; }
     .reg-proof-docs { flex: none; width: 100%; }
     .reg-grid-pw .reg-col-6 { grid-column: span 12; }

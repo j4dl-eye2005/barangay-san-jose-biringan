@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
     
     if ($_SESSION['role'] === 'Admin') {
-        requireAdminAccess();
+        requireAdminAccess('requests.view');
         $page = max(1, min(1000, filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT) ?: 1));
         $perPage = 25;
         $offset = ($page - 1) * $perPage;
@@ -52,11 +52,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                    dr.payment_rejection_reason, dr.rejection_reason, dr.created_at, dr.request_source, dr.proof_type,
                    CASE WHEN dr.request_source = 'online' AND dr.proof_path IS NOT NULL THEN CONCAT('api/request_proof.php?id=', dr.request_id) ELSE NULL END AS proof_url,
                    CASE WHEN dr.proof_path IS NULL THEN NULL ELSE LOWER(SUBSTRING_INDEX(dr.proof_path, '.', -1)) END AS proof_format,
-                   dt.name AS documentType, dt.fee_amount AS fee_amount,
+                   dt.name AS documentType, COALESCE(dr.assessed_fee, dt.fee_amount) AS fee_amount,
                    (SELECT rsl.notes FROM request_status_log rsl
                     WHERE rsl.request_id = dr.request_id AND rsl.status = 'Ready for Pickup'
                     ORDER BY rsl.created_at DESC, rsl.log_id DESC LIMIT 1) AS pickupDetails,
-                   COALESCE(NULLIF(CONCAT_WS(' ', r.first_name, r.middle_name, r.last_name), ''), dr.walk_in_name) AS residentName,
+                   COALESCE(NULLIF(CONCAT_WS(' ', r.first_name, r.middle_name, r.last_name, r.suffix), ''), dr.walk_in_name) AS residentName,
                    r.email AS residentEmail, COALESCE(r.phone_number, dr.walk_in_phone) AS residentPhone,
                    COALESCE(r.address, dr.walk_in_address) AS residentAddress
             FROM document_request dr
@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             SELECT dr.request_id, dr.tracking_code, dr.resident_id, dr.document_type_id, dr.purpose,
                    dr.current_status, dr.payment_status, dr.payment_reference, dr.payment_submitted_at,
                    dr.payment_rejection_reason, dr.rejection_reason, dr.created_at,
-                   dt.name AS documentType, dt.fee_amount AS fee_amount,
+                   dt.name AS documentType, COALESCE(dr.assessed_fee, dt.fee_amount) AS fee_amount,
                    (SELECT rsl.notes
                     FROM request_status_log rsl
                     WHERE rsl.request_id = dr.request_id
@@ -90,7 +90,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         http_response_code(403); echo json_encode(['success' => false, 'message' => 'Access denied']); exit;
     }
     if ($_SESSION['role'] === 'Admin') {
-        echo json_encode(['success' => true, 'requests' => $stmt->fetchAll(), 'page' => $page, 'per_page' => $perPage, 'total' => $total, 'pages' => (int) ceil($total / $perPage), 'status_counts' => $statusCounts]);
+        $requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $staffRoleStmt = $pdo->prepare("SELECT staff_role FROM `user` WHERE user_id = ? AND role = 'Admin' LIMIT 1");
+        $staffRoleStmt->execute([(int) $_SESSION['user_id']]);
+        $staffRole = (string) ($staffRoleStmt->fetchColumn() ?: '');
+        if (!in_array($staffRole, ['super_admin', 'cashier'], true)) {
+            foreach ($requests as &$request) {
+                foreach (['payment_reference', 'payment_submitted_at', 'payment_rejection_reason'] as $financialField) {
+                    $request[$financialField] = null;
+                }
+            }
+            unset($request);
+        }
+        if ($staffRole === 'document_issuer') {
+            foreach ($requests as &$request) {
+                foreach (['resident_id', 'purpose', 'payment_reference', 'payment_submitted_at', 'payment_rejection_reason', 'rejection_reason', 'proof_type', 'proof_url', 'proof_format', 'residentEmail', 'residentPhone', 'residentAddress'] as $privateField) {
+                    $request[$privateField] = null;
+                }
+            }
+            unset($request);
+        }
+        echo json_encode(['success' => true, 'requests' => $requests, 'page' => $page, 'per_page' => $perPage, 'total' => $total, 'pages' => (int) ceil($total / $perPage), 'status_counts' => $statusCounts]);
     } else {
         echo json_encode($stmt->fetchAll());
     }
@@ -123,15 +143,27 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $type->execute([$documentTypeId]);
     $documentType = $type->fetch();
     if (!$documentType) { http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Choose an available document type.']); exit; }
+    $isBusinessClearance = stripos((string) $documentType['name'], 'business') !== false;
+    $businessName = trim(is_string($data['businessName'] ?? null) ? $data['businessName'] : '');
+    $businessCategory = is_string($data['businessCategory'] ?? null) ? $data['businessCategory'] : '';
+    $businessAddress = trim(is_string($data['businessAddress'] ?? null) ? $data['businessAddress'] : '');
+    $businessActivity = trim(is_string($data['businessActivity'] ?? null) ? $data['businessActivity'] : '');
+    if ($isBusinessClearance && ($businessName === '' || strlen($businessName) > 180
+        || !in_array($businessCategory, ['solo', 'organization'], true)
+        || $businessAddress === '' || strlen($businessAddress) > 255
+        || $businessActivity === '' || strlen($businessActivity) > 180)) {
+        http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Enter the business name, type, address, and activity.']); exit;
+    }
     $proofDirectory = privateStorageDirectory('proofs');
     $proofName = bin2hex(random_bytes(16)) . '.' . $extension;
     if (!move_uploaded_file((string) $proof['tmp_name'], $proofDirectory . DIRECTORY_SEPARATOR . $proofName)) { throw new RuntimeException('Unable to save request proof.'); }
     $proofPath = 'proofs/' . $proofName;
     $trackingCode = 'REQ-' . strtoupper(bin2hex(random_bytes(8)));
     try {
-        $paymentStatus = $documentType['fee_amount'] !== null && (float) $documentType['fee_amount'] === 0.0 ? 'Not Required' : 'Unpaid';
-        $stmt = $pdo->prepare("INSERT INTO document_request (tracking_code, resident_id, document_type_id, purpose, request_source, proof_path, proof_type, payment_status) VALUES (?, ?, ?, ?, 'online', ?, ?, ?)");
-        $stmt->execute([$trackingCode, $_SESSION['resident_id'], $documentTypeId, $purpose, $proofPath, $proofType, $paymentStatus]);
+        $assessedFee = $isBusinessClearance ? null : $documentType['fee_amount'];
+        $paymentStatus = $assessedFee !== null && (float) $assessedFee === 0.0 ? 'Not Required' : 'Unpaid';
+        $stmt = $pdo->prepare("INSERT INTO document_request (tracking_code, resident_id, document_type_id, purpose, request_source, proof_path, proof_type, payment_status, assessed_fee, business_name, business_category, business_address, business_activity) VALUES (?, ?, ?, ?, 'online', ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$trackingCode, $_SESSION['resident_id'], $documentTypeId, $purpose, $proofPath, $proofType, $paymentStatus, $assessedFee, $isBusinessClearance ? $businessName : null, $isBusinessClearance ? $businessCategory : null, $isBusinessClearance ? $businessAddress : null, $isBusinessClearance ? $businessActivity : null]);
     } catch (Throwable $e) {
         if (is_file($proofDirectory . DIRECTORY_SEPARATOR . $proofName)) unlink($proofDirectory . DIRECTORY_SEPARATOR . $proofName);
         throw $e;

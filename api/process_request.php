@@ -4,7 +4,7 @@ require_once 'email.php';
 require_once 'config.php';
 header('Content-Type: application/json');
 
-requireAdminAccess();
+requireAdminAccess('requests.manage');
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['success'=>false, 'message'=>'Method not allowed']); exit; }
 
 $data = jsonBody(12000);
@@ -34,7 +34,7 @@ if (!in_array($action, ['Approve', 'Reject', 'Ready', 'Pickup'], true)) {
 
 $pdo->beginTransaction();
 try {
-    $lock = $pdo->prepare('SELECT dr.current_status, dr.payment_status, dt.fee_amount
+    $lock = $pdo->prepare('SELECT dr.current_status, dr.payment_status, COALESCE(dr.assessed_fee, dt.fee_amount) AS fee_amount
                            FROM document_request dr
                            JOIN document_type dt ON dt.document_type_id = dr.document_type_id
                            WHERE dr.request_id = ? FOR UPDATE');

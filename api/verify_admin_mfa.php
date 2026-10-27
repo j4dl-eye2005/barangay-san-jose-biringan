@@ -33,7 +33,7 @@ if (!preg_match('/^(?:\d{6}|[A-F0-9]{20})$/', $code)) {
     exit;
 }
 
-$stmt = $pdo->prepare('SELECT user_id, first_name, last_name, email, role, auth_version, admin_mfa_secret_enc, admin_mfa_enabled_at, admin_mfa_last_counter FROM user WHERE user_id = ? LIMIT 1');
+$stmt = $pdo->prepare('SELECT user_id, first_name, last_name, email, role, staff_role, auth_version, admin_mfa_secret_enc, admin_mfa_enabled_at, admin_mfa_last_counter FROM user WHERE user_id = ? LIMIT 1');
 $stmt->execute([$userId]);
 $user = $stmt->fetch();
 if (!$user || $user['role'] !== 'Admin' || !isset($_SESSION['pending_admin_auth_version'])
@@ -116,6 +116,7 @@ $_SESSION = [
     'role' => 'Admin',
     'fullName' => trim($user['first_name'] . ' ' . $user['last_name']),
     'email' => (string) $user['email'],
+    'staff_role' => (string) $user['staff_role'],
     'admin_entry_authorized' => true,
     'admin_entry_authorized_at' => $entryAuthorizedAt,
     'admin_mfa_verified_at' => time(),
@@ -128,6 +129,6 @@ $loginDetail = $isEnrollment
     ? 'Admin enrolled authenticator MFA'
     : ($usedRecoveryCode ? 'Admin completed MFA sign-in using a recovery code' : 'Admin completed MFA sign-in');
 $audit->execute([$userId, 'admin_login_mfa', $loginDetail . '; device ' . substr((string)($_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'), 0, 160)]);
-$response = ['success' => true, 'id' => $userId, 'name' => $_SESSION['fullName'], 'email' => $_SESSION['email'], 'role' => 'Admin', 'createdAt' => (int) $_SESSION['_created_at'], 'csrfToken' => $csrfToken];
+$response = ['success' => true, 'id' => $userId, 'name' => $_SESSION['fullName'], 'email' => $_SESSION['email'], 'role' => 'Admin', 'staffRole' => $_SESSION['staff_role'], 'createdAt' => (int) $_SESSION['_created_at'], 'csrfToken' => $csrfToken];
 if ($isEnrollment) $response['recoveryCodes'] = $issuedRecoveryCodes;
 echo json_encode($response);
