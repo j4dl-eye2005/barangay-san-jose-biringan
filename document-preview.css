@@ -1,1 +1,189 @@
 :root{color-scheme:light;--ink:#18352b;--muted:#64756c;--green:#1d6849;--line:#d7e1d8;--paper:#fff;--wash:#f1f6f1;font-family:Georgia,"Times New Roman",serif}*{box-sizing:border-box}body{margin:0;background:#eaf0eb;color:var(--ink)}.preview-toolbar{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:1.25rem;justify-content:space-between;padding:1rem max(1rem,calc((100vw - 1100px)/2));background:#fff;border-bottom:1px solid var(--line);font-family:Arial,sans-serif}.preview-toolbar>div:first-child{display:grid;gap:.25rem}.preview-toolbar strong{font-size:.95rem}.preview-toolbar span,.preview-toolbar p{color:var(--muted);font-size:.82rem;margin:0}.preview-actions{display:flex;gap:.6rem;flex-shrink:0}.preview-actions button{border:0;border-radius:8px;padding:.75rem 1rem;background:var(--green);color:#fff;font-weight:700;cursor:pointer}.preview-actions button.secondary{background:#e8f1ea;color:var(--green);border:1px solid #c5d8c8}.preview-actions button:disabled{opacity:.65;cursor:wait}.issue-feedback{position:absolute;right:1rem;bottom:-1.5rem;color:#165b3e!important}.paper{position:relative;overflow:hidden;width:min(210mm,calc(100% - 2rem));min-height:297mm;margin:2rem auto;padding:22mm 22mm 18mm;background:var(--paper);box-shadow:0 12px 34px #1d38291c}.sample-watermark{position:absolute;z-index:0;top:43%;left:-8%;width:116%;transform:rotate(-28deg);text-align:center;color:#bd38241c;font:700 36pt/1.15 Arial,sans-serif;letter-spacing:.11em;border-block:3px solid #bd38241c;padding:.35em 0;pointer-events:none}.document-header,.document-kicker,.paper h2,.document-number,.document-body,.issued-date,.signature-row,.document-footer,.green-rule{position:relative;z-index:1}.document-header{display:grid;grid-template-columns:25mm 1fr 25mm;gap:5mm;align-items:center;text-align:center}.barangay-seal{width:22mm;height:22mm;object-fit:contain}.seal-spacer{width:22mm}.header-copy p{margin:.1em 0;font-size:10pt}.header-copy h1{margin:.25em 0;font:bold 14pt Arial,sans-serif;letter-spacing:.06em}.placeholder{border-bottom:1px dotted #888;color:#777}.green-rule{height:2px;margin:7mm 0 4mm;background:var(--green)}.document-kicker{text-align:center;text-transform:uppercase;letter-spacing:.14em;font:700 8pt Arial,sans-serif;color:var(--green)}.paper h2{text-align:center;margin:2mm 0 1mm;font:bold 16pt Arial,sans-serif;letter-spacing:.035em}.document-number{text-align:center;color:var(--muted);font:9pt Arial,sans-serif}.document-body{margin-top:15mm;font-size:12pt;line-height:1.8;text-align:justify}.document-body p{margin:0 0 1.05em}.document-body strong{font-weight:700}.issued-date{margin-top:12mm;font-size:11pt}.signature-row{display:grid;grid-template-columns:1fr 1fr;gap:16mm;margin-top:22mm;text-align:center;font-family:Arial,sans-serif}.signature-block{display:grid;justify-items:center;gap:2mm}.signature-line{display:block;width:100%;height:12mm;border-bottom:1px solid #52645a}.signature-block strong{font-size:9pt}.signature-block small{max-width:65mm;color:var(--muted);font-size:8pt;line-height:1.4}.document-footer{position:absolute;bottom:9mm;left:22mm;right:22mm;display:flex;justify-content:space-between;gap:1rem;border-top:1px solid var(--line);padding-top:3mm;color:var(--muted);font:8pt Arial,sans-serif}@media(max-width:700px){.preview-toolbar{position:relative;display:grid;gap:.75rem;padding:1rem}.preview-actions{display:grid;grid-template-columns:1fr 1fr}.preview-actions button{padding:.75rem .5rem;font-size:.83rem}.paper{width:calc(100% - 1rem);min-height:0;margin:.5rem auto;padding:12mm 10mm 22mm}.document-header{grid-template-columns:18mm 1fr 18mm;gap:2mm}.barangay-seal,.seal-spacer{width:16mm;height:16mm}.header-copy p{font-size:8pt}.header-copy h1{font-size:10pt}.document-body{margin-top:10mm;font-size:10.5pt}.signature-row{gap:7mm;margin-top:15mm}.document-footer{left:10mm;right:10mm;bottom:8mm;font-size:7pt}}@page{size:A4;margin:0}@media print{body{background:#fff}.preview-toolbar{display:none}.paper{width:210mm;min-height:297mm;margin:0;box-shadow:none;page-break-after:avoid}.document-footer{position:absolute}.sample-watermark{color:#bd382426;border-color:#bd382426}}
+
+/* Certificate of Indigency layout based on the supplied print reference. */
+.paper--indigency {
+    width: min(210mm, calc(100% - 2rem));
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 210 / 297;
+    margin: 2rem auto;
+    padding: 0;
+    overflow: hidden;
+    background: #fff;
+    color: #1c1c1c;
+    font-family: Cambria, Georgia, "Times New Roman", serif;
+}
+.indigency-top-ribbon,
+.indigency-seal,
+.indigency-heading,
+.indigency-certificate-body,
+.indigency-signature,
+.indigency-footer-art,
+.indigency-title-banner,
+.indigency-contact,
+.indigency-watermark { position: absolute; }
+.indigency-top-ribbon {
+    top: 0;
+    left: 0;
+    z-index: 2;
+    width: 100%;
+    height: 13.468%;
+}
+.indigency-seal {
+    top: 3.03%;
+    left: 7.62%;
+    z-index: 3;
+    width: 16.19%;
+    height: 11.45%;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 0 2.5mm #fff;
+    object-fit: contain;
+}
+.indigency-heading {
+    top: 16.5%;
+    left: 7%;
+    right: 7%;
+    z-index: 2;
+    display: grid;
+    justify-items: center;
+    color: #0e5200;
+    text-align: center;
+}
+.indigency-republic { font-size: clamp(7px, 1.45vw, 11.5pt); letter-spacing: .12em; }
+.indigency-barangay { margin-top: .7%; font-size: clamp(14px, 3.42vw, 27pt); letter-spacing: .02em; line-height: 1.15; }
+.indigency-city { margin-top: .4%; font-size: clamp(8px, 1.64vw, 13pt); letter-spacing: .1em; }
+.indigency-office { margin-top: 1.2%; font-size: clamp(9px, 1.9vw, 15pt); }
+.indigency-watermark {
+    top: 50%;
+    left: 50%;
+    z-index: 1;
+    color: rgba(14, 82, 0, .075);
+    font: 800 clamp(24px, 6.3vw, 50mm)/1 Arial, Helvetica, sans-serif;
+    letter-spacing: .06em;
+    pointer-events: none;
+    white-space: nowrap;
+    transform: translate(-50%, -50%) rotate(-32deg);
+}
+.indigency-document-meta {
+    position: absolute;
+    top: 27%;
+    right: 10.48%;
+    left: 10.48%;
+    z-index: 2;
+    margin: 0;
+    color: #59645d;
+    font: clamp(7px, 1.2vw, 9pt)/1.35 Arial, Helvetica, sans-serif;
+    text-align: center;
+}
+.indigency-certificate-body {
+    top: 32.32%;
+    right: 10.48%;
+    left: 10.48%;
+    z-index: 2;
+    color: #1c1c1c;
+    font-size: clamp(9px, 1.6vw, 12pt);
+    line-height: 1.8;
+}
+.indigency-certificate-body p { margin: 0 0 2.35%; text-align: justify; }
+.indigency-certificate-body .indigency-to { margin-bottom: 1.7%; text-align: left; }
+.indigency-certificate-body .indigency-indent { text-indent: 6.67%; }
+.indigency-field {
+    display: inline-block;
+    min-width: 11.43%;
+    max-width: 100%;
+    padding: 0 1.43%;
+    border-bottom: 1px solid #1c1c1c;
+    font-weight: 700;
+    line-height: 1.35;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+.indigency-field-wide { min-width: 33.33%; }
+.indigency-field-fill {
+    display: inline;
+    padding: 0 1.43%;
+    border-bottom: 1px solid #1c1c1c;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+.indigency-signature {
+    top: 71.38%;
+    right: 10.48%;
+    z-index: 2;
+    width: 34.29%;
+    color: #1c1c1c;
+    text-align: center;
+}
+.indigency-signature-line {
+    padding-top: 1.2%;
+    border-top: 1px solid #1c1c1c;
+    font-size: clamp(9px, 1.6vw, 12pt);
+    font-weight: 700;
+}
+.indigency-signature-role { font-size: clamp(8px, 1.48vw, 11pt); }
+.indigency-signature small { display: block; margin-top: 1.1%; color: #59645d; font: clamp(7px, 1vw, 8pt)/1.35 Arial, sans-serif; }
+.indigency-footer-art {
+    bottom: 0;
+    left: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+.indigency-title-banner {
+    top: 82.15%;
+    left: 0;
+    z-index: 2;
+    display: flex;
+    width: 100%;
+    height: 6.06%;
+    align-items: center;
+    justify-content: center;
+    padding-left: .38em;
+    background: #0e5200;
+    color: #f2c200;
+    font: 800 clamp(10px, 2.4vw, 19pt)/1 Arial, Helvetica, sans-serif;
+    letter-spacing: .38em;
+    text-align: center;
+}
+.indigency-title-banner::after {
+    position: absolute;
+    right: 0;
+    bottom: -2.2mm;
+    left: 0;
+    height: 1.2mm;
+    background: #f2c200;
+    content: "";
+}
+.indigency-contact {
+    top: 90.9%;
+    right: 7%;
+    left: 7%;
+    z-index: 2;
+    color: #303a33;
+    font: clamp(7px, 1.34vw, 10.5pt)/1.4 Arial, Helvetica, sans-serif;
+    text-align: center;
+}
+@media (max-width: 700px) {
+    .paper--indigency { width: calc(100% - 1rem); margin: .5rem auto; }
+    .indigency-seal { box-shadow: 0 0 0 1.2vw #fff; }
+    .indigency-certificate-body { line-height: 1.55; }
+    .indigency-certificate-body p { margin-bottom: 2%; }
+    .indigency-title-banner { letter-spacing: .2em; }
+}
+@media print {
+    .paper--indigency {
+        width: 210mm;
+        height: 297mm;
+        min-height: 297mm;
+        margin: 0;
+        aspect-ratio: auto;
+        overflow: hidden;
+        background: #fff;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        page-break-after: avoid;
+    }
+    .indigency-watermark { color: rgba(14, 82, 0, .09); }
+}

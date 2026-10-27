@@ -6758,13 +6758,20 @@ function renderAdminCollections(data) {
                 el('button', { className: 'action-btn btn-reject', text: 'Reject', attrs: { type: 'button' }, on: { click: () => reviewAdminPaymentProof(requestId, 'reject') } })
             );
         } else if (['Approved', 'Ready for Pickup'].includes(request.current_status) && fee > 0) {
-            actions.appendChild(el('button', { className: 'action-btn btn-approve', text: 'Record cash', attrs: { type: 'button', 'aria-label': `Record cash for ${requestId}` }, on: { click: () => recordCollectionCash(requestId) } }));
+            actions.appendChild(el('button', { className: 'action-btn btn-approve collection-record-cash', text: 'Record cash', attrs: { type: 'button', 'aria-label': `Record cash for ${requestId}` }, on: { click: () => recordCollectionCash(requestId) } }));
         } else if (request.current_status === 'Pending') {
             actions.appendChild(el('span', { className: 'field-help collection-muted', text: 'Awaiting request review' }));
         } else if (request.payment_status === 'Rejected') {
             actions.appendChild(el('span', { className: 'field-help', text: 'Resident must submit corrected proof' }));
         }
-        if (!actions.childElementCount) actions.appendChild(el('span', { className: 'collection-no-action', text: '—' }));
+        if (!actions.childElementCount) {
+            const noActionReason = request.current_status === 'Pending'
+                ? 'Awaiting request review'
+                : ['Completed', 'Rejected'].includes(request.current_status) || ['Paid', 'Not Required'].includes(request.payment_status)
+                    ? 'No action needed'
+                    : '—';
+            actions.appendChild(el('span', { className: 'collection-no-action', text: noActionReason }));
+        }
         const feeText = fee === null ? 'Not assessed' : fee === 0 ? 'No fee' : formatPhpAmount(fee);
         const paymentStatus = String(request.payment_status || 'Not assessed');
         const paymentStatusTone = ({

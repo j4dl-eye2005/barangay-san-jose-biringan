@@ -559,6 +559,70 @@
     white-space: normal;
 }
 
+@media (min-width: 721px) {
+    #admin-dashboard #admin-collections-panel .collection-open-table th:nth-child(1) { width: 15%; }
+    #admin-dashboard #admin-collections-panel .collection-open-table th:nth-child(2) { width: 17%; }
+    #admin-dashboard #admin-collections-panel .collection-open-table th:nth-child(3) { width: 23%; }
+    #admin-dashboard #admin-collections-panel .collection-open-table th:nth-child(6) { width: 20%; }
+    #admin-dashboard #admin-collections-panel .collection-open-table th:last-child,
+    #admin-dashboard #admin-collections-panel .collection-open-table td[data-label="Actions"] { text-align: right; }
+    #admin-dashboard #admin-collections-panel .collection-open-table th:last-child { padding-right: 12px; }
+    #admin-dashboard #admin-collections-panel .collection-admin-table tbody tr:not(.table-empty-row) { height: 70px; }
+    #admin-dashboard #admin-collections-panel .collection-admin-table tbody td { padding: 14px 12px; }
+    #admin-dashboard #admin-collections-panel .collection-open-table td[data-label="Document"] { white-space: nowrap; overflow-wrap: normal; }
+    #admin-dashboard #admin-collections-panel .collection-tracking-code {
+        color: #202923;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: -.025em;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+    #admin-dashboard #admin-collections-panel .collection-actions {
+        justify-content: flex-end;
+        gap: 6px;
+        flex-wrap: nowrap;
+    }
+    #admin-dashboard #admin-collections-panel .collection-actions .collection-fee-entry {
+        flex: 1 1 190px;
+        max-width: 190px;
+        gap: 6px;
+    }
+    #admin-dashboard #admin-collections-panel .collection-actions .collection-fee-prefix {
+        display: inline-flex;
+        min-height: 34px;
+        align-items: center;
+        font-size: 12px;
+    }
+    #admin-dashboard #admin-collections-panel .collection-actions .collection-fee-field { height: 34px; min-height: 34px; }
+    #admin-dashboard #admin-collections-panel .collection-actions :is(.collection-set-fee, .collection-record-cash) {
+        height: 34px;
+        min-height: 34px;
+        padding: 0 10px;
+        border: 1px solid #14532d;
+        border-radius: 5px;
+        background: #14532d;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 650;
+        line-height: 1;
+        white-space: nowrap;
+    }
+    #admin-dashboard #admin-collections-panel .collection-actions :is(.collection-set-fee, .collection-record-cash):hover:not(:disabled),
+    #admin-dashboard #admin-collections-panel .collection-actions :is(.collection-set-fee, .collection-record-cash):focus-visible {
+        border-color: #0f4224;
+        background: #0f4224;
+        color: #fff;
+    }
+    #admin-dashboard #admin-collections-panel .collection-actions .collection-no-action,
+    #admin-dashboard #admin-collections-panel .collection-actions .field-help {
+        max-width: 100%;
+        font-size: 11px;
+        line-height: 1.35;
+        text-align: right;
+    }
+}
+
 @media (max-width: 1000px) {
     #admin-dashboard #admin-collections-panel .collection-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
