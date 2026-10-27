@@ -6539,7 +6539,7 @@ async function loadResidentAccounts() {
     if (next) next.disabled = residentAccountPage >= residentAccountPages || residentAccountPages === 0;
 
     if (!residents.length) {
-        if (tbody) tbody.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No accounts found.', attrs: { colspan: '11' } })]));
+        if (tbody) tbody.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No accounts found.', attrs: { colspan: '10' } })]));
         if (mobileList) mobileList.appendChild(el('p', { className: 'resident-mobile-empty', text: 'No resident accounts have been registered.' }));
         return;
     }
@@ -6549,8 +6549,17 @@ async function loadResidentAccounts() {
         const name = titleCaseName(`${r.first_name ?? ''} ${r.middle_name ?? ''} ${r.last_name ?? ''} ${r.suffix ?? ''}`);
         const age = calculateAge(r.date_of_birth);
         const birthdate = r.date_of_birth ? `${formatDate(r.date_of_birth)}${age !== '' ? ` · age ${age}` : ''}` : 'Not provided';
+        const tableName = name || '—';
+        const tableEmail = r.email || '—';
+        const tablePhone = r.phone_number || '—';
+        const tableAddress = r.address || '—';
+        const tableBirthdate = r.date_of_birth ? birthdate : '—';
+        const tableCivilStatus = String(r.civil_status || '').trim() || '—';
+        const tableGender = String(r.gender || '').trim() || '—';
+        const registeredDate = r.created_at ? formatDate(r.created_at) : '—';
         const archived = Boolean(r.archived_at);
-        const status = el('span', { className: `resident-account-status${archived ? ' is-archived' : ' is-active'}`, text: archived ? 'Archived' : 'Active' });
+        const accountStatus = archived ? 'Archived' : 'Active';
+        const status = el('span', { className: `resident-account-status${archived ? ' is-archived' : ' is-active'}`, text: accountStatus, attrs: { title: accountStatus } });
         const safeProofUrl = typeof r.proof_url === 'string' && /^api\/resident_proof\.php\?id=\d+$/.test(r.proof_url)
             ? r.proof_url
             : null;
@@ -6561,14 +6570,14 @@ async function loadResidentAccounts() {
             createdAt: r.created_at,
             proofType: r.proof_type
         });
-        const proofAction = () => safeProofUrl
+        const proofAction = (emptyText = 'No file') => safeProofUrl
             ? el('button', {
                 className: 'link-button resident-proof-view',
                 text: 'View file',
-                attrs: { type: 'button', 'aria-haspopup': 'dialog', 'aria-label': `View residency proof for ${name}` },
+                attrs: { type: 'button', 'aria-haspopup': 'dialog', 'aria-label': `View residency proof for ${name}`, title: 'View file' },
                 on: { click: previewResidentProof }
             })
-            : el('span', { className: 'resident-proof-unavailable', text: 'No file' });
+            : el('span', { className: `resident-proof-unavailable${emptyText === '—' ? ' resident-admin-empty-value' : ''}`, text: emptyText, attrs: { title: emptyText === '—' ? 'No file' : emptyText } });
         const actionButtons = () => {
             if (!staffHasPermission('residents.manage')) {
                 return el('div', { className: 'table-action-group resident-account-actions' }, [el('span', { className: 'action-dash', text: 'View only' })]);
@@ -6595,15 +6604,17 @@ async function loadResidentAccounts() {
             return el('div', { className: 'table-action-group resident-account-actions' }, actions);
         };
         if (tbody) tbody.appendChild(el('tr', {}, [
-            el('td', { attrs: { 'data-label': 'Name', title: name } }, [el('strong', { className: 'resident-admin-name', text: name || 'Name not provided' })]),
-            el('td', { attrs: { 'data-label': 'Email', title: r.email || '' } }, [el('span', { className: 'resident-admin-cell-text resident-admin-email', text: r.email || '—' })]),
-            el('td', { attrs: { 'data-label': 'Phone', title: r.phone_number || '' } }, [el('span', { className: 'resident-admin-cell-text resident-admin-phone', text: r.phone_number || '—' })]),
-            el('td', { attrs: { 'data-label': 'Address', title: r.address || '' } }, [el('span', { className: 'resident-admin-cell-text resident-admin-address', text: r.address || '—' })]),
-            el('td', { attrs: { 'data-label': 'Birthdate / age' } }, [el('span', { className: 'resident-admin-cell-text', text: birthdate })]),
-            el('td', { attrs: { 'data-label': 'Civil status' } }, [el('span', { className: 'resident-admin-cell-text', text: r.civil_status || '—' })]),
-            el('td', { attrs: { 'data-label': 'Gender' } }, [el('span', { className: 'resident-admin-cell-text', text: r.gender || '—' })]),
-            el('td', { attrs: { 'data-label': 'Proof' } }, [proofAction()]),
-            el('td', { attrs: { 'data-label': 'Registered' } }, [el('span', { className: 'resident-admin-cell-text resident-admin-registered', text: formatDate(r.created_at) })]),
+            el('td', { attrs: { 'data-label': 'Name' } }, [el('div', { className: 'resident-admin-person' }, [
+                el('strong', { className: `resident-admin-name${name ? '' : ' resident-admin-empty-value'}`, text: tableName, attrs: { title: tableName } }),
+                el('span', { className: `resident-admin-cell-text resident-admin-email${r.email ? '' : ' resident-admin-empty-value'}`, text: tableEmail, attrs: { title: tableEmail } })
+            ])]),
+            el('td', { attrs: { 'data-label': 'Phone', title: tablePhone } }, [el('span', { className: `resident-admin-cell-text resident-admin-phone${r.phone_number ? '' : ' resident-admin-empty-value'}`, text: tablePhone, attrs: { title: tablePhone } })]),
+            el('td', { attrs: { 'data-label': 'Address', title: tableAddress } }, [el('span', { className: `resident-admin-cell-text resident-admin-address${r.address ? '' : ' resident-admin-empty-value'}`, text: tableAddress, attrs: { title: tableAddress } })]),
+            el('td', { attrs: { 'data-label': 'Birthdate / age', title: tableBirthdate } }, [el('span', { className: `resident-admin-cell-text resident-admin-birthdate${r.date_of_birth ? '' : ' resident-admin-empty-value'}`, text: tableBirthdate, attrs: { title: tableBirthdate } })]),
+            el('td', { attrs: { 'data-label': 'Civil status', title: tableCivilStatus } }, [el('span', { className: `resident-admin-cell-text${tableCivilStatus === '—' ? ' resident-admin-empty-value' : ''}`, text: tableCivilStatus, attrs: { title: tableCivilStatus } })]),
+            el('td', { attrs: { 'data-label': 'Gender', title: tableGender } }, [el('span', { className: `resident-admin-cell-text${tableGender === '—' ? ' resident-admin-empty-value' : ''}`, text: tableGender, attrs: { title: tableGender } })]),
+            el('td', { attrs: { 'data-label': 'Proof' } }, [proofAction('—')]),
+            el('td', { attrs: { 'data-label': 'Registered', title: registeredDate } }, [el('span', { className: `resident-admin-cell-text resident-admin-registered${r.created_at ? '' : ' resident-admin-empty-value'}`, text: registeredDate, attrs: { title: registeredDate } })]),
             el('td', { attrs: { 'data-label': 'Status' } }, [status]),
             el('td', { attrs: { 'data-label': 'Actions' } }, [actionButtons()])
         ]));
