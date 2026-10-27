@@ -4643,15 +4643,23 @@ body:has(#resident-profile.active) #resident-profile .resident-profile-quick-lin
 @media (min-width: 768px) {
     html:has(body.admin-user-view) { scrollbar-gutter: stable; }
     body.admin-user-view #main-nav .nav-links {
-        display: grid;
-        grid-template-columns: 92px 92px 98px 60px 132px 60px;
+        display: flex;
+        min-width: 0;
+        flex: 1 1 auto;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: thin;
         gap: 4px;
     }
+    body.admin-user-view #main-nav .nav-links > li { flex: 0 0 auto; }
     #main-nav .nav-links .admin-nav-tab,
     #main-nav .nav-links .admin-nav-tab.active,
     #main-nav .nav-links .admin-nav-tab[aria-current="page"] {
         box-sizing: border-box;
-        width: 100%;
+        width: auto;
+        flex: 0 0 auto;
+        white-space: nowrap;
         font-weight: 600 !important;
     }
 }
