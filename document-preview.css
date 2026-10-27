@@ -283,7 +283,7 @@ body,
     top: 50%;
     left: 50%;
     z-index: 1;
-    width: 58cqw;
+    width: 145cqw;
     aspect-ratio: 1;
     opacity: .05;
     pointer-events: none;
@@ -306,11 +306,11 @@ body,
 }
 .indigency-contact {
     top: 88.1%;
-    right: 7%;
-    left: 20%;
+    right: 5%;
+    left: 5%;
     z-index: 2;
     color: #303a33;
-    font-size: 1.25cqw;
+    font-size: 1.55cqw;
     line-height: 1.4;
     text-align: center;
 }
