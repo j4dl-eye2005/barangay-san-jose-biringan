@@ -2596,9 +2596,8 @@ async function openProofPreview(path, request) {
         return;
     }
     const isResidentAccountProof = path.startsWith('api/resident_proof.php?');
-    const mobileProofPreview = window.matchMedia('(max-width: 767px)').matches;
     const proofTitle = isResidentAccountProof ? 'Proof of residency' : 'Submitted proof';
-    const title = mobileProofPreview ? proofTitle : `${proofTitle} — ${request.name || request.tracking || 'Resident'}`;
+    const title = proofTitle;
     closeProofPreview();
 
     const proofType = String(request?.proofFormat || request?.proofType || '').toLowerCase();
@@ -6822,20 +6821,26 @@ function renderAdminStaff(data) {
     updateStaffPortalRoleState();
     clearNode(body);
     const staff = Array.isArray(data.staff) ? data.staff : [];
-    if (!staff.length) body.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No officials or staff have been added.', attrs: { colspan: '7' } })]));
+    if (!staff.length) body.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state staff-directory-empty', attrs: { colspan: '7' } }, [el('i', { className: 'fas fa-address-book', attrs: { 'aria-hidden': 'true' } }), el('span', { text: 'No officials or staff have been added.' })])]));
     staff.forEach(person => {
-        const actions = el('div', { className: 'table-action-group' }, [
-            el('button', { className: 'link-button', text: 'Edit', attrs: { type: 'button' }, on: { click: () => editStaffDirectoryEntry(person) } }),
-            el('button', { className: 'link-button', text: person.is_active ? 'Mark inactive' : 'Restore', attrs: { type: 'button' }, on: { click: () => toggleStaffDirectoryEntry(person) } })
+        const isActive = Number(person.is_active) === 1;
+        const actions = el('div', { className: 'table-action-group staff-directory-row-actions' }, [
+            el('button', { className: 'staff-row-action', text: 'Edit', attrs: { type: 'button' }, on: { click: () => editStaffDirectoryEntry(person) } }),
+            el('button', { className: `staff-row-action${isActive ? ' staff-row-action--danger' : ''}`, text: isActive ? 'Mark inactive' : 'Restore', attrs: { type: 'button' }, on: { click: () => toggleStaffDirectoryEntry(person) } })
         ]);
-        const portal = person.portal_user_id ? `${person.staff_role || 'service_clerk'}` : 'No login linked';
+        if (person.portal_user_id && isActive) {
+            actions.appendChild(el('button', { className: 'staff-row-action staff-row-action--danger', text: 'Unlink', attrs: { type: 'button' }, on: { click: () => unlinkStaffDirectoryEntry(person) } }));
+        }
+        const portalAccess = person.portal_user_id
+            ? [el('span', { className: 'staff-directory-pill staff-directory-pill--green', text: 'Linked' }), el('span', { className: 'staff-directory-role-detail', text: String(person.staff_role || 'service_clerk').replaceAll('_', ' ') })]
+            : [el('span', { className: 'staff-directory-pill staff-directory-pill--neutral', text: 'No portal login' })];
         body.appendChild(el('tr', {}, [
             el('td', { text: person.full_name, attrs: { 'data-label': 'Name' } }),
             el('td', { text: person.position_title, attrs: { 'data-label': 'Position' } }),
             el('td', { text: person.staff_kind === 'official' ? 'Official' : 'Staff', attrs: { 'data-label': 'Category' } }),
-            el('td', { attrs: { 'data-label': 'Contact' } }, [el('span', { text: person.contact_number || '—' }), person.email ? el('span', { className: 'collection-secondary', text: person.email }) : null]),
-            el('td', { text: portal.replaceAll('_', ' '), attrs: { 'data-label': 'Portal access' } }),
-            el('td', { text: person.is_active ? 'Active' : 'Inactive', attrs: { 'data-label': 'Status' } }),
+            el('td', { className: 'staff-directory-contact', attrs: { 'data-label': 'Contact' } }, [el('span', { text: person.contact_number || '—' }), person.email ? el('span', { className: 'collection-secondary', text: person.email }) : null]),
+            el('td', { className: 'staff-directory-portal-access', attrs: { 'data-label': 'Portal access' } }, portalAccess),
+            el('td', { attrs: { 'data-label': 'Status' } }, [el('span', { className: `staff-directory-pill ${isActive ? 'staff-directory-pill--green' : 'staff-directory-pill--neutral'}`, text: isActive ? 'Active' : 'Inactive' })]),
             el('td', { attrs: { 'data-label': 'Actions' } }, [actions])
         ]));
     });
@@ -6882,6 +6887,31 @@ async function toggleStaffDirectoryEntry(person) {
         showToast(result.message || 'Staff record updated.', 'success');
         await loadAdminStaff();
     } catch (error) { showToast(error.message || 'Staff record could not be changed.', 'error'); }
+}
+
+async function unlinkStaffDirectoryEntry(person) {
+    if (!person.portal_user_id || Number(person.is_active) !== 1) return;
+    if (!window.confirm(`Unlink the portal account from ${person.full_name}? The account will lose its staff permissions.`)) return;
+    try {
+        const response = await fetch('api/admin_staff.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                staff_id: Number(person.staff_id),
+                full_name: person.full_name,
+                position_title: person.position_title,
+                staff_kind: person.staff_kind,
+                contact_number: person.contact_number || '',
+                email: person.email || '',
+                portal_user_id: null,
+                staff_role: person.staff_role || 'service_clerk'
+            })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'Portal account could not be unlinked.');
+        showToast(result.message || 'Portal account unlinked.', 'success');
+        await loadAdminStaff();
+    } catch (error) { showToast(error.message || 'Portal account could not be unlinked.', 'error'); }
 }
 
 async function saveStaffDirectoryEntry(event) {
