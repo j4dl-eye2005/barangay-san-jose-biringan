@@ -70,7 +70,7 @@ if ($isBusiness) {
         . '<br><strong>Business address:</strong> ' . $escape($businessAddress ?: 'Not recorded') . '<br><strong>Business activity:</strong> ' . $escape($businessActivity ?: 'Not recorded') . '</p>'
         . $personDetails;
 } elseif ($isIndigency) {
-    $body = $personDetails . '<p>Indigency status and any supporting facts must be verified and approved by authorized barangay personnel before official issuance. This sample does not make that determination.</p>';
+    $body = $personDetails;
 } elseif ($isResidency) {
     $body = $personDetails . '<p>Residency details must be checked against barangay records and verified by authorized personnel before official issuance.</p>';
 } else {
@@ -88,7 +88,7 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $escape($title) ?> · Sample preview</title>
-    <link rel="stylesheet" href="../document-preview.css?v=20261027-certificate-flow-container-v6">
+    <link rel="stylesheet" href="../document-preview.css?v=20261027-certificate-flow-container-v9">
 </head>
 <body>
     <div class="preview-toolbar" role="region" aria-label="Document preview actions">
@@ -108,7 +108,7 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
             <polygon points="160,0 170,0 196,27 184,27" fill="#F2C200" />
         </svg>
         <img src="../assets/barangay-seal.svg" alt="Barangay San Jose seal" class="indigency-seal">
-        <div class="indigency-watermark" aria-hidden="true">SAMPLE</div>
+        <div class="indigency-watermark" aria-hidden="true"><img src="../assets/barangay-seal.svg" alt=""></div>
         <div class="indigency-content">
             <header class="indigency-heading">
                 <span class="indigency-republic">REPUBLIC OF THE PHILIPPINES</span>
@@ -122,7 +122,6 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
                 <p class="indigency-to">To Whom It May Concern:</p>
                 <p class="indigency-indent">This is to certify that <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span><?php if ($age !== ''): ?>, <span class="indigency-field"><?= $escape($age) ?></span> years old<?php endif; ?>, a resident of <span class="indigency-field indigency-field-fill"><?= $escape($address) ?></span>.</p>
                 <p class="indigency-indent">This is to certify further that the above-mentioned person is personally known to me, of good moral character, a law-abiding citizen of the Republic of the Philippines, and that his/her family is listed as one of the INDIGENT families in our barangay.</p>
-                <p>This sample does not make that determination.</p>
                 <p>This CERTIFICATION is issued upon the request of <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span> for <span class="indigency-field indigency-field-fill"><?= $escape($purpose !== '' ? $purpose : 'Purpose not recorded') ?></span>.</p>
                 <p>Issued this <span class="indigency-field"><?= $escape($ordinalDay) ?></span> day of <span class="indigency-field"><?= $escape($manila->format('F')) ?></span>, <span class="indigency-field"><?= $escape($manila->format('Y')) ?></span> at Barangay San Jose, City of Biringan.</p>
             </section>
@@ -132,12 +131,12 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
                 <div class="indigency-signature-role">Punong Barangay</div>
             </div>
         </div>
-        <svg class="indigency-footer-art" viewBox="0 0 210 297" preserveAspectRatio="none" aria-hidden="true">
-            <polygon points="0,262 0,274 32,262" fill="#0E5200" />
-            <polygon points="164,297 210,297 210,281" fill="#F2C200" />
-            <polygon points="185,297 210,297 210,289" fill="#0E5200" />
+        <svg class="indigency-bottom-ribbon" viewBox="0 0 210 40" preserveAspectRatio="none" aria-hidden="true">
+            <rect x="0" y="12" width="210" height="15" fill="#0E5200" />
+            <polygon points="112,27 124,12 210,12 210,27" fill="#F2C200" />
+            <polygon points="170,0 210,0 210,27 196,27" fill="#0E5200" />
+            <polygon points="160,0 170,0 196,27 184,27" fill="#F2C200" />
         </svg>
-        <div class="indigency-title-banner" aria-hidden="true"></div>
         <footer class="indigency-contact">Barangay San Jose Digital Portal · Academic project sample · Not an official government document</footer>
         <?php else: ?>
         <div class="sample-watermark" aria-hidden="true">SAMPLE · NOT OFFICIAL</div>
