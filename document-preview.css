@@ -270,6 +270,7 @@ body,
 .indigency-signature-image {
     display: block;
     position: relative;
+    top: 3cqw;
     z-index: 1;
     width: 20cqw;
     max-width: 100%;
