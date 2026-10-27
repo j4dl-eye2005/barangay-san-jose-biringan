@@ -441,68 +441,8 @@ body[data-route-start="register"] #register .reg-right-panel {
 .toast { position: fixed; right: var(--space-5-5); bottom: var(--space-5-5); z-index: 4000; max-width: min(360px, calc(100vw - 44px)); padding: var(--space-3) var(--space-4); border: 1px solid #44403c; border-radius: var(--radius-control); background: var(--color-ink); color: var(--color-surface); font-size: var(--text-12); font-weight: 600; }
 .toast.toast-error { border-color: var(--color-danger); background: var(--color-danger); }
 .toast.toast-success { border-color: var(--color-success); background: var(--color-success); }
-.modal-overlay { position: fixed; inset: 0; z-index: 3000; display: grid; padding: var(--space-5-5); place-items: center; overflow-y: auto; overscroll-behavior: contain; background: rgba(28, 25, 23, .55); }
-.modal-box { width: min(100%, 480px); padding: var(--space-6); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: 0 20px 45px rgba(28, 25, 23, .18); }
-.action-modal-overlay { background: rgba(28, 25, 23, 0); transition: background-color .24s ease; }
-.action-modal-overlay .modal-box { opacity: 0; transform: translateY(12px) scale(.98); transition: opacity .24s ease, transform .24s cubic-bezier(.2, .75, .25, 1); }
-.action-modal-overlay.is-visible { background: rgba(28, 25, 23, .55); }
-.action-modal-overlay.is-visible .modal-box { opacity: 1; transform: translateY(0) scale(1); }
-.action-modal-overlay.is-closing { pointer-events: none; }
-.action-modal-overlay .modal-heading { position: relative; padding-right: 44px; }
-.request-modal-close { position: absolute; top: 0; right: 0; display: grid; width: 36px; height: 36px; place-items: center; border: 1px solid var(--color-border); border-radius: 50%; background: var(--color-surface); color: var(--color-muted); cursor: pointer; }
-.request-modal-close:hover { background: var(--color-panel); color: var(--color-ink); }
-.pickup-request-context { margin: -2px 0 var(--space-2); color: var(--color-muted); font-size: var(--text-10); line-height: 1.45; }
-.pickup-fields { min-width: 0; }
-.pickup-fields.hidden { display: none; }
-.pickup-datetime-group { margin-bottom: var(--space-4); }
-.pickup-field-label { display: block; margin-bottom: var(--space-2); color: var(--color-text); font-size: var(--text-11); font-weight: 700; letter-spacing: .045em; text-transform: none; }
-.pickup-datetime-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(150px, .68fr); gap: var(--space-3); }
-.pickup-date-control { position: relative; min-width: 0; }
-.pickup-date-control > input, .pickup-datetime-row > select { width: 100%; min-height: 42px; padding: var(--space-2-5) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-control); outline: none; background: var(--color-surface); color: var(--color-ink); font-size: var(--text-13); }
-.pickup-date-control > input { padding-right: 42px; cursor: pointer; }
-.pickup-date-control > input:focus, .pickup-datetime-row > select:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px rgba(12, 87, 0, .12); }
-.pickup-calendar-toggle { position: absolute; top: 4px; right: 4px; display: grid; width: 34px; height: 34px; place-items: center; border: 0; border-radius: 6px; background: transparent; color: var(--color-muted); cursor: pointer; }
-.pickup-calendar-toggle:hover { background: var(--color-panel); color: var(--color-accent); }
-.pickup-calendar { position: absolute; z-index: 5; top: calc(100% + 6px); left: 0; width: min(300px, calc(100vw - 80px)); padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: 0 12px 28px rgba(28, 25, 23, .16); }
-.pickup-calendar.hidden { display: none; }
-.pickup-calendar-head { display: grid; grid-template-columns: 34px 1fr 34px; align-items: center; margin-bottom: var(--space-2); text-align: center; }
-.pickup-calendar-head strong { color: var(--color-ink); font-size: var(--text-12); }
-.pickup-calendar-head button { width: 32px; height: 32px; border: 0; border-radius: 50%; background: transparent; color: var(--color-text); cursor: pointer; }
-.pickup-calendar-head button:hover:not(:disabled) { background: var(--color-panel); }
-.pickup-calendar-head button:disabled { color: var(--color-quiet); cursor: default; }
-.pickup-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
-.pickup-calendar-weekday, .pickup-calendar-empty, .pickup-calendar-day { display: grid; min-height: 34px; place-items: center; }
-.pickup-calendar-weekday { color: var(--color-muted); font-size: var(--text-10); font-weight: 700; }
-.pickup-calendar-day { border: 0; border-radius: 50%; background: transparent; color: var(--color-ink); font-size: var(--text-11); cursor: pointer; }
-.pickup-calendar-day:hover:not(:disabled) { background: var(--color-accent-soft); color: var(--color-accent-hover); }
-.pickup-calendar-day.selected { background: var(--color-accent); color: var(--color-surface); }
-.pickup-calendar-day:disabled { color: #566059; cursor: default; }
-.pickup-readback { margin: var(--space-2) 0 0; color: var(--color-text); font-size: var(--text-11); line-height: 1.5; }
-.pickup-note-group { margin-bottom: var(--space-4); }
-.pickup-note-group label { text-transform: none; letter-spacing: normal; }
-.pickup-note-group label span { color: var(--color-muted); font-weight: 500; }
-.pickup-note-group textarea { min-height: 66px; resize: vertical; }
-#action-modal-confirm:disabled { opacity: .55; cursor: not-allowed; }
-#action-modal-confirm.is-loading { cursor: wait; }
-@media (prefers-reduced-motion: reduce) {
-    .action-modal-overlay, .action-modal-overlay .modal-box { transition: none; }
-}
-@media (max-width: 520px) {
-    .pickup-datetime-row { grid-template-columns: 1fr; }
-    .pickup-calendar { width: min(300px, calc(100vw - 64px)); }
-}
 .register-policy-dialog .register-policy-modal { width: min(100%, 720px); max-height: min(820px, calc(100dvh - 80px)); }
 .register-policy-modal .modal-heading h2 { font-size: 1.8rem; line-height: 1.15; }
-.modal-heading { margin-bottom: var(--space-5-5); }
-.modal-heading h2 { margin-bottom: var(--space-2); }
-.modal-heading p:last-child { margin: 0; color: var(--color-muted); font-size: var(--text-12); }
-.modal-heading p.notice-text { margin: 0 0 var(--space-3); color: var(--color-text); font-size: var(--text-13); line-height: 1.6; }
-.modal-heading p.notice-text:last-child { margin-bottom: 0; }
-.modal-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
-body.modal-open { overflow: hidden; }
-html.modal-open-root { overflow-y: hidden; scrollbar-gutter: auto; scrollbar-width: none !important; }
-html.modal-open-root::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
-
 .link-button { padding: 0; border: 0; background: none; color: var(--color-accent); font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .link-button:hover { color: var(--color-accent-hover); }
 
@@ -584,9 +524,7 @@ html.modal-open-root::-webkit-scrollbar { display: none !important; width: 0 !im
     .admin-table td[colspan] { display: block; padding: var(--space-5-5); text-align: center; }
     .admin-table td[colspan]::before { content: none; }
     .admin-table tr:hover { background: var(--color-surface); }
-    .modal-overlay { padding: var(--space-4); align-items: start; }
     .register-policy-modal { padding: var(--space-4); }
-    .modal-box { max-height: calc(100vh - var(--space-8)); overflow-y: auto; overscroll-behavior: contain; }
     .action-btn { min-height: 44px; padding: var(--space-2) var(--space-3); font-size: var(--text-11); }
     .role-btn { min-height: 44px; }
     .admin-tab { min-height: 44px; }
