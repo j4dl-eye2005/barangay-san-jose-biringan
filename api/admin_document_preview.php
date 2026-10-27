@@ -76,7 +76,7 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $escape($title) ?> · Sample preview</title>
-    <link rel="stylesheet" href="../document-preview.css?v=20261027-indigency-name-row-v1">
+    <link rel="stylesheet" href="../document-preview.css?v=20261027-indigency-unbroken-inline-name-v1">
 </head>
 <body>
     <div class="preview-toolbar" role="region" aria-label="Document preview actions">
@@ -106,13 +106,9 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
         <p class="indigency-document-meta">Request tracking: <?= $escape($request['tracking_code']) ?> <span>·</span> Document no.: <strong id="document-number"><?= $escape($documentNumber) ?></strong></p>
         <section class="indigency-certificate-body">
             <p class="indigency-to">To Whom It May Concern:</p>
-            <p class="indigency-indent">This sample is prepared for</p>
-            <p class="indigency-name-line"><span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span></p>
-            <p class="indigency-person-continuation"><span class="indigency-field"><?= $escape($age !== '' ? $age : 'Not recorded') ?></span> years old, residing at <span class="indigency-field indigency-field-fill"><?= $escape($address) ?></span>.</p>
+            <p class="indigency-indent">This sample is prepared for <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span>, <span class="indigency-field"><?= $escape($age !== '' ? $age : 'Not recorded') ?></span> years old, residing at <span class="indigency-field indigency-field-fill"><?= $escape($address) ?></span>.</p>
             <p class="indigency-indent">Indigency status and supporting facts must be verified and approved by authorized barangay personnel before official issuance. This sample does not make that determination.</p>
-            <p>This certification sample is prepared upon the request of</p>
-            <p class="indigency-name-line"><span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span></p>
-            <p>for <span class="indigency-field indigency-field-fill"><?= $escape($purpose !== '' ? $purpose : 'Purpose not recorded') ?></span>.</p>
+            <p>This certification sample is prepared upon the request of <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span> for <span class="indigency-field indigency-field-fill"><?= $escape($purpose !== '' ? $purpose : 'Purpose not recorded') ?></span>.</p>
             <p>Prepared this <span class="indigency-field"><?= $escape($manila->format('j')) ?></span> day of <span class="indigency-field"><?= $escape($manila->format('F')) ?></span>, <span class="indigency-field"><?= $escape($manila->format('Y')) ?></span> at Barangay San Jose, City of Biringan.</p>
         </section>
         <div class="indigency-signature">

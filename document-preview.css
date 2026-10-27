@@ -99,9 +99,6 @@
     text-align: center;
     overflow-wrap: anywhere;
 }
-.indigency-name-line {
-    text-align: center !important;
-}
 .indigency-field-wide {
     display: inline-block;
     width: auto;
@@ -111,7 +108,6 @@
     white-space: nowrap;
     overflow-wrap: normal;
 }
-.indigency-person-continuation { text-indent: 6.67%; }
 .indigency-field-fill {
     display: inline;
     padding: 0 1.43%;

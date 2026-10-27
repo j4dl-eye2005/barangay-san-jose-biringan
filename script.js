@@ -6162,20 +6162,30 @@ function closeAdminRequestDetail() {
     document.getElementById('admin-requests-panel').hidden = false;
 }
 
-async function copyRequestTracking(tracking) {
+async function copyRequestTracking(tracking, { showToastFeedback = true } = {}) {
     try {
         await navigator.clipboard.writeText(tracking);
-        showToast('Tracking number copied.', 'success');
+        if (showToastFeedback) showToast('Tracking number copied.', 'success');
+        return true;
     } catch (error) {
         const temporary = document.createElement('textarea');
         temporary.value = tracking;
         temporary.style.position = 'fixed';
         temporary.style.opacity = '0';
         document.body.appendChild(temporary);
-        temporary.select();
-        document.execCommand('copy');
-        temporary.remove();
-        showToast('Tracking number copied.', 'success');
+        let copied = false;
+        try {
+            temporary.select();
+            copied = document.execCommand('copy');
+        } catch {
+            copied = false;
+        } finally {
+            temporary.remove();
+        }
+        if (showToastFeedback) {
+            showToast(copied ? 'Tracking number copied.' : 'Could not copy the tracking number.', copied ? 'success' : 'error');
+        }
+        return copied;
     }
 }
 
@@ -6183,21 +6193,25 @@ async function saveRequestInternalNote(requestId) {
     const field = document.getElementById('request-internal-note');
     const button = document.getElementById('save-request-internal-note');
     if (!field || !button) return;
+    const noteText = field.value;
     button.disabled = true;
     button.textContent = 'Saving…';
+    let saved = false;
     try {
         const response = await fetch('api/admin_request_note.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ request_id: requestId, note: field.value })
+            body: JSON.stringify({ request_id: requestId, note: noteText })
         });
         const result = await response.json();
         if (!response.ok || !result.success) throw new Error(result.message || 'Could not save the note.');
+        field.dataset.savedNote = noteText;
+        saved = true;
         showToast(result.message || 'Internal note saved.', 'success');
     } catch (error) {
         showToast(error.message || 'Could not save the note.', 'error');
     } finally {
-        button.disabled = window.matchMedia('(max-width: 767px)').matches && !field.value.trim();
+        button.disabled = !field.value.trim() || (saved && field.value === field.dataset.savedNote);
         button.textContent = 'Save note';
     }
 }
@@ -6288,67 +6302,112 @@ async function openAdminRequestDetail(requestId) {
         const infoList = (entries) => el('dl', { className: 'request-detail-dl' }, entries.map(([label, value]) =>
             el('div', {}, [el('dt', { text: label }), el('dd', { text: value || '—' })])
         ));
-        const timelineItems = [el('li', { className: 'request-timeline-item is-complete' }, [
-            el('span', { className: 'request-timeline-dot', attrs: { 'aria-hidden': 'true' } }),
-            el('div', {}, [el('strong', { text: 'Submitted' }), el('p', { text: `${formatDateTime(request.created_at)} · ${request.request_source === 'walk_in' ? 'Recorded by staff in person' : 'Online resident submission'}` })])
-        ])];
         const statuses = { Approved: 'Approved', 'Ready for Pickup': 'Ready for pickup', Completed: 'Completed', Rejected: 'Rejected' };
         const history = Array.isArray(data.timeline) ? data.timeline : [];
         const rejectedStep = history.find(step => step.status === 'Rejected');
         const timelineStatuses = rejectedStep ? ['Rejected'] : ['Approved', 'Ready for Pickup', 'Completed'];
+        const currentTimelineStatus = request.current_status === 'Pending' ? 'Submitted' : request.current_status;
+        const timelineItem = (status, label, step, detailText = null) => {
+            const isCurrent = currentTimelineStatus === status;
+            const isComplete = status === 'Submitted' ? !isCurrent : Boolean(step && !isCurrent);
+            const stateClass = `${isComplete ? ' is-complete' : ''}${isCurrent ? ' is-current' : ''}`;
+            return el('li', { className: `request-timeline-item${stateClass}` }, [
+                el('span', { className: 'request-timeline-dot', attrs: { 'aria-hidden': 'true' } }, isComplete ? [el('i', { className: 'fas fa-check', attrs: { 'aria-hidden': 'true' } })] : []),
+                el('div', {}, step || detailText ? [
+                    el('strong', { text: label }),
+                    el('p', { text: detailText || `${formatDateTime(step.created_at)} · ${step.admin_name || 'Admin'}` }),
+                    status === 'Rejected' && step?.notes ? el('small', { text: `Reason: ${step.notes}` }) : null
+                ] : [el('strong', { text: label }), el('p', { text: 'Not completed' })])
+            ]);
+        };
+        const timelineItems = [timelineItem('Submitted', 'Submitted', null, `${formatDateTime(request.created_at)} · ${request.request_source === 'walk_in' ? 'Recorded by staff in person' : 'Online resident submission'}`)];
         timelineStatuses.forEach(status => {
             const step = history.find(item => item.status === status);
             const label = statuses[status] || status;
-            timelineItems.push(el('li', { className: `request-timeline-item${step ? ' is-complete' : ''}` }, [
-                el('span', { className: 'request-timeline-dot', attrs: { 'aria-hidden': 'true' } }),
-                el('div', {}, step ? [
-                    el('strong', { text: label }),
-                    el('p', { text: `${formatDateTime(step.created_at)} · ${step.admin_name || 'Admin'}` }),
-                    status === 'Rejected' && step.notes ? el('small', { text: `Reason: ${step.notes}` }) : null
-                ] : [el('strong', { text: label }), el('p', { text: 'Not completed' })])
-            ]));
+            timelineItems.push(timelineItem(status, label, step));
         });
         const readyHistory = history.find(step => step.status === 'Ready for Pickup' && step.notes);
         const paymentStatus = getRequestPaymentStatus(request.payment_status, request.current_status, readyHistory?.notes);
         const fee = getDocumentFee({ name: request.document_type, fee: request.fee_amount });
         const paymentVerified = !requestPaymentIsRequired(fee, paymentStatus) || paymentStatus === 'Paid';
         const actionGroup = el('div', { className: 'table-action-group request-detail-actions' });
+        const paymentBlockReason = (() => {
+            if (paymentStatus === 'Pending Verification') return 'Payment proof is awaiting review.';
+            if (paymentStatus === 'Rejected') return 'A valid payment proof is required before this request can be marked ready.';
+            if (fee === null) return 'Set the request fee and verify payment before this request can be marked ready.';
+            if (paymentStatus === 'Unpaid' || paymentStatus === 'Overdue') return 'Payment is required before this request can be marked ready.';
+            return 'Payment must be verified before this request can be marked ready.';
+        })();
+        const addPaymentGatedAction = (label, action, className, ariaLabel) => {
+            const button = el('button', {
+                className,
+                text: label,
+                attrs: {
+                    type: 'button',
+                    'aria-label': ariaLabel,
+                    ...(paymentVerified ? {} : { disabled: '' })
+                },
+                on: { click: () => action === 'Ready'
+                    ? processRequest(requestId, action, actionRequest)
+                    : processRequest(requestId, action) }
+            });
+            if (paymentVerified) {
+                actionGroup.appendChild(button);
+                return;
+            }
+            actionGroup.appendChild(el('span', {
+                className: 'request-detail-disabled-action',
+                attrs: { tabindex: '0', 'data-tooltip': paymentBlockReason, 'aria-label': paymentBlockReason }
+            }, [button]));
+        };
         if (staffHasPermission('requests.manage')) {
             if (request.current_status === 'Pending') {
                 actionGroup.appendChild(el('button', { className: 'action-btn btn-approve', text: 'Approve', attrs: { type: 'button' }, on: { click: () => processRequest(requestId, 'Approve') } }));
                 actionGroup.appendChild(el('button', { className: 'action-btn btn-reject', text: 'Reject', attrs: { type: 'button' }, on: { click: () => processRequest(requestId, 'Reject') } }));
             } else if (request.current_status === 'Approved') {
-                actionGroup.appendChild(el('button', {
-                    className: 'action-btn btn-set-ready', text: 'Set ready',
-                    attrs: {
-                        type: 'button',
-                        ...(paymentVerified ? {} : { disabled: '' }),
-                        title: paymentVerified ? '' : 'Payment must be verified first.',
-                        'aria-label': `Set request ready for pickup${paymentVerified ? '' : ', disabled until payment is verified'}`
-                    },
-                    on: { click: () => processRequest(requestId, 'Ready', actionRequest) }
-                }));
+                addPaymentGatedAction('Set ready', 'Ready', 'action-btn btn-set-ready request-detail-primary-action', `Set request ready for pickup${paymentVerified ? '' : `, ${paymentBlockReason}`}`);
             } else if (request.current_status === 'Ready for Pickup') {
-                actionGroup.appendChild(el('button', {
-                    className: 'action-btn btn-ready', text: 'Mark as picked up',
-                    attrs: {
-                        type: 'button',
-                        ...(paymentVerified ? {} : { disabled: '' }),
-                        title: paymentVerified ? '' : 'Payment must be verified first.',
-                        'aria-label': `Mark request as picked up${paymentVerified ? '' : ', disabled until payment is verified'}`
-                    },
-                    on: { click: () => processRequest(requestId, 'Pickup') }
-                }));
+                addPaymentGatedAction('Mark as picked up', 'Pickup', 'action-btn btn-ready', `Mark request as picked up${paymentVerified ? '' : `, ${paymentBlockReason}`}`);
             }
         }
 
         const requestHeading = el('div', { className: 'panel-header request-detail-header' }, [
             el('div', {}, [el('p', { className: 'eyebrow', text: request.request_source === 'walk_in' ? 'Walk-in / face-to-face request' : 'Online request' }), el('h2', { id: 'request-detail-title', text: request.document_type }), el('p', { text: `Requested ${formatDateTime(request.created_at)}` })]),
-            el('span', { className: statusClass(request.current_status), text: request.current_status })
+            el('div', { className: 'request-detail-header-controls' }, [
+                el('span', { className: statusClass(request.current_status), text: request.current_status }),
+                actionGroup
+            ])
         ]);
+        const trackingCopyIcon = el('i', { className: 'fas fa-copy', attrs: { 'aria-hidden': 'true' } });
+        const trackingCopyTooltip = el('span', { className: 'request-detail-copy-tooltip', text: 'Copied', attrs: { 'aria-hidden': 'true' } });
+        const trackingCopyAnnouncement = el('span', { className: 'visually-hidden', attrs: { 'aria-live': 'polite' } });
         const trackingLine = el('div', { className: 'request-tracking-line' }, [
             el('strong', { text: request.tracking_code }),
-            el('button', { className: 'link-button', text: 'Copy', attrs: { type: 'button', 'aria-label': 'Copy tracking number' }, on: { click: () => copyRequestTracking(request.tracking_code) } })
+            el('button', {
+                className: 'btn-outline request-detail-copy',
+                attrs: { type: 'button', 'aria-label': `Copy tracking number ${request.tracking_code}`, title: 'Copy tracking number' },
+                on: { click: async (event) => {
+                    const button = event.currentTarget;
+                    const copied = await copyRequestTracking(request.tracking_code, { showToastFeedback: false });
+                    button.classList.toggle('is-copied', copied);
+                    button.classList.toggle('is-copy-failed', !copied);
+                    button.setAttribute('aria-label', copied ? 'Tracking number copied' : 'Could not copy tracking number');
+                    button.title = copied ? 'Copied' : 'Could not copy tracking number';
+                    trackingCopyTooltip.textContent = copied ? 'Copied' : 'Copy failed';
+                    trackingCopyIcon.className = copied ? 'fas fa-check' : 'fas fa-copy';
+                    trackingCopyAnnouncement.textContent = copied ? 'Tracking number copied.' : 'Could not copy tracking number.';
+                    window.setTimeout(() => {
+                        if (!button.isConnected) return;
+                        button.classList.remove('is-copied');
+                        button.classList.remove('is-copy-failed');
+                        button.setAttribute('aria-label', `Copy tracking number ${request.tracking_code}`);
+                        button.title = 'Copy tracking number';
+                        trackingCopyIcon.className = 'fas fa-copy';
+                        trackingCopyTooltip.textContent = 'Copied';
+                        trackingCopyAnnouncement.textContent = '';
+                    }, 2000);
+                } }
+            }, [trackingCopyIcon, trackingCopyTooltip, trackingCopyAnnouncement])
         ]);
         const feeText = fee === null ? 'To be confirmed' : fee === 0 ? 'Free' : `₱${fee}`;
         const canReverseCash = request.latest_payment_method === 'cash';
@@ -6413,7 +6472,7 @@ async function openAdminRequestDetail(requestId) {
         }
         const businessCategory = request.business_category === 'solo' ? 'Individual / sole proprietor' : request.business_category === 'organization' ? 'Organization / partnership / corporation' : '';
         const hasBusinessDetails = String(request.document_type || '').toLowerCase().includes('business') && [request.business_name, request.business_category, request.business_address, request.business_activity].some(Boolean);
-        const businessInfoCard = hasBusinessDetails ? el('section', { className: 'card request-detail-card' }, [
+        const businessInfoCard = hasBusinessDetails ? el('section', { className: 'card request-detail-card request-detail-business' }, [
             el('h3', { text: 'Business details' }),
             infoList([
                 ['Business name', request.business_name],
@@ -6422,16 +6481,24 @@ async function openAdminRequestDetail(requestId) {
                 ['Business activity', request.business_activity]
             ])
         ]) : null;
-        const saveNoteButton = staffHasPermission('requests.manage') ? el('button', { className: 'btn-solid', text: 'Save note', attrs: { id: 'save-request-internal-note', type: 'button' }, on: { click: () => saveRequestInternalNote(requestId) } }) : null;
+        const saveNoteButton = staffHasPermission('requests.manage') ? el('button', { className: 'btn-solid', text: 'Save note', attrs: { id: 'save-request-internal-note', type: 'button', disabled: '' }, on: { click: () => saveRequestInternalNote(requestId) } }) : null;
+        const residentInfo = infoList([['Name', residentName], ['Email', request.email], ['Phone', request.phone_number], ['Address', request.address]]);
+        residentInfo.appendChild(el('div', { className: 'request-detail-purpose-row' }, [
+            el('dt', { text: 'Purpose of request' }),
+            el('dd', { text: request.purpose || 'No purpose provided.' })
+        ]));
+        const proofButton = request.request_source === 'online' && typeof request.proof_url === 'string'
+            ? el('button', {
+                className: 'btn-outline request-proof-view',
+                attrs: { type: 'button', 'aria-haspopup': 'dialog' },
+                on: { click: () => openRequestProofPreview(request) }
+            }, [el('i', { className: 'fas fa-file-alt', attrs: { 'aria-hidden': 'true' } }), el('span', { text: `View submitted proof${request.proof_type ? ` (${request.proof_type})` : ''}` })])
+            : request.request_source === 'walk_in' ? el('p', { className: 'field-help request-proof-walk-in', text: 'Resident identity checked in person by staff.' }) : null;
         const detailGrid = el('div', { className: 'request-detail-grid' }, [
-            el('section', { className: 'card request-detail-card' }, [
+            el('section', { className: 'card request-detail-card request-detail-resident' }, [
                 el('h3', { text: 'Resident details' }),
-                infoList([['Name', residentName], ['Email', request.email], ['Phone', request.phone_number], ['Address', request.address]]),
-                request.request_source === 'online' && typeof request.proof_url === 'string'
-                    ? el('p', {}, [el('button', { className: 'link-button request-proof-view', text: `View submitted proof${request.proof_type ? ` (${request.proof_type})` : ''}`, attrs: { type: 'button', 'aria-haspopup': 'dialog' }, on: { click: () => openRequestProofPreview(request) } })])
-                    : request.request_source === 'walk_in' ? el('p', { className: 'field-help', text: 'Resident identity checked in person by staff.' }) : null,
-                el('h3', { className: 'request-detail-subheading', text: 'Purpose of request' }),
-                el('p', { className: 'request-detail-purpose', text: request.purpose || 'No purpose provided.' })
+                residentInfo,
+                proofButton ? el('div', { className: 'request-detail-proof-row' }, [proofButton]) : null
             ]),
             el('section', { className: 'card request-detail-card' }, [
                 el('h3', { text: 'Request timeline' }),
@@ -6447,19 +6514,28 @@ async function openAdminRequestDetail(requestId) {
             staffHasPermission('requests.manage') ? el('section', { className: 'card request-detail-card request-detail-notes' }, [
                 el('h3', { text: 'Internal notes' }),
                 el('p', { className: 'field-help', text: 'Visible only to administrators.' }),
-                el('textarea', { attrs: { id: 'request-internal-note', rows: '4', 'aria-label': 'Internal notes' } }),
+                el('textarea', { attrs: { id: 'request-internal-note', rows: '3', 'aria-label': 'Internal notes' } }),
                 saveNoteButton
             ]) : null,
-            actionGroup.children.length ? el('section', { className: 'card request-detail-card request-detail-action-card' }, [
-                el('h3', { text: 'Actions' }), actionGroup
-            ]) : null
         ]);
         content.replaceChildren(requestHeading, trackingLine, detailGrid);
         const noteField = document.getElementById('request-internal-note');
         if (noteField && saveNoteButton) {
             noteField.value = data.internal_note?.note_text || '';
-            saveNoteButton.disabled = mobileRequestDetail && !noteField.value.trim();
-            noteField.addEventListener('input', () => { saveNoteButton.disabled = mobileRequestDetail && !noteField.value.trim(); });
+            noteField.dataset.savedNote = noteField.value;
+            const resizeNoteField = () => {
+                noteField.style.height = 'auto';
+                noteField.style.height = `${Math.min(noteField.scrollHeight, 220)}px`;
+            };
+            const updateNoteSaveState = () => {
+                saveNoteButton.disabled = !noteField.value.trim() || noteField.value === noteField.dataset.savedNote;
+            };
+            noteField.addEventListener('input', () => {
+                resizeNoteField();
+                updateNoteSaveState();
+            });
+            resizeNoteField();
+            updateNoteSaveState();
         }
     } catch (error) {
         content.replaceChildren(el('p', { className: 'empty-state', text: error.message || 'Request details are unavailable.' }));
