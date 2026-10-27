@@ -269,16 +269,21 @@ body,
 }
 .indigency-signature-image {
     display: block;
+    position: relative;
+    z-index: 1;
     width: 20cqw;
     max-width: 100%;
     max-height: 14cqw;
     height: auto;
-    margin: 0 auto .6cqw;
+    margin: 0 auto;
     object-fit: contain;
 }
 .indigency-signature-line {
+    position: relative;
+    z-index: 2;
     width: 100%;
     min-height: 1.4em;
+    margin-top: -3.5cqw;
     padding: 0 .5cqw .45cqw;
     border-bottom: 1px solid #1c1c1c;
 }

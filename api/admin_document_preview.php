@@ -88,7 +88,7 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $escape($title) ?> · Sample preview</title>
-    <link rel="stylesheet" href="../document-preview.css?v=20261027-certificate-flow-container-v12">
+    <link rel="stylesheet" href="../document-preview.css?v=20261027-certificate-flow-container-v13">
 </head>
 <body>
     <div class="preview-toolbar" role="region" aria-label="Document preview actions">
