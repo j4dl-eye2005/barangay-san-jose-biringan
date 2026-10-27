@@ -6040,16 +6040,21 @@ function renderAdminRequests() {
                 on: { click: () => processRequest(requestId, 'Reject') }
             }));
         } else if (staffHasPermission('requests.manage') && r.current_status === 'Approved') {
-            actionGroup.appendChild(el('button', {
+            const readyUnavailableMessage = 'Payment must be verified before this request can be marked ready.';
+            const readyButton = el('button', {
                 className: 'action-btn btn-set-ready', text: 'Set ready',
                 attrs: {
                     type: 'button',
                     ...(paymentVerified ? {} : { disabled: '' }),
-                    title: paymentVerified ? '' : 'Payment must be verified first.',
+                    title: paymentVerified ? '' : readyUnavailableMessage,
                     'aria-label': `Set request ${tracking} ready for pickup${paymentVerified ? '' : ', disabled until payment is verified'}`
                 },
                 on: { click: () => processRequest(requestId, 'Ready', r) }
-            }));
+            });
+            actionGroup.appendChild(paymentVerified ? readyButton : el('span', {
+                className: 'request-disabled-action-tooltip',
+                attrs: { tabindex: '0', title: readyUnavailableMessage, role: 'group', 'aria-label': `Set ready unavailable. ${readyUnavailableMessage}` }
+            }, [readyButton]));
         } else if (staffHasPermission('requests.manage') && r.current_status === 'Ready for Pickup') {
             actionGroup.appendChild(el('button', {
                 className: 'action-btn btn-ready', text: 'Mark as picked up',
@@ -6064,12 +6069,12 @@ function renderAdminRequests() {
         }
 
         const row = el('tr', {
-            className: 'request-row-clickable',
+            className: `request-row-clickable${r.current_status === 'Pending' ? ' request-row-pending' : ''}`,
             attrs: { tabindex: '0', 'aria-label': `Open request ${tracking} for ${r.residentName}` },
             on: {
-                click: event => { if (!event.target.closest('button, a')) openAdminRequestDetail(requestId); },
+                click: event => { if (!event.target.closest('button, a, .request-disabled-action-tooltip')) openAdminRequestDetail(requestId); },
                 keydown: event => {
-                    if ((event.key === 'Enter' || event.key === ' ') && !event.target.closest('button, a')) {
+                    if ((event.key === 'Enter' || event.key === ' ') && !event.target.closest('button, a, .request-disabled-action-tooltip')) {
                         event.preventDefault();
                         openAdminRequestDetail(requestId);
                     }
@@ -6083,7 +6088,7 @@ function renderAdminRequests() {
                 ])
             ]),
             el('td', { attrs: { 'data-label': 'Resident' } }, [
-                el('span', { text: r.residentName || 'Resident' }),
+                el('span', { text: r.residentName || 'Resident', attrs: { title: r.residentName || 'Resident' } }),
                 r.request_source === 'walk_in' ? el('small', { className: 'request-source-label', text: 'Walk-in / face-to-face' }) : null
             ]),
             el('td', { text: r.documentType, attrs: { 'data-label': 'Document' } }),
@@ -6728,7 +6733,7 @@ function renderAdminCollections(data) {
         if (fee === null && businessRequest) {
             const feeField = el('input', { className: 'collection-fee-field', attrs: { id: `collection-fee-${requestId}`, type: 'number', min: '0', max: '999999.99', step: '0.01', inputmode: 'decimal', 'aria-label': `Approved fee for ${request.tracking_code}`, placeholder: 'Set approved fee' } });
             const feeEntry = el('div', { className: 'collection-fee-entry' }, [el('span', { className: 'collection-fee-prefix', text: '₱', attrs: { 'aria-hidden': 'true' } }), feeField]);
-            actions.append(feeEntry, el('button', { className: 'action-btn btn-approve collection-set-fee', text: 'Set fee', attrs: { type: 'button' }, on: { click: () => assessCollectionFee(requestId) } }));
+            actions.append(feeEntry, el('button', { className: 'action-btn btn-approve collection-set-fee', text: 'Set fee', attrs: { type: 'button' }, on: { click: event => assessCollectionFee(requestId, event.currentTarget) } }));
         } else if (fee === null) {
             actions.appendChild(el('span', { className: 'field-help', text: 'Fee schedule missing; ask a super-admin to configure it.' }));
         } else if (request.payment_status === 'Pending Verification') {
@@ -6781,16 +6786,35 @@ function renderAdminCollections(data) {
     });
 }
 
-async function assessCollectionFee(requestId) {
+async function assessCollectionFee(requestId, button = null) {
     const amount = document.getElementById(`collection-fee-${requestId}`)?.value || '';
     if (!amount.trim()) { showToast('Enter the fee from the barangay’s approved schedule.', 'error'); return; }
+    const originalText = button?.textContent || 'Set fee';
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Saving…';
+    }
     try {
         const response = await fetch('api/admin_assess_fee.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ request_id: requestId, amount }) });
-        const result = await response.json();
+        const responseText = await response.text();
+        let result = {};
+        try { result = responseText ? JSON.parse(responseText) : {}; } catch { /* handled as an invalid server response below */ }
         if (!response.ok || !result.success) throw new Error(result.message || 'Fee could not be saved.');
-        showToast(`Approved fee set to ${formatPhpAmount(result.fee)}.`, 'success');
-        await loadAdminCollections();
-    } catch (error) { showToast(error.message || 'Fee could not be saved.', 'error'); }
+        invalidateAdminPanelCache('collections');
+        try {
+            await loadAdminCollections();
+            showToast(`Approved fee set to ${formatPhpAmount(result.fee)}.`, 'success');
+        } catch {
+            showToast(`Fee saved as ${formatPhpAmount(result.fee)}, but the list did not refresh. Reload Collections.`, 'success');
+        }
+    } catch (error) {
+        showToast(error.message || 'Fee could not be saved. Try again.', 'error');
+    } finally {
+        if (button?.isConnected) {
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    }
 }
 
 async function recordCollectionCash(requestId) {

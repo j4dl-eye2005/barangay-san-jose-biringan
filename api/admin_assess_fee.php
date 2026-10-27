@@ -21,10 +21,11 @@ $amount = number_format((float) $amountInput, 2, '.', '');
 
 try {
     $pdo->beginTransaction();
-    $lookup = $pdo->prepare("SELECT dr.payment_status, dr.current_status, dr.assessed_fee, dt.name AS document_name,
-                                    (SELECT COUNT(*) FROM request_payment_transaction rpt WHERE rpt.request_id = dr.request_id AND rpt.status = 'confirmed') AS confirmed_payments
-                             FROM document_request dr JOIN document_type dt ON dt.document_type_id = dr.document_type_id
-                             WHERE dr.request_id = ? FOR UPDATE");
+    $lookup = $pdo->prepare("SELECT dr.payment_status, dr.current_status, dr.assessed_fee, dt.name AS document_name
+                             FROM document_request dr
+                             JOIN document_type dt ON dt.document_type_id = dr.document_type_id
+                             WHERE dr.request_id = ?
+                             FOR UPDATE");
     $lookup->execute([$requestId]);
     $request = $lookup->fetch(PDO::FETCH_ASSOC);
     if (!$request) {
@@ -39,9 +40,14 @@ try {
         echo json_encode(['success' => false, 'message' => 'Manual assessment is only enabled for business clearance requests.']);
         exit;
     }
+    $paymentLookup = $pdo->prepare("SELECT payment_id FROM request_payment_transaction
+                                    WHERE request_id = ? AND status = 'confirmed'
+                                    LIMIT 1 FOR UPDATE");
+    $paymentLookup->execute([$requestId]);
+    $hasConfirmedPayment = $paymentLookup->fetchColumn() !== false;
     if (!in_array($request['current_status'], ['Pending', 'Approved'], true)
         || in_array($request['payment_status'], ['Paid', 'Pending Verification'], true)
-        || (int) $request['confirmed_payments'] > 0) {
+        || $hasConfirmedPayment) {
         $pdo->rollBack();
         http_response_code(409);
         echo json_encode(['success' => false, 'message' => 'The request cannot be re-assessed in its current state.']);
@@ -56,7 +62,8 @@ try {
     echo json_encode(['success' => true, 'fee' => $amount, 'payment_status' => $paymentStatus]);
 } catch (Throwable $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();
-    error_log('Request fee assessment failed.');
+    $sqlState = $error instanceof PDOException ? (string) $error->getCode() : 'n/a';
+    error_log('Request fee assessment failed (' . get_class($error) . '; SQLSTATE/code ' . $sqlState . ').');
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Fee assessment could not be saved. Try again.']);
 }
