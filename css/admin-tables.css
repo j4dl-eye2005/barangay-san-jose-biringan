@@ -528,7 +528,7 @@
 }
 #admin-dashboard #admin-collections-panel .collection-fee-field::placeholder { color: #657169; opacity: 1; }
 #admin-dashboard #admin-collections-panel .collection-fee-field:focus-visible { border-color: #2f6b45; outline: 3px solid rgba(47, 107, 69, .16); outline-offset: 1px; }
-#admin-dashboard #admin-collections-panel .collection-actions .collection-set-fee {
+#admin-dashboard #admin-collections-panel .collection-actions .btn-approve {
     box-sizing: border-box;
     flex: 0 0 auto;
     min-height: 36px;
@@ -544,8 +544,8 @@
     line-height: 1;
     white-space: nowrap;
 }
-#admin-dashboard #admin-collections-panel .collection-actions .collection-set-fee:hover,
-#admin-dashboard #admin-collections-panel .collection-actions .collection-set-fee:focus-visible {
+#admin-dashboard #admin-collections-panel .collection-actions .btn-approve:hover:not(:disabled),
+#admin-dashboard #admin-collections-panel .collection-actions .btn-approve:focus-visible {
     border-color: #125522;
     background: #125522;
     color: #fff;
