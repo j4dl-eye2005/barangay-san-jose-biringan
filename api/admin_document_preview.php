@@ -4,7 +4,7 @@ requireAdminAccess('documents.preview');
 header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
-header("Content-Security-Policy: default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; img-src 'self' data:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
 
 $requestId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 if (!$requestId) { http_response_code(400); exit('A valid request ID is required.'); }
@@ -88,7 +88,7 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $escape($title) ?> · Sample preview</title>
-    <link rel="stylesheet" href="../document-preview.css?v=20261027-certificate-layout-v1">
+    <link rel="stylesheet" href="../document-preview.css?v=20261027-certificate-flow-container-v3">
 </head>
 <body>
     <div class="preview-toolbar" role="region" aria-label="Document preview actions">
@@ -108,33 +108,37 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
             <polygon points="160,0 170,0 196,27 184,27" fill="#F2C200" />
         </svg>
         <img src="../assets/barangay-seal.svg" alt="Barangay San Jose seal" class="indigency-seal">
-        <header class="indigency-heading">
-            <span class="indigency-republic">REPUBLIC OF THE PHILIPPINES</span>
-            <strong class="indigency-barangay">BARANGAY SAN JOSE</strong>
-            <span class="indigency-city">CITY OF BIRINGAN</span>
-            <strong class="indigency-office">OFFICE OF THE PUNONG BARANGAY</strong>
-            <h1 class="indigency-document-title"><?= $escape($title) ?></h1>
-        </header>
         <div class="indigency-watermark" aria-hidden="true">SAMPLE</div>
-        <p class="indigency-document-meta">Request tracking: <?= $escape($request['tracking_code']) ?> <span>·</span> Document no.: <strong id="document-number" class="document-number-value"><?= $escape($documentNumber) ?></strong></p>
-        <section class="indigency-certificate-body">
-            <p class="indigency-to">To Whom It May Concern:</p>
-            <p class="indigency-indent">This sample is prepared for <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span>, <span class="indigency-field"><?= $escape($age !== '' ? $age : 'Not recorded') ?></span> years old, residing at <span class="indigency-field indigency-field-fill"><?= $escape($address) ?></span>.</p>
-            <p class="indigency-indent">Indigency status and supporting facts must be verified and approved by authorized barangay personnel before official issuance. This sample does not make that determination.</p>
-            <p>This certification sample is prepared upon the request of <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span> for <span class="indigency-field indigency-field-fill"><?= $escape($purpose !== '' ? $purpose : 'Purpose not recorded') ?></span>.</p>
-            <p>Prepared this <span class="indigency-field"><?= $escape($ordinalDay) ?></span> day of <span class="indigency-field"><?= $escape($manila->format('F')) ?></span>, <span class="indigency-field"><?= $escape($manila->format('Y')) ?></span> at Barangay San Jose, City of Biringan.</p>
-        </section>
-        <div class="indigency-signature">
-            <div class="indigency-signature-line" aria-hidden="true"></div>
-            <div class="indigency-signatory-label">Julius Akeem De Leon</div>
-            <div class="indigency-signature-role">Punong Barangay</div>
+        <div class="indigency-content">
+            <header class="indigency-heading">
+                <span class="indigency-republic">REPUBLIC OF THE PHILIPPINES</span>
+                <strong class="indigency-barangay">BARANGAY SAN JOSE</strong>
+                <span class="indigency-city">CITY OF BIRINGAN</span>
+                <strong class="indigency-office">OFFICE OF THE PUNONG BARANGAY</strong>
+                <h1 class="indigency-document-title"><?= $escape($title) ?></h1>
+            </header>
+            <div class="indigency-divider" aria-hidden="true"></div>
+            <section class="indigency-certificate-body">
+                <p class="indigency-to">To Whom It May Concern:</p>
+                <p class="indigency-indent">This sample is prepared for <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span><?php if ($age !== ''): ?>, <span class="indigency-field"><?= $escape($age) ?></span> years old<?php endif; ?>, residing at <span class="indigency-field indigency-field-fill"><?= $escape($address) ?></span>.</p>
+                <p class="indigency-indent">Indigency status and supporting facts must be verified and approved by authorized barangay personnel before official issuance. This sample does not make that determination.</p>
+                <p>This certification sample is prepared upon the request of <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span> for <span class="indigency-field indigency-field-fill"><?= $escape($purpose !== '' ? $purpose : 'Purpose not recorded') ?></span>.</p>
+                <p>Prepared this <span class="indigency-field"><?= $escape($ordinalDay) ?></span> day of <span class="indigency-field"><?= $escape($manila->format('F')) ?></span>, <span class="indigency-field"><?= $escape($manila->format('Y')) ?></span> at Barangay San Jose, City of Biringan.</p>
+            </section>
+            <div class="indigency-signature">
+                <?php if ($punongName !== ''): ?><strong class="indigency-signatory-name"><?= $escape($punongName) ?></strong><?php endif; ?>
+                <div class="indigency-signature-line" aria-hidden="true"></div>
+                <div class="indigency-signatory-label">Authorized signatory</div>
+                <div class="indigency-signature-role">Punong Barangay</div>
+                <small>Signature and approval required on the official form</small>
+            </div>
         </div>
         <svg class="indigency-footer-art" viewBox="0 0 210 297" preserveAspectRatio="none" aria-hidden="true">
             <polygon points="0,262 0,285 55,262" fill="#0E5200" />
             <polygon points="155,297 210,297 210,278" fill="#F2C200" />
             <polygon points="178,297 210,297 210,288" fill="#0E5200" />
         </svg>
-        <div class="indigency-title-banner">BARANGAY SAN JOSE · CITY OF BIRINGAN</div>
+        <div class="indigency-title-banner" aria-hidden="true"></div>
         <footer class="indigency-contact">Barangay San Jose Digital Portal · Academic project sample · Not an official government document</footer>
         <?php else: ?>
         <div class="sample-watermark" aria-hidden="true">SAMPLE · NOT OFFICIAL</div>
