@@ -2590,13 +2590,15 @@ function handleProofKeydown(event) {
 }
 
 async function openProofPreview(path, request) {
-    const validPath = typeof path === 'string' && /^api\/request_proof\.php\?id=\d+$/.test(path);
+    const validPath = typeof path === 'string' && /^api\/(?:request_proof|resident_proof)\.php\?id=\d+$/.test(path);
     if (!validPath) {
         showToast('Proof file is unavailable.', 'error');
         return;
     }
+    const isResidentAccountProof = path.startsWith('api/resident_proof.php?');
     const mobileProofPreview = window.matchMedia('(max-width: 767px)').matches;
-    const title = mobileProofPreview ? 'Submitted proof' : `Submitted proof — ${request.tracking || request.name || 'Request'}`;
+    const proofTitle = isResidentAccountProof ? 'Proof of residency' : 'Submitted proof';
+    const title = mobileProofPreview ? proofTitle : `${proofTitle} — ${request.name || request.tracking || 'Resident'}`;
     closeProofPreview();
 
     const proofType = String(request?.proofFormat || request?.proofType || '').toLowerCase();
@@ -2639,15 +2641,22 @@ async function openProofPreview(path, request) {
         on: { click: closeProofPreview }
     });
 
-    const proofInfoRows = [
-        ['Tracking', request.tracking],
-        ['Document', request.documentType],
-        ['Proof type', request.proofType],
-        ['Email', request.email],
-        ['Address', request.address],
-        ['Submitted', request.createdAt ? formatDateTime(request.createdAt) : '—']
-    ];
-    const residentInfo = el('aside', { className: 'proof-preview-resident', attrs: { 'aria-label': 'Request submission details' } }, [
+    const proofInfoRows = isResidentAccountProof
+        ? [
+            ['Email', request.email],
+            ['Address', request.address],
+            ['File type', request.proofType ? String(request.proofType).toUpperCase() : '—'],
+            ['Registered', request.createdAt ? formatDateTime(request.createdAt) : '—']
+        ]
+        : [
+            ['Tracking', request.tracking],
+            ['Document', request.documentType],
+            ['Proof type', request.proofType],
+            ['Email', request.email],
+            ['Address', request.address],
+            ['Submitted', request.createdAt ? formatDateTime(request.createdAt) : '—']
+        ];
+    const residentInfo = el('aside', { className: 'proof-preview-resident', attrs: { 'aria-label': isResidentAccountProof ? 'Resident registration details' : 'Request submission details' } }, [
         el('h3', { text: request.name || 'Resident' }),
         ...proofInfoRows.map(([label, value]) => el('div', { className: 'proof-preview-info-row' }, [
             el('span', { text: label }),
@@ -2675,7 +2684,7 @@ async function openProofPreview(path, request) {
     ]);
     if (!isImage) viewerControls.querySelectorAll('button').forEach(button => { button.disabled = true; });
 
-    const viewer = el('section', { className: 'proof-preview-viewer', attrs: { 'aria-label': 'Submitted proof' } }, [
+    const viewer = el('section', { className: 'proof-preview-viewer', attrs: { 'aria-label': proofTitle } }, [
         viewerControls,
         el('div', { className: 'proof-preview-image-wrap' }, [media])
     ]);
@@ -6526,7 +6535,7 @@ async function loadResidentAccounts() {
     if (next) next.disabled = residentAccountPage >= residentAccountPages || residentAccountPages === 0;
 
     if (!residents.length) {
-        if (tbody) tbody.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No accounts found.', attrs: { colspan: '10' } })]));
+        if (tbody) tbody.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No accounts found.', attrs: { colspan: '11' } })]));
         if (mobileList) mobileList.appendChild(el('p', { className: 'resident-mobile-empty', text: 'No resident accounts have been registered.' }));
         return;
     }
@@ -6538,15 +6547,48 @@ async function loadResidentAccounts() {
         const birthdate = r.date_of_birth ? `${formatDate(r.date_of_birth)}${age !== '' ? ` · age ${age}` : ''}` : 'Not provided';
         const archived = Boolean(r.archived_at);
         const status = el('span', { className: `resident-account-status${archived ? ' is-archived' : ' is-active'}`, text: archived ? 'Archived' : 'Active' });
-        const actionButtons = (surface) => {
-            return el('div', { className: 'table-action-group resident-account-actions' }, staffHasPermission('residents.manage') ? [
-                el('button', {
-                    className: 'action-btn btn-delete resident-account-archive-delete',
-                    text: 'Archive & Delete',
-                    attrs: { type: 'button', 'aria-label': `Archive and delete resident account ${name}` },
-                    on: { click: () => confirmResidentAccountAction(id, 'archive_delete', name, archived) }
-                })
-            ] : [el('span', { className: 'action-dash', text: 'View only' })]);
+        const safeProofUrl = typeof r.proof_url === 'string' && /^api\/resident_proof\.php\?id=\d+$/.test(r.proof_url)
+            ? r.proof_url
+            : null;
+        const previewResidentProof = () => openProofPreview(safeProofUrl, {
+            name,
+            email: r.email,
+            address: r.address,
+            createdAt: r.created_at,
+            proofType: r.proof_type
+        });
+        const proofAction = () => safeProofUrl
+            ? el('button', {
+                className: 'link-button resident-proof-view',
+                text: 'View file',
+                attrs: { type: 'button', 'aria-haspopup': 'dialog', 'aria-label': `View residency proof for ${name}` },
+                on: { click: previewResidentProof }
+            })
+            : el('span', { className: 'resident-proof-unavailable', text: 'No file' });
+        const actionButtons = () => {
+            if (!staffHasPermission('residents.manage')) {
+                return el('div', { className: 'table-action-group resident-account-actions' }, [el('span', { className: 'action-dash', text: 'View only' })]);
+            }
+            const actions = archived
+                ? [el('button', {
+                    className: 'action-btn btn-approve resident-account-restore',
+                    text: 'Restore',
+                    attrs: { type: 'button', 'aria-label': `Restore resident account ${name}` },
+                    on: { click: () => confirmResidentAccountAction(id, 'restore', name, true) }
+                })]
+                : [el('button', {
+                    className: 'action-btn resident-account-archive',
+                    text: 'Archive',
+                    attrs: { type: 'button', 'aria-label': `Archive resident account ${name}` },
+                    on: { click: () => confirmResidentAccountAction(id, 'archive', name, false) }
+                })];
+            actions.push(el('button', {
+                className: 'action-btn btn-delete resident-account-delete',
+                text: 'Delete',
+                attrs: { type: 'button', 'aria-label': `Permanently delete resident account ${name}` },
+                on: { click: () => confirmResidentAccountAction(id, 'delete', name, archived) }
+            }));
+            return el('div', { className: 'table-action-group resident-account-actions' }, actions);
         };
         if (tbody) tbody.appendChild(el('tr', {}, [
             el('td', { attrs: { 'data-label': 'Name', title: name } }, [el('strong', { className: 'resident-admin-name', text: name || 'Name not provided' })]),
@@ -6556,9 +6598,10 @@ async function loadResidentAccounts() {
             el('td', { attrs: { 'data-label': 'Birthdate / age' } }, [el('span', { className: 'resident-admin-cell-text', text: birthdate })]),
             el('td', { attrs: { 'data-label': 'Civil status' } }, [el('span', { className: 'resident-admin-cell-text', text: r.civil_status || '—' })]),
             el('td', { attrs: { 'data-label': 'Gender' } }, [el('span', { className: 'resident-admin-cell-text', text: r.gender || '—' })]),
+            el('td', { attrs: { 'data-label': 'Proof' } }, [proofAction()]),
             el('td', { attrs: { 'data-label': 'Registered' } }, [el('span', { className: 'resident-admin-cell-text resident-admin-registered', text: formatDate(r.created_at) })]),
             el('td', { attrs: { 'data-label': 'Status' } }, [status]),
-            el('td', { attrs: { 'data-label': 'Actions' } }, [actionButtons('desktop')])
+            el('td', { attrs: { 'data-label': 'Actions' } }, [actionButtons()])
         ]));
         if (mobileList) {
             mobileList.appendChild(el('article', { className: 'resident-mobile-card resident-mobile-card--legacy' }, [
@@ -6570,8 +6613,9 @@ async function loadResidentAccounts() {
                 el('p', { className: 'resident-mobile-registered', text: `Address: ${r.address || 'Not provided'}` }),
                 el('p', { className: 'resident-mobile-registered', text: `Birthdate / age: ${birthdate}` }),
                 el('p', { className: 'resident-mobile-registered', text: `Civil status / gender: ${r.civil_status || 'Not provided'} / ${r.gender || 'Not provided'}` }),
+                el('div', { className: 'resident-mobile-proof-row' }, [proofAction()]),
                 el('div', { className: 'resident-mobile-status-row' }, [status.cloneNode(true), el('span', { className: 'resident-mobile-registered', text: `Registered ${formatDate(r.created_at)}` })]),
-                actionButtons('mobile')
+                actionButtons()
             ]));
             const contactRow = (icon, label, value, title = '') => el('div', { className: 'resident-mobile-contact-row' }, [
                 el('i', { className: `fas ${icon}`, attrs: { 'aria-hidden': 'true' } }),
@@ -6592,8 +6636,9 @@ async function loadResidentAccounts() {
                     contactRow('fa-calendar', 'Birthdate / age', birthdate),
                     contactRow('fa-id-card', 'Civil status / gender', `${r.civil_status || 'Not provided'} / ${r.gender || 'Not provided'}`)
                 ]),
+                el('div', { className: 'resident-mobile-proof-row' }, [proofAction()]),
                 el('span', { className: 'resident-mobile-registered', text: `Registered ${formatDate(r.created_at)}` }),
-                actionButtons('mobile')
+                actionButtons()
             ]));
         }
     });

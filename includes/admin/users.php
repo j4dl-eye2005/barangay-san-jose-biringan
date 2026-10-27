@@ -12,7 +12,7 @@
             <thead><tr>
                 <th scope="col">Name</th><th scope="col">Email</th><th scope="col">Phone</th>
                 <th scope="col">Address</th><th scope="col">Birthdate / age</th><th scope="col">Civil status</th><th scope="col">Gender</th>
-                <th scope="col">Registered</th><th scope="col">Status</th><th scope="col">Actions</th>
+                <th scope="col">Proof</th><th scope="col">Registered</th><th scope="col">Status</th><th scope="col">Actions</th>
             </tr></thead>
             <tbody id="admin-resident-list"></tbody>
         </table>

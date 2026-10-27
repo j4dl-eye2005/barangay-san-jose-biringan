@@ -1525,7 +1525,7 @@ body.admin-profile-view #admin-profile-signins .admin-profile-event-time { grid-
     }
     #admin-requests-panel .table-action-group,
     #admin-residents-panel .table-action-group { justify-content: flex-start; }
-    #admin-residents-panel .resident-account-archive-delete {
+    #admin-residents-panel .resident-account-delete {
         min-height: 30px;
         padding: 5px 9px;
         border: 1px solid #c85a5a !important;
@@ -1536,7 +1536,7 @@ body.admin-profile-view #admin-profile-signins .admin-profile-event-time { grid-
         font-weight: 600;
         line-height: 1.2;
     }
-    #admin-residents-panel .resident-account-archive-delete:hover {
+    #admin-residents-panel .resident-account-delete:hover {
         background: #fff7f7 !important;
     }
 
@@ -1831,7 +1831,7 @@ body.admin-profile-view:has(#resident-profile.active) .site-footer {
         border-color: #d9e0d9;
         box-shadow: none;
     }
-    #admin-dashboard #admin-residents-panel .resident-account-actions > .resident-account-archive-delete {
+    #admin-dashboard #admin-residents-panel .resident-account-actions > .resident-account-delete {
         flex: 0 0 auto;
         width: auto;
         height: 32px;
@@ -1965,13 +1965,17 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
         border-collapse: separate;
         border-spacing: 0;
     }
-    #admin-dashboard #admin-residents-panel .resident-admin-table th:nth-child(1) { width: 20% !important; }
-    #admin-dashboard #admin-residents-panel .resident-admin-table th:nth-child(2) { width: 22% !important; }
-    #admin-dashboard #admin-residents-panel .resident-admin-table th:nth-child(3) { width: 12% !important; }
-    #admin-dashboard #admin-residents-panel .resident-admin-table th:nth-child(4) { width: 17% !important; }
+    #admin-dashboard #admin-residents-panel .resident-admin-table th:nth-child(1) { width: 12% !important; }
+    #admin-dashboard #admin-residents-panel .resident-admin-table th:nth-child(2) { width: 13% !important; }
+    #admin-dashboard #admin-residents-panel .resident-admin-table th:nth-child(3) { width: 8% !important; }
+    #admin-dashboard #admin-residents-panel .resident-admin-table th:nth-child(4) { width: 10% !important; }
     #admin-dashboard #admin-residents-panel .resident-admin-table th:nth-child(5) { width: 9% !important; }
-    #admin-dashboard #admin-residents-panel .resident-admin-table th:nth-child(6) { width: 8% !important; }
-    #admin-dashboard #admin-residents-panel .resident-admin-table th:nth-child(7) { width: 12% !important; }
+    #admin-dashboard #admin-residents-panel .resident-admin-table th:nth-child(6) { width: 6% !important; }
+    #admin-dashboard #admin-residents-panel .resident-admin-table th:nth-child(7) { width: 5% !important; }
+    #admin-dashboard #admin-residents-panel .resident-admin-table th:nth-child(8) { width: 6% !important; }
+    #admin-dashboard #admin-residents-panel .resident-admin-table th:nth-child(9) { width: 7% !important; }
+    #admin-dashboard #admin-residents-panel .resident-admin-table th:nth-child(10) { width: 8% !important; }
+    #admin-dashboard #admin-residents-panel .resident-admin-table th:nth-child(11) { width: 16% !important; }
     #admin-dashboard #admin-residents-panel .resident-admin-table th,
     #admin-dashboard #admin-residents-panel .resident-admin-table td {
         min-width: 0;
@@ -2032,7 +2036,7 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
         font-size: 10px;
         line-height: 1.1;
     }
-    #admin-dashboard #admin-residents-panel .resident-account-archive-delete {
+    #admin-dashboard #admin-residents-panel .resident-account-delete {
         min-height: 29px;
         height: 29px;
         padding: 4px 8px;
@@ -2106,7 +2110,7 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
         padding: 0 10px;
         font-size: 13px;
     }
-    #admin-dashboard #admin-residents-panel .resident-account-actions > .resident-account-archive-delete {
+    #admin-dashboard #admin-residents-panel .resident-account-actions > .resident-account-delete {
         flex: 0 1 auto;
         width: auto;
         height: 36px;
@@ -2398,12 +2402,16 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
         padding-top: 12px;
         border-top: 1px solid #e2e7e2;
     }
-    #admin-dashboard #admin-residents-panel .resident-mobile-card--phone .resident-account-actions > .resident-account-archive-delete {
-        width: 100% !important;
+    #admin-dashboard #admin-residents-panel .resident-mobile-card--phone .resident-account-actions > .action-btn {
+        width: auto !important;
         height: 42px;
         min-height: 42px;
-        flex: 1 1 100%;
+        flex: 1 1 0;
         padding: 0 12px;
+        font-size: 14px;
+        font-weight: 600;
+    }
+    #admin-dashboard #admin-residents-panel .resident-mobile-card--phone .resident-account-actions > .resident-account-delete {
         border: 1px solid #c85a5a !important;
         border-radius: 4px !important;
         background: #fff !important;
