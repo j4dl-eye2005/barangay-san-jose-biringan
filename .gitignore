@@ -19,6 +19,9 @@ uploads/disclosures/
 /uploads/profile-photos/*
 !/uploads/profile-photos/.htaccess
 
+# Personal signature image — deploy manually to the server, never commit
+assets/julius-signature.png
+
 # One-time admin seeding script (prints a plaintext password)
 create_admin.php
 

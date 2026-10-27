@@ -267,6 +267,15 @@ body,
     color: #1c1c1c;
     text-align: center;
 }
+.indigency-signature-image {
+    display: block;
+    width: 20cqw;
+    max-width: 100%;
+    max-height: 14cqw;
+    height: auto;
+    margin: 0 auto .6cqw;
+    object-fit: contain;
+}
 .indigency-signature-line {
     width: 100%;
     min-height: 1.4em;
@@ -283,7 +292,7 @@ body,
     top: 50%;
     left: 50%;
     z-index: 1;
-    width: 145cqw;
+    width: 115cqw;
     aspect-ratio: 1;
     opacity: .05;
     pointer-events: none;
