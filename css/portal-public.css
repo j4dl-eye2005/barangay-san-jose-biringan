@@ -4662,6 +4662,17 @@ body:has(#resident-profile.active) #resident-profile .resident-profile-quick-lin
         white-space: nowrap;
         font-weight: 600 !important;
     }
+    /* Keep the row from shifting when the asynchronously loaded request count appears. */
+    body.admin-user-view #main-nav #nav-tab-requests {
+        box-sizing: border-box;
+        width: 132px;
+        min-width: 132px;
+        flex: 0 0 132px;
+        justify-content: flex-start;
+    }
+    body.admin-user-view #main-nav #nav-tab-requests .admin-tab-count { margin-left: auto; }
+    /* The compact admin footer only needs a small safe gap below its final row. */
+    body.admin-user-view .site-footer-inner { padding-bottom: 4px; }
 }
 
 /* Keep admin navigation at the top and anchor account actions to the drawer bottom. */
