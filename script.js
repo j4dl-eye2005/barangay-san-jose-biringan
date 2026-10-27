@@ -1217,7 +1217,7 @@ function updateLandingDocumentFinder(purpose) {
             fee: 'Free'
         },
         business: {
-            name: 'Business Permit',
+            name: 'Barangay Business Clearance',
             description: 'Barangay-level approval required before applying for a city business permit.',
             fee: '₱200'
         }
@@ -2547,24 +2547,17 @@ function handleProofKeydown(event) {
     }
 }
 
-async function openProofPreview(path, resident) {
-    const requestProof = resident?.proofContext === 'request';
-    const validPath = typeof path === 'string' && (requestProof
-        ? /^api\/request_proof\.php\?id=\d+$/.test(path)
-        : /^api\/resident_proof\.php\?id=\d+$/.test(path));
+async function openProofPreview(path, request) {
+    const validPath = typeof path === 'string' && /^api\/request_proof\.php\?id=\d+$/.test(path);
     if (!validPath) {
         showToast('Proof file is unavailable.', 'error');
         return;
     }
-    const residentId = Number(resident?.residentId || 0);
-    if (!requestProof && !residentId) return;
     const mobileProofPreview = window.matchMedia('(max-width: 767px)').matches;
-    const title = requestProof
-        ? (mobileProofPreview ? 'Submitted proof' : `Submitted proof — ${resident.tracking || resident.name || 'Request'}`)
-        : (mobileProofPreview ? 'Proof of residency' : `Proof of residency — ${resident.name || 'Resident'}`);
+    const title = mobileProofPreview ? 'Submitted proof' : `Submitted proof — ${request.tracking || request.name || 'Request'}`;
     closeProofPreview();
 
-    const proofType = String(resident?.proofFormat || resident?.proofType || '').toLowerCase();
+    const proofType = String(request?.proofFormat || request?.proofType || '').toLowerCase();
     const isPdf = proofType === 'pdf';
     const isImage = ['jpg', 'jpeg', 'png'].includes(proofType);
     let media;
@@ -2604,20 +2597,16 @@ async function openProofPreview(path, resident) {
         on: { click: closeProofPreview }
     });
 
-    const proofInfoRows = requestProof ? [
-        ['Tracking', resident.tracking],
-        ['Document', resident.documentType],
-        ['Proof type', resident.proofType],
-        ['Email', resident.email],
-        ['Address', resident.address],
-        ['Submitted', resident.createdAt ? formatDateTime(resident.createdAt) : '—']
-    ] : [
-        ['Email', resident.email],
-        ['Address', resident.address],
-        ['Registered', resident.createdAt ? `${formatDate(resident.createdAt)} · ${new Date(String(resident.createdAt).replace(' ', 'T')).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })}` : '—']
+    const proofInfoRows = [
+        ['Tracking', request.tracking],
+        ['Document', request.documentType],
+        ['Proof type', request.proofType],
+        ['Email', request.email],
+        ['Address', request.address],
+        ['Submitted', request.createdAt ? formatDateTime(request.createdAt) : '—']
     ];
-    const residentInfo = el('aside', { className: 'proof-preview-resident', attrs: { 'aria-label': requestProof ? 'Request submission details' : 'Resident registration details' } }, [
-        el('h3', { text: resident.name || 'Resident' }),
+    const residentInfo = el('aside', { className: 'proof-preview-resident', attrs: { 'aria-label': 'Request submission details' } }, [
+        el('h3', { text: request.name || 'Resident' }),
         ...proofInfoRows.map(([label, value]) => el('div', { className: 'proof-preview-info-row' }, [
             el('span', { text: label }),
             el('strong', { text: String(value || 'Not provided') })
@@ -2644,7 +2633,7 @@ async function openProofPreview(path, resident) {
     ]);
     if (!isImage) viewerControls.querySelectorAll('button').forEach(button => { button.disabled = true; });
 
-    const viewer = el('section', { className: 'proof-preview-viewer', attrs: { 'aria-label': requestProof ? 'Submitted proof' : 'Residency proof' } }, [
+    const viewer = el('section', { className: 'proof-preview-viewer', attrs: { 'aria-label': 'Submitted proof' } }, [
         viewerControls,
         el('div', { className: 'proof-preview-image-wrap' }, [media])
     ]);
@@ -2701,7 +2690,6 @@ function openRequestProofPreview(request) {
         return;
     }
     openProofPreview(path, {
-        proofContext: 'request',
         proofFormat: request.proof_format,
         name: request.residentName || [request.first_name, request.middle_name, request.last_name].filter(Boolean).join(' ') || request.walk_in_name || 'Resident',
         email: request.residentEmail || request.email,

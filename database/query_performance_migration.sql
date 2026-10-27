@@ -5,4 +5,5 @@ ALTER TABLE `request_status_log`
     ADD INDEX IF NOT EXISTS `idx_status_created` (`status`, `created_at`, `log_id`);
 
 ALTER TABLE `resident`
+    ADD INDEX IF NOT EXISTS `idx_resident_archive` (`archived_at`),
     ADD INDEX IF NOT EXISTS `idx_resident_created` (`created_at`);

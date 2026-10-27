@@ -44,6 +44,10 @@ Then sign in through `http://localhost/barangay_portal_new/index.php#admin-login
 
 For an existing database, run `database/admin_workspace_migration.sql`, `database/resident_payment_migration.sql`, and `database/security_hardening_migration.sql` once in the `barangay_portal` database. These add request notes, payment status, email verification, and rate-limit storage. Existing residents are marked as previously verified by the security migration; new registrations must verify their email.
 
+For an existing database, also run `database/account_request_workflow_migration.sql` once. It adds per-request residency proof and walk-in request fields, and changes the resident relationship so walk-in requests can have no resident account. As part of retiring the old resident-approval gate, it activates legacy non-archived resident accounts that were inactive. Review that account change before applying the migration to a database containing real residents.
+
+For an existing database, run `database/document_type_name_alignment_migration.sql` once to align the business-service label with the portal. The migration renames `Business Permit` only when a `Barangay Business Clearance` row does not already exist; it does not merge distinct document types.
+
 For an existing database, run `database/resident_payment_review_migration.sql` once before deploying resident payment-proof review. Confirm the document fees with the barangay before using these sample fee amounts for real requests.
 
 For an older local database that does not have `resident.archived_at`, run `database/resident_archive_migration.sql` once. The current login and account APIs expect this nullable column.
@@ -67,7 +71,7 @@ Migration repeatability depends on the individual file. Follow each migration's 
 ## Main areas
 
 - **Resident portal:** registration, login, document requests, and request status tracking.
-- **Admin workspace:** overview, requests queue and detail, pending resident review, disclosure publishing, and activity log.
+- **Admin workspace:** overview, request queue and detail, resident account management, disclosure publishing, and activity log. Residency proof is attached to each request and reviewed from its request detail.
 - **Public records:** bulletin categories and published disclosures (`bulletin.html`).
 
 The main interface and routing are in `index.php` and `script.js`. Admin sections have direct PHP routes at the project root (`admin_overview.php`, `admin_requests.php`, `admin_residents.php`, `admin_disclosures.php`, and `admin_activity.php`). Styles are split under `css/` into shared, home, authentication, admin, public-records, and responsive files. Shared page markup and admin sections are organized under `includes/shared/` and `includes/admin/`. API endpoints are in `api/`; the base schema is in `database/schema.sql`, and the new performance and policy migrations are grouped under `database/`.
@@ -80,7 +84,7 @@ The schema defines administrator and resident accounts, document types and reque
 
 - Set `APP_ENV=production`, `APP_URL` (HTTPS), `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASS` in the host environment. Give the database account only the permissions the application needs, including the migration-created tables.
 - Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_ENCRYPTION` (`tls` or `ssl`), `MAIL_FROM_EMAIL`, and optionally `MAIL_FROM_NAME` for verification and notification email.
-- Schedule `api/process_mail_queue.php` as a server-side CLI cron job so queued emails are delivered. In cPanel Cron Jobs, run it every minute with the host's PHP CLI binary, for example: `php -q /home/baraaiyk/public_html/api/process_mail_queue.php`. Replace the path and PHP command with the deployed application path and PHP CLI location. The worker processes up to 20 messages per run and retries temporary failures; monitor the queue for records marked `failed`.
+- Schedule `api/process_mail_queue.php` as a server-side CLI cron job so queued emails are delivered. The cPanel deployment file does not create this job. In cPanel Cron Jobs, run it every minute with the host's PHP CLI binary, for example: `php -q /home/baraaiyk/public_html/api/process_mail_queue.php`. Replace the path and PHP command with the deployed application path and PHP CLI location. For local XAMPP, a Windows Task Scheduler action can run `C:\xampp\php\php.exe` with arguments `C:\xampp\htdocs\barangay_portal_new\api\process_mail_queue.php --local`. The worker processes up to 20 messages per run and retries temporary failures; monitor the queue for records marked `failed`.
 - Keep `APP_PRIVATE_STORAGE` and the deployment `.env` outside the web root and writable by PHP as needed. The app reads `.env` from a sibling `barangay_portal_private` directory by default; set the server environment variable `PORTAL_ENV_FILE` to an absolute protected path if your layout differs. Do not put secrets in the project root.
 - Use HTTPS at the host/proxy. Apache rules redirect HTTP and set transport/security headers; confirm the host supports `.htaccess` rewrite and header modules.
 - Existing account passwords are not forcibly reset by the migration. Reset any legacy passwords that do not meet the 12-character policy, and rotate any database or SMTP credential that has ever been committed or shared.

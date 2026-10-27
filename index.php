@@ -238,7 +238,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <div class="hero-document-chips" aria-label="Quick document requests">
                         <button type="button" data-action-click="requestDoc('Barangay Clearance')">Barangay Clearance</button>
                         <button type="button" data-action-click="requestDoc('Certificate of Residency')">Certificate of Residency</button>
-                        <button type="button" data-action-click="requestDoc('Business Permit')">Business Permit</button>
+                        <button type="button" data-action-click="requestDoc('Barangay Business Clearance')">Barangay Business Clearance</button>
                     </div>
                 </div>
 
@@ -285,9 +285,9 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         </button>
                     </li>
                     <li class="step-item doc-item">
-                        <button class="doc-card-btn" type="button" data-action-click="requestDoc('Business Permit')" aria-label="Request Business Permit">
-                            <span class="doc-item-fee" data-document-fee-for="Business Permit">Fee confirmed at the barangay hall</span>
-                            <h3>Business Permit</h3>
+                        <button class="doc-card-btn" type="button" data-action-click="requestDoc('Barangay Business Clearance')" aria-label="Request Barangay Business Clearance">
+                            <span class="doc-item-fee" data-document-fee-for="Barangay Business Clearance">Fee confirmed at the barangay hall</span>
+                            <h3>Barangay Business Clearance</h3>
                             <p>Barangay-level clearance required before applying for a city business permit.</p>
                             <span class="doc-item-action">Start request <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
                         </button>
@@ -1000,7 +1000,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         <li>Document request information, including the document type, stated purpose, tracking number, status, and related processing or payment status</li>
                         <li>Registration, verification, request, and account activity dates and records</li>
                         <li>Technical and security information, such as IP address, browser or device details, session information, rate-limit records, audit entries, and server or error logs</li>
-                        <li>Browser storage: a language preference in local storage and a temporary administrator disclosure draft in session storage</li>
+                        <li>Browser storage: a language preference in local storage and a temporary session copy of an administrator disclosure draft when needed; saved drafts are also stored with the administrator account</li>
                         <li>Messages and contact details you send to the project through the portal or listed email</li>
                     </ul>
                     <p>Information entered into the forms is handled as potentially real personal information. Do not provide another person's information unless you are authorized to do so. The academic-project label does not guarantee that submissions are test data.</p>
@@ -1015,7 +1015,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
 
                     <h2 id="pp-retention">Data retention</h2>
                     <p>Unverified accounts with no request are marked archived after 30 days. Archiving disables access but does not itself delete the account record. Password-reset tokens expire after one hour and email-verification links after 24 hours; expired tokens may remain in the database until cleanup runs. Successfully sent email bodies are cleared and their queue records are removed after 30 days.</p>
-                    <p>The current prototype does not implement a fixed deletion schedule for resident account records, document requests, uploaded residency and payment proofs, profile photos, audit logs, failed email metadata, disclosure attachments, or backups. These records may therefore remain until manually deleted or otherwise removed by the project operator. No retention period for these records has been approved. A real service must set and implement periods consistent with applicable barangay records rules before accepting operational data.</p>
+                    <p>When an administrator deletes a resident account, the application deletes the resident record, linked document requests, residency and payment proof files, profile photo, and queued messages associated with the account. Related request audit details are redacted, while a non-identifying deletion event remains in the audit log. This action does not establish an automatic deletion schedule for other resident accounts, audit logs, failed email metadata, disclosure attachments, or backups. No general retention period for those records has been approved, so they may remain until manually deleted or otherwise removed by the project operator. A real service must set and implement periods consistent with applicable barangay records rules before accepting operational data.</p>
 
                     <h2 id="pp-security">Security</h2>
                     <p>The application includes password hashing, role-based access checks, administrator multi-factor authentication, session protections, request protections, and restricted storage for request proofs. These are application controls, not a guarantee about the live host, database permissions, staff practices, or backups. A production operator must verify those controls and maintain an incident-response process. If a breach meets the legal notification requirements, the responsible controller must notify affected people and the National Privacy Commission as required by law. Report suspected exposure to the contact below.</p>
@@ -1024,7 +1024,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <p>The application is configured to use a website host and database, an SMTP email-delivery service, and Google reCAPTCHA for automated-abuse checks. Those providers may process the technical information or email content needed for their services. The specific hosting and email providers, their processing locations, and the applicable service agreements depend on deployment settings and are not identified in this codebase. A real operator must identify them and confirm whether information is processed outside the Philippines before launch.</p>
 
                     <h2 id="pp-cookies">Cookies</h2>
-                    <p>The portal uses an essential session cookie to keep you signed in and protect account actions. Google reCAPTCHA may use cookies or similar technical signals when its checks run. The application also saves the selected language in local storage and temporarily saves an administrator's disclosure draft in session storage. The codebase contains no optional advertising or analytics cookies. Blocking cookies may prevent sign-in and protected features from working.</p>
+                    <p>The portal uses an essential session cookie to keep you signed in and protect account actions. Google reCAPTCHA may use cookies or similar technical signals when its checks run. The application saves the selected language in local storage, saves administrator disclosure drafts to the administrator's account, and may keep a temporary session copy while recovering unsaved draft changes. The codebase contains no optional advertising or analytics cookies. Blocking cookies may prevent sign-in and protected features from working.</p>
 
                     <h2 id="pp-rights">Your rights</h2>
                     <p>Subject to the conditions and exceptions in RA 10173, you may ask to be informed about processing; access or receive a copy of your personal information; correct inaccurate or incomplete information; object to or withdraw consent from certain processing; request erasure or blocking where allowed; request data portability where applicable; and file a complaint with the National Privacy Commission. You may also seek damages where the law provides that right.</p>

@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS resident (
     privacy_notice_version VARCHAR(32) DEFAULT NULL,
     created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_resident_created (created_at),
+    INDEX idx_resident_archive (archived_at),
     INDEX idx_residents_active_verified_created (is_active, email_verified_at, created_at)
 ) ENGINE=InnoDB;
 
@@ -272,7 +273,7 @@ INSERT INTO document_type (name, is_active, fee_amount) VALUES
     ('Barangay Clearance', 1, 50.00),
     ('Certificate of Residency', 1, 50.00),
     ('Certificate of Indigency', 1, 0.00),
-    ('Business Permit', 1, 200.00);
+    ('Barangay Business Clearance', 1, 200.00);
 
 INSERT INTO disclosure_category (category_id, category_name) VALUES
     (1, 'Announcements'),

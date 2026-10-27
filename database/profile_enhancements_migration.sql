@@ -5,11 +5,11 @@ ALTER TABLE `user`
     ADD COLUMN `contact_number` VARCHAR(30) DEFAULT NULL,
     ADD COLUMN `notification_new_requests` TINYINT(1) NOT NULL DEFAULT 0,
     ADD COLUMN `notification_payment_verification` TINYINT(1) NOT NULL DEFAULT 0,
-    ADD COLUMN `password_changed_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP;
+    ADD COLUMN `password_changed_at` DATETIME DEFAULT NULL;
 
 ALTER TABLE `resident`
     ADD COLUMN `profile_photo` VARCHAR(80) DEFAULT NULL,
-    ADD COLUMN `password_changed_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP;
+    ADD COLUMN `password_changed_at` DATETIME DEFAULT NULL;
 
 CREATE TABLE IF NOT EXISTS account_session (
     session_key CHAR(64) NOT NULL PRIMARY KEY,
@@ -34,3 +34,9 @@ CREATE TABLE IF NOT EXISTS admin_mfa_recovery_code (
 
 UPDATE `user` SET password_changed_at = created_at WHERE password_changed_at IS NULL;
 UPDATE `resident` SET password_changed_at = created_at WHERE password_changed_at IS NULL;
+
+ALTER TABLE `user`
+    MODIFY COLUMN `password_changed_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE `resident`
+    MODIFY COLUMN `password_changed_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP;
