@@ -195,3 +195,171 @@
     }
     .indigency-watermark { color: rgba(14, 82, 0, .09); }
 }
+
+@font-face {
+    font-family: "Plus Jakarta Sans";
+    src: url("assets/fonts/PlusJakartaSans-Variable.ttf") format("truetype");
+    font-style: normal;
+    font-weight: 200 800;
+    font-display: swap;
+}
+
+/* Keep the sample preview typography consistent with the portal UI. */
+body,
+.preview-toolbar,
+.paper,
+.paper--indigency,
+.document-header,
+.document-kicker,
+.paper h2,
+.document-number,
+.document-body,
+.issued-date,
+.signature-row,
+.document-footer,
+.indigency-heading,
+.indigency-certificate-body,
+.indigency-signature,
+.indigency-contact {
+    font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+.preview-toolbar span,
+.preview-toolbar p { color: #46514a; font-size: .9rem; line-height: 1.45; }
+.preview-actions button { min-height: 42px; height: 42px; border-radius: 8px; font: 700 .875rem/1.2 "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif; }
+.preview-actions button.secondary { border: 1.5px solid #0c5700; background: #fff; color: #0c5700; }
+.preview-actions button.secondary:hover,
+.preview-actions button.secondary:focus-visible { background: #f2f8ef; border-color: #084500; color: #084500; }
+.paper { font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif; }
+.paper h2,
+.header-copy h1 { font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif; }
+.document-kicker { font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif; }
+.document-number {
+    margin: 0 0 3mm;
+    color: #3f4a43;
+    font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+    font-size: 10pt;
+    text-align: left;
+}
+.document-number-value {
+    display: inline-block;
+    min-width: 25mm;
+    min-height: 1.1em;
+    border-bottom: 1px solid currentColor;
+    color: #252b27;
+    font-weight: 700;
+    text-align: center;
+    vertical-align: baseline;
+}
+.document-body { margin-top: 0; font-size: 12.5pt; line-height: 1.7; }
+.document-body p { margin-bottom: 1em; }
+.issued-date { margin-top: 8mm; }
+.signature-row { font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif; }
+.signature-row { margin-top: 14mm; }
+.signature-block .signature-name { color: #18352b; font-weight: 800; }
+.document-footer { font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif; }
+
+.paper--indigency { font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif; }
+.indigency-heading { top: 16.5%; }
+.indigency-document-title {
+    margin: 1.7% 0 0;
+    color: #0e5200;
+    font-size: clamp(15px, 2.9vw, 23pt);
+    font-weight: 800;
+    letter-spacing: .12em;
+    line-height: 1.2;
+}
+.indigency-document-meta {
+    top: 31.5%;
+    color: #303a33;
+    font-size: clamp(8px, 1.35vw, 10pt);
+    letter-spacing: normal;
+    text-align: left;
+}
+.indigency-document-meta .document-number-value { min-width: 25mm; }
+.indigency-certificate-body {
+    top: 34.5%;
+    font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+    font-size: clamp(10px, 1.7vw, 12.5pt);
+    line-height: 1.65;
+}
+.indigency-certificate-body p { margin-bottom: 1.05em; }
+.indigency-certificate-body .indigency-to { margin-bottom: 1.05em; }
+.indigency-field,
+.indigency-field-fill { font-weight: 800; }
+.indigency-signature { top: 72%; }
+.indigency-signatory-name {
+    display: block;
+    margin-bottom: 1.2%;
+    color: #1c1c1c;
+    font-size: clamp(9px, 1.5vw, 11pt);
+    font-weight: 800;
+    line-height: 1.25;
+}
+.indigency-signature-line {
+    width: 100%;
+    min-height: 1.4em;
+    padding: 0 1mm 1mm;
+    border: 0;
+    border-bottom: 1px solid #1c1c1c;
+    text-align: center;
+}
+.indigency-signature-line .indigency-signatory-name { margin: 0; }
+.indigency-signatory-label { margin-top: 1.1%; font-size: clamp(8px, 1.35vw, 10pt); font-weight: 700; }
+.indigency-signature-role { font-size: clamp(8px, 1.35vw, 10pt); }
+.indigency-signature small { margin-top: 1%; font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif; }
+.indigency-title-banner {
+    font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+    font-size: clamp(9pt, 1.8vw, 14pt);
+    letter-spacing: .15em;
+}
+.indigency-contact {
+    font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+    font-size: clamp(7px, 1.2vw, 9pt);
+}
+.signature-block .signature-line { height: 12mm; }
+
+@media (max-width: 700px) {
+    .preview-toolbar span,
+    .preview-toolbar p { font-size: .85rem; }
+    .paper--indigency { width: calc(100% - 1rem); margin: .5rem auto; }
+    .indigency-document-meta { top: 30.5%; font-size: 8px; }
+    .indigency-certificate-body { top: 34%; font-size: 10px; line-height: 1.5; }
+    .indigency-document-title { font-size: clamp(12px, 3vw, 18px); letter-spacing: .08em; }
+    .indigency-title-banner { font-size: 9px; letter-spacing: .08em; }
+    .document-number { font-size: 8.5pt; }
+    .document-body { font-size: 10.5pt; }
+}
+
+@page { size: A4 portrait; margin: 0; }
+@media print {
+    html,
+    body {
+        width: 210mm;
+        height: 297mm;
+        min-height: 297mm;
+        margin: 0 !important;
+        background: #fff !important;
+    }
+    body { display: block; }
+    .preview-toolbar { display: none !important; }
+    .paper {
+        width: 210mm;
+        height: 297mm;
+        min-height: 297mm;
+        margin: 0 !important;
+        overflow: hidden;
+        box-shadow: none !important;
+        page-break-after: avoid;
+        page-break-inside: avoid;
+        break-after: avoid-page;
+        break-inside: avoid-page;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .paper--indigency { padding: 0; aspect-ratio: auto; }
+    .sample-watermark,
+    .indigency-top-ribbon,
+    .indigency-footer-art,
+    .indigency-title-banner,
+    .indigency-contact { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

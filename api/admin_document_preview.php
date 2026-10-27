@@ -31,6 +31,13 @@ if (!$paid || !in_array($request['current_status'], ['Approved', 'Ready for Pick
 $roleStmt = $pdo->prepare("SELECT staff_role FROM `user` WHERE user_id = ? AND role = 'Admin' LIMIT 1");
 $roleStmt->execute([(int) $_SESSION['user_id']]);
 $staffRole = (string) ($roleStmt->fetchColumn() ?: '');
+$punongStmt = $pdo->query("SELECT full_name FROM barangay_staff
+    WHERE is_active = 1 AND staff_kind = 'official' AND LOWER(TRIM(position_title)) = 'punong barangay'");
+$punongRows = $punongStmt->fetchAll(PDO::FETCH_COLUMN);
+$punongName = count($punongRows) === 1 ? trim((string) $punongRows[0]) : '';
+$punongName = $punongName !== ''
+    ? (function_exists('mb_strtoupper') ? mb_strtoupper($punongName, 'UTF-8') : strtoupper($punongName))
+    : '';
 $escape = static fn($value): string => htmlspecialchars((string) ($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $fullName = trim(implode(' ', array_filter([$request['first_name'], $request['middle_name'], $request['last_name'], $request['suffix']], static fn($part) => trim((string) $part) !== '')));
 if ($fullName === '') $fullName = (string) ($request['walk_in_name'] ?: 'Resident name not recorded');
@@ -41,6 +48,9 @@ $businessAddress = trim((string) $request['business_address']);
 $businessActivity = trim((string) $request['business_activity']);
 $businessCategory = $request['business_category'] === 'solo' ? 'Individual / sole proprietor' : ($request['business_category'] === 'organization' ? 'Organization / partnership / corporation' : 'Not recorded');
 $manila = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
+$dayNumber = (int) $manila->format('j');
+$daySuffix = in_array($dayNumber % 100, [11, 12, 13], true) ? 'th' : ([1 => 'st', 2 => 'nd', 3 => 'rd'][$dayNumber % 10] ?? 'th');
+$ordinalDay = $dayNumber . $daySuffix;
 $age = '';
 if (!empty($request['date_of_birth'])) {
     try { $age = (string) (new DateTimeImmutable((string) $request['date_of_birth']))->diff($manila)->y; } catch (Throwable $ignored) { $age = ''; }
@@ -67,7 +77,9 @@ if ($isBusiness) {
     $body = $personDetails . '<p>The applicable barangay clearance facts and purpose must be reviewed and approved by authorized personnel before official issuance.</p>';
 }
 if ($purpose !== '') $body .= '<p><strong>Stated purpose:</strong> ' . $escape($purpose) . '</p>';
-$documentNumber = 'Not recorded';
+$numberStmt = $pdo->prepare('SELECT document_number FROM document_issuance WHERE request_id = ? ORDER BY issued_at DESC, issuance_id DESC LIMIT 1');
+$numberStmt->execute([$requestId]);
+$documentNumber = (string) ($numberStmt->fetchColumn() ?: '');
 $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
 ?>
 <!doctype html>
@@ -76,7 +88,7 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $escape($title) ?> · Sample preview</title>
-    <link rel="stylesheet" href="../document-preview.css?v=20261027-indigency-unbroken-inline-name-v1">
+    <link rel="stylesheet" href="../document-preview.css?v=20261027-certificate-layout-v1">
 </head>
 <body>
     <div class="preview-toolbar" role="region" aria-label="Document preview actions">
@@ -101,27 +113,28 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
             <strong class="indigency-barangay">BARANGAY SAN JOSE</strong>
             <span class="indigency-city">CITY OF BIRINGAN</span>
             <strong class="indigency-office">OFFICE OF THE PUNONG BARANGAY</strong>
+            <h1 class="indigency-document-title"><?= $escape($title) ?></h1>
         </header>
         <div class="indigency-watermark" aria-hidden="true">SAMPLE</div>
-        <p class="indigency-document-meta">Request tracking: <?= $escape($request['tracking_code']) ?> <span>·</span> Document no.: <strong id="document-number"><?= $escape($documentNumber) ?></strong></p>
+        <p class="indigency-document-meta">Request tracking: <?= $escape($request['tracking_code']) ?> <span>·</span> Document no.: <strong id="document-number" class="document-number-value"><?= $escape($documentNumber) ?></strong></p>
         <section class="indigency-certificate-body">
             <p class="indigency-to">To Whom It May Concern:</p>
             <p class="indigency-indent">This sample is prepared for <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span>, <span class="indigency-field"><?= $escape($age !== '' ? $age : 'Not recorded') ?></span> years old, residing at <span class="indigency-field indigency-field-fill"><?= $escape($address) ?></span>.</p>
             <p class="indigency-indent">Indigency status and supporting facts must be verified and approved by authorized barangay personnel before official issuance. This sample does not make that determination.</p>
             <p>This certification sample is prepared upon the request of <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span> for <span class="indigency-field indigency-field-fill"><?= $escape($purpose !== '' ? $purpose : 'Purpose not recorded') ?></span>.</p>
-            <p>Prepared this <span class="indigency-field"><?= $escape($manila->format('j')) ?></span> day of <span class="indigency-field"><?= $escape($manila->format('F')) ?></span>, <span class="indigency-field"><?= $escape($manila->format('Y')) ?></span> at Barangay San Jose, City of Biringan.</p>
+            <p>Prepared this <span class="indigency-field"><?= $escape($ordinalDay) ?></span> day of <span class="indigency-field"><?= $escape($manila->format('F')) ?></span>, <span class="indigency-field"><?= $escape($manila->format('Y')) ?></span> at Barangay San Jose, City of Biringan.</p>
         </section>
         <div class="indigency-signature">
-            <div class="indigency-signature-line">Authorized signatory</div>
+            <div class="indigency-signature-line" aria-hidden="true"></div>
+            <div class="indigency-signatory-label">Julius Akeem De Leon</div>
             <div class="indigency-signature-role">Punong Barangay</div>
-            <small>Signature and approval required on the official form</small>
         </div>
         <svg class="indigency-footer-art" viewBox="0 0 210 297" preserveAspectRatio="none" aria-hidden="true">
             <polygon points="0,262 0,285 55,262" fill="#0E5200" />
             <polygon points="155,297 210,297 210,278" fill="#F2C200" />
             <polygon points="178,297 210,297 210,288" fill="#0E5200" />
         </svg>
-        <div class="indigency-title-banner">CERTIFICATE OF INDIGENCY</div>
+        <div class="indigency-title-banner">BARANGAY SAN JOSE · CITY OF BIRINGAN</div>
         <footer class="indigency-contact">Barangay San Jose Digital Portal · Academic project sample · Not an official government document</footer>
         <?php else: ?>
         <div class="sample-watermark" aria-hidden="true">SAMPLE · NOT OFFICIAL</div>
@@ -138,12 +151,15 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
         <div class="green-rule"></div>
         <p class="document-kicker">BARANGAY CERTIFICATION · SAMPLE ONLY</p>
         <h2><?= $escape($title) ?></h2>
-        <p class="document-number">Request tracking: <?= $escape($request['tracking_code']) ?> <span>·</span> Document no.: <strong id="document-number"><?= $escape($documentNumber) ?></strong></p>
+        <p class="document-number">Request tracking: <?= $escape($request['tracking_code']) ?> <span>·</span> Document no.: <strong id="document-number" class="document-number-value"><?= $escape($documentNumber) ?></strong></p>
         <section class="document-body"><?= $body ?></section>
         <p class="issued-date">Prepared on <?= $escape($manila->format('F j, Y')) ?> for staff review.</p>
         <div class="signature-row">
             <div class="signature-block"><span class="signature-line"></span><strong>Authorized staff review</strong><small>Signature and printed name required before official issuance</small></div>
-            <div class="signature-block"><span class="signature-line"></span><strong>Punong Barangay</strong><small>Signature required on the approved official copy</small></div>
+            <div class="signature-block">
+                <span class="signature-line"><?php if ($punongName !== ''): ?><strong class="signature-name"><?= $escape($punongName) ?></strong><?php endif; ?></span>
+                <strong>Authorized signatory</strong><strong>Punong Barangay</strong><small>Signature required on the approved official copy</small>
+            </div>
         </div>
         <footer class="document-footer"><span>Barangay San Jose Digital Portal · Academic project sample</span><span>Not an official government document</span></footer>
         <?php endif; ?>
