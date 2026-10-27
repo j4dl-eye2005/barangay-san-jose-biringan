@@ -4639,35 +4639,26 @@ body:has(#resident-profile.active) #resident-profile .resident-profile-quick-lin
     }
 }
 
-/* Keep the admin header links and their positions stable across panel changes. */
+/* Match desktop admin tab spacing to the resident and public navigation. */
 @media (min-width: 768px) {
     html:has(body.admin-user-view) { scrollbar-gutter: stable; }
     body.admin-user-view #main-nav .nav-links {
-        display: grid;
-        width: 100%;
+        display: flex;
+        width: auto;
         min-width: 0;
-        flex: 1 1 auto;
-        grid-template-columns: repeat(8, minmax(0, 1fr));
+        flex: 0 0 auto;
         overflow: visible;
-        gap: 0;
+        gap: 4px;
     }
-    body.admin-user-view #main-nav .nav-links > li { min-width: 0; }
-    body.admin-user-view #main-nav .nav-links > li:has(#nav-tab-overview) { grid-column: 1; }
-    body.admin-user-view #main-nav .nav-links > li:has(#nav-tab-requests) { grid-column: 2; }
-    body.admin-user-view #main-nav .nav-links > li:has(#nav-tab-residents) { grid-column: 3; }
-    body.admin-user-view #main-nav .nav-links > li:has(#nav-tab-collections) { grid-column: 4; }
-    body.admin-user-view #main-nav .nav-links > li:has(#nav-tab-staff) { grid-column: 5; }
-    body.admin-user-view #main-nav .nav-links > li:has(#nav-tab-disclosures) { grid-column: 6; }
-    body.admin-user-view #main-nav .nav-links > li:has(#nav-tab-public-records) { grid-column: 7; }
-    body.admin-user-view #main-nav .nav-links > li:has(#nav-tab-activity) { grid-column: 8; }
+    body.admin-user-view #main-nav .nav-links > li { min-width: 0; flex: 0 0 auto; }
     #main-nav .nav-links .admin-nav-tab,
     #main-nav .nav-links .admin-nav-tab.active,
     #main-nav .nav-links .admin-nav-tab[aria-current="page"] {
         box-sizing: border-box;
-        width: 100%;
+        width: auto;
         min-width: 0;
-        padding-right: 4px;
-        padding-left: 4px;
+        padding-right: 16px;
+        padding-left: 16px;
         white-space: nowrap;
         font-weight: 600 !important;
     }
