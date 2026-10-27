@@ -88,7 +88,7 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $escape($title) ?> · Sample preview</title>
-    <link rel="stylesheet" href="../document-preview.css?v=20261027-certificate-flow-container-v3">
+    <link rel="stylesheet" href="../document-preview.css?v=20261027-certificate-flow-container-v6">
 </head>
 <body>
     <div class="preview-toolbar" role="region" aria-label="Document preview actions">
@@ -120,23 +120,22 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
             <div class="indigency-divider" aria-hidden="true"></div>
             <section class="indigency-certificate-body">
                 <p class="indigency-to">To Whom It May Concern:</p>
-                <p class="indigency-indent">This sample is prepared for <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span><?php if ($age !== ''): ?>, <span class="indigency-field"><?= $escape($age) ?></span> years old<?php endif; ?>, residing at <span class="indigency-field indigency-field-fill"><?= $escape($address) ?></span>.</p>
-                <p class="indigency-indent">Indigency status and supporting facts must be verified and approved by authorized barangay personnel before official issuance. This sample does not make that determination.</p>
-                <p>This certification sample is prepared upon the request of <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span> for <span class="indigency-field indigency-field-fill"><?= $escape($purpose !== '' ? $purpose : 'Purpose not recorded') ?></span>.</p>
-                <p>Prepared this <span class="indigency-field"><?= $escape($ordinalDay) ?></span> day of <span class="indigency-field"><?= $escape($manila->format('F')) ?></span>, <span class="indigency-field"><?= $escape($manila->format('Y')) ?></span> at Barangay San Jose, City of Biringan.</p>
+                <p class="indigency-indent">This is to certify that <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span><?php if ($age !== ''): ?>, <span class="indigency-field"><?= $escape($age) ?></span> years old<?php endif; ?>, a resident of <span class="indigency-field indigency-field-fill"><?= $escape($address) ?></span>.</p>
+                <p class="indigency-indent">This is to certify further that the above-mentioned person is personally known to me, of good moral character, a law-abiding citizen of the Republic of the Philippines, and that his/her family is listed as one of the INDIGENT families in our barangay.</p>
+                <p>This sample does not make that determination.</p>
+                <p>This CERTIFICATION is issued upon the request of <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span> for <span class="indigency-field indigency-field-fill"><?= $escape($purpose !== '' ? $purpose : 'Purpose not recorded') ?></span>.</p>
+                <p>Issued this <span class="indigency-field"><?= $escape($ordinalDay) ?></span> day of <span class="indigency-field"><?= $escape($manila->format('F')) ?></span>, <span class="indigency-field"><?= $escape($manila->format('Y')) ?></span> at Barangay San Jose, City of Biringan.</p>
             </section>
             <div class="indigency-signature">
-                <?php if ($punongName !== ''): ?><strong class="indigency-signatory-name"><?= $escape($punongName) ?></strong><?php endif; ?>
                 <div class="indigency-signature-line" aria-hidden="true"></div>
-                <div class="indigency-signatory-label">Authorized signatory</div>
+                <div class="indigency-signatory-label">Julius Akeem De Leon</div>
                 <div class="indigency-signature-role">Punong Barangay</div>
-                <small>Signature and approval required on the official form</small>
             </div>
         </div>
         <svg class="indigency-footer-art" viewBox="0 0 210 297" preserveAspectRatio="none" aria-hidden="true">
-            <polygon points="0,262 0,285 55,262" fill="#0E5200" />
-            <polygon points="155,297 210,297 210,278" fill="#F2C200" />
-            <polygon points="178,297 210,297 210,288" fill="#0E5200" />
+            <polygon points="0,262 0,274 32,262" fill="#0E5200" />
+            <polygon points="164,297 210,297 210,281" fill="#F2C200" />
+            <polygon points="185,297 210,297 210,289" fill="#0E5200" />
         </svg>
         <div class="indigency-title-banner" aria-hidden="true"></div>
         <footer class="indigency-contact">Barangay San Jose Digital Portal · Academic project sample · Not an official government document</footer>
