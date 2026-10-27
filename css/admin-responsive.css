@@ -2910,7 +2910,7 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
         color: #fff;
     }
     #admin-request-detail-panel .request-detail-actions > .btn-view {
-        border-color: var(--color-border);
+        border-color: var(--color-accent);
         background: #fff;
         color: var(--color-accent);
     }
