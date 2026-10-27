@@ -582,3 +582,373 @@
     #admin-dashboard #admin-collections-panel .collection-fee-entry { flex-basis: 170px; }
 }
 
+/* Officials and staff directory */
+#admin-dashboard #admin-staff-panel {
+    min-width: 0;
+}
+#admin-dashboard #admin-staff-panel .staff-page-header {
+    margin-bottom: 22px;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-notice {
+    display: grid;
+    width: 100%;
+    box-sizing: border-box;
+    grid-template-columns: 20px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+    margin: 0 0 20px;
+    padding: 16px 18px;
+    border: 1px solid #c9ddce;
+    border-radius: 8px;
+    background: #eff7f0;
+    color: #46554a;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-notice > i {
+    margin-top: 3px;
+    color: #26713b;
+    font-size: 16px;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-notice > p {
+    min-width: 0;
+    margin: 0;
+    color: #46554a;
+    font-size: 13px;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-notice strong {
+    color: #34443a;
+    font-weight: 650;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-form {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    margin: 0 0 16px;
+    padding: 22px 24px 20px;
+    border: 1px solid #d9e0d9;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: none;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-form-heading,
+#admin-dashboard #admin-staff-panel .staff-directory-table-heading {
+    margin: 0 0 19px;
+    padding: 0 0 13px;
+    border-bottom: 1px solid #e1e6e1;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-form-heading h3,
+#admin-dashboard #admin-staff-panel .staff-directory-table-heading h3 {
+    margin: 0;
+    color: #2e342f;
+    font-size: 17px;
+    font-weight: 650;
+    line-height: 1.35;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-fields {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px 20px;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-field {
+    display: grid;
+    min-width: 0;
+    align-content: start;
+    gap: 7px;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-field > label {
+    display: block;
+    margin: 0;
+    color: #46514a;
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1.35;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-field > input,
+#admin-dashboard #admin-staff-panel .staff-directory-field > select {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    height: 42px;
+    min-height: 42px;
+    margin: 0;
+    padding: 0 12px;
+    border: 1px solid #cbd4cb;
+    border-radius: 6px;
+    background-color: #fff;
+    color: #303a33;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.3;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-field > input::placeholder {
+    color: #68736b;
+    opacity: 1;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-field > input:focus-visible,
+#admin-dashboard #admin-staff-panel .staff-directory-field > select:focus-visible {
+    border-color: #2f6b45;
+    outline: 3px solid rgba(47, 107, 69, .16);
+    outline-offset: 1px;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-field > select:disabled {
+    border-color: #d9dfd9;
+    background-color: #f1f3f1;
+    color: #7b847d;
+    cursor: not-allowed;
+    opacity: 1;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-role-field > small {
+    margin: -1px 0 0;
+    color: #69746c;
+    font-size: 11px;
+    line-height: 1.4;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-actions {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #e1e6e1;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-actions > .btn-solid,
+#admin-dashboard #admin-staff-panel .staff-directory-actions > .btn-outline {
+    box-sizing: border-box;
+    min-height: 40px;
+    height: 40px;
+    margin: 0;
+    padding: 0 16px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-actions > .btn-solid {
+    border: 1px solid #176b2c;
+    background: #176b2c;
+    color: #fff;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-actions > .btn-outline {
+    border: 1px solid #cbd4cb;
+    background: #fff;
+    color: #3d4940;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-actions > .btn-solid:hover,
+#admin-dashboard #admin-staff-panel .staff-directory-actions > .btn-solid:focus-visible {
+    border-color: #125522;
+    background: #125522;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-actions > .btn-outline:hover,
+#admin-dashboard #admin-staff-panel .staff-directory-actions > .btn-outline:focus-visible {
+    border-color: #9eafa0;
+    background: #f4f7f4;
+}
+#admin-dashboard #admin-staff-panel #staff-directory-feedback {
+    min-width: 0;
+    color: #59645d;
+    font-size: 12px;
+    line-height: 1.4;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-table-card {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 20px 22px 12px;
+    overflow: hidden;
+    border: 1px solid #d9e0d9;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: none;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-table-heading {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-table-scroll {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-table {
+    width: 100%;
+    min-width: 1040px;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+    color: #38423c;
+    font-size: 13px;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-table th:nth-child(1) { width: 17%; }
+#admin-dashboard #admin-staff-panel .staff-directory-table th:nth-child(2) { width: 15%; }
+#admin-dashboard #admin-staff-panel .staff-directory-table th:nth-child(3) { width: 10%; }
+#admin-dashboard #admin-staff-panel .staff-directory-table th:nth-child(4) { width: 15%; }
+#admin-dashboard #admin-staff-panel .staff-directory-table th:nth-child(5) { width: 15%; }
+#admin-dashboard #admin-staff-panel .staff-directory-table th:nth-child(6) { width: 9%; }
+#admin-dashboard #admin-staff-panel .staff-directory-table th:nth-child(7) { width: 19%; }
+#admin-dashboard #admin-staff-panel .staff-directory-table thead th {
+    height: 38px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #dce3dc;
+    background: #eef2ee;
+    color: #46514a;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.25;
+    text-align: left;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-table tbody tr:not(.table-empty-row) {
+    min-height: 58px;
+    background: #fff;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-table tbody tr:not(.table-empty-row):hover { background: #f4f7f4; }
+#admin-dashboard #admin-staff-panel .staff-directory-table tbody td {
+    height: auto;
+    padding: 12px;
+    border-bottom: 1px solid #e3e8e3;
+    color: #38423c;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.45;
+    text-align: left;
+    vertical-align: middle;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-table th:last-child,
+#admin-dashboard #admin-staff-panel .staff-directory-table td[data-label="Actions"] { text-align: left; }
+#admin-dashboard #admin-staff-panel .staff-directory-table tbody tr:last-child > td,
+#admin-dashboard #admin-staff-panel .staff-directory-table tbody tr.table-empty-row > td { border-bottom: 0; }
+#admin-dashboard #admin-staff-panel .staff-directory-contact > span { display: block; }
+#admin-dashboard #admin-staff-panel .staff-directory-contact .collection-secondary {
+    margin-top: 3px;
+    color: #69746c;
+    font-size: 11px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-portal-access { white-space: normal; }
+#admin-dashboard #admin-staff-panel .staff-directory-role-detail {
+    display: block;
+    margin-top: 4px;
+    color: #69746c;
+    font-size: 11px;
+    line-height: 1.35;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-pill {
+    display: inline-flex;
+    min-height: 22px;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 8px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-pill--green {
+    border-color: #b9e4c4;
+    background: #eaf7ed;
+    color: #166534;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-pill--neutral {
+    border-color: #dedbd7;
+    background: #f2f1ef;
+    color: #57534e;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-row-actions {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+    white-space: normal;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-row-actions .staff-row-action {
+    display: inline-flex;
+    min-height: 30px;
+    height: 30px;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0 9px;
+    border: 1px solid #cbd4cb;
+    border-radius: 6px;
+    background: #fff;
+    color: #285b3a;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-row-actions .staff-row-action:hover,
+#admin-dashboard #admin-staff-panel .staff-directory-row-actions .staff-row-action:focus-visible {
+    border-color: #83a88c;
+    background: #f0f7f1;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-row-actions .staff-row-action--danger {
+    border-color: #e4bcbc;
+    color: #a52b2b;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-row-actions .staff-row-action--danger:hover,
+#admin-dashboard #admin-staff-panel .staff-directory-row-actions .staff-row-action--danger:focus-visible {
+    border-color: #d99e9e;
+    background: #fdf1f1;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-empty {
+    height: auto !important;
+    padding: 34px 16px !important;
+    color: #69746c !important;
+    text-align: center !important;
+    white-space: normal !important;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-empty > i {
+    display: block;
+    margin: 0 0 9px;
+    color: #7d8c80;
+    font-size: 18px;
+}
+#admin-dashboard #admin-staff-panel .staff-directory-empty > span { display: block; }
+
+@media (max-width: 900px) {
+    #admin-dashboard #admin-staff-panel .staff-directory-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 767px) {
+    #admin-dashboard #admin-staff-panel .staff-page-header { margin-bottom: 18px; }
+    #admin-dashboard #admin-staff-panel .staff-directory-notice { gap: 10px; margin-bottom: 16px; padding: 14px; }
+    #admin-dashboard #admin-staff-panel .staff-directory-form { margin-bottom: 14px; padding: 18px 16px; }
+    #admin-dashboard #admin-staff-panel .staff-directory-form-heading { margin-bottom: 16px; }
+    #admin-dashboard #admin-staff-panel .staff-directory-fields { grid-template-columns: minmax(0, 1fr); gap: 15px; }
+    #admin-dashboard #admin-staff-panel .staff-directory-actions { gap: 8px; margin-top: 17px; }
+    #admin-dashboard #admin-staff-panel .staff-directory-table-card { padding: 17px 14px 10px; }
+    #admin-dashboard #admin-staff-panel .staff-directory-table { width: max-content; min-width: 1040px; table-layout: fixed; }
+    #admin-dashboard #admin-staff-panel .staff-directory-table thead th { height: 38px; padding: 9px 12px; font-size: 11px; }
+    #admin-dashboard #admin-staff-panel .staff-directory-table tbody tr:not(.table-empty-row) { min-height: 56px; }
+    #admin-dashboard #admin-staff-panel .staff-directory-table tbody td { padding: 11px 12px; }
+    #admin-dashboard #admin-staff-panel .staff-directory-row-actions { flex-wrap: nowrap; }
+}
+

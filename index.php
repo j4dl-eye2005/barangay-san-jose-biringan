@@ -38,7 +38,7 @@ if (isset($_GET['admin_access_form'])) {
     $homeCssUrl = htmlspecialchars($appBasePath . '/css/home.css?v=20261023-static-request-arrows-v1', ENT_QUOTES, 'UTF-8');
     $componentsCssUrl = htmlspecialchars($appBasePath . '/css/components.css?v=20261016-admin-mfa-step', ENT_QUOTES, 'UTF-8');
     $publicCssUrl = htmlspecialchars($appBasePath . '/css/public.css?v=20261016-sticky-menu-stable', ENT_QUOTES, 'UTF-8');
-    $responsiveCssUrl = htmlspecialchars($appBasePath . '/css/shared-responsive.css?v=20261023-mobile-account-actions-v1', ENT_QUOTES, 'UTF-8');
+    $responsiveCssUrl = htmlspecialchars($appBasePath . '/css/shared-responsive.css?v=20261027-proof-preview-styles-v2', ENT_QUOTES, 'UTF-8');
     $cssUrl = htmlspecialchars($appBasePath . '/css/admin-access.css?v=20261021-admin-access-panel-contrast-v3', ENT_QUOTES, 'UTF-8');
     $portalCssUrl = htmlspecialchars($appBasePath . '/css/portal-public.css?v=20261023-mobile-auth-actions-v1', ENT_QUOTES, 'UTF-8');
     $jsUrl = htmlspecialchars($appBasePath . '/admin-access.js?v=20261021-shared-mobile-shell-v1', ENT_QUOTES, 'UTF-8');
@@ -209,11 +209,11 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <link data-portal-route-css="auth" data-portal-css-href="css/auth.css?v=20261027-resident-profile-edit-v2">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin.css?v=20261023-server-disclosure-drafts-v1">
     <link rel="stylesheet" href="css/public.css?v=20261016-sticky-menu-stable">
-    <link data-portal-route-css="admin" data-portal-css-href="css/admin-tables.css?v=20261027-collections-display-v2">
-    <link rel="stylesheet" href="css/shared-responsive.css?v=20261027-proof-preview-styles-v1">
-    <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261027-request-actions-v2">
+    <link data-portal-route-css="admin" data-portal-css-href="css/admin-tables.css?v=20261027-staff-directory-ui-v1">
+    <link rel="stylesheet" href="css/shared-responsive.css?v=20261027-proof-preview-styles-v2">
+    <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261027-proof-preview-layout-v1">
     <link data-portal-route-css="unavailable" data-portal-css-href="css/unavailable.css?v=20261023-mobile-404-wrap-v2">
-    <link rel="stylesheet" href="css/portal-public.css?v=20261027-admin-navigation-fixed-columns-v1">
+    <link rel="stylesheet" href="css/portal-public.css?v=20261027-admin-navigation-compact-tabs-v2">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -1326,7 +1326,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <?php require __DIR__ . '/includes/shared/site-footer.php'; ?>
 
     <?php require __DIR__ . '/includes/shared/dialogs.php'; ?>    <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true">Message</div>
-    <script src="script.js?v=20261027-collections-display-v2" defer></script>
+    <script src="script.js?v=20261027-proof-preview-title-v1" defer></script>
 </body>
 </html>
 
