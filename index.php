@@ -210,10 +210,10 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <link data-portal-route-css="admin" data-portal-css-href="css/admin.css?v=20261023-server-disclosure-drafts-v1">
     <link rel="stylesheet" href="css/public.css?v=20261016-sticky-menu-stable">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin-tables.css?v=20261027-collections-display-v2">
-    <link rel="stylesheet" href="css/shared-responsive.css?v=20261023-mobile-account-actions-v1">
+    <link rel="stylesheet" href="css/shared-responsive.css?v=20261027-proof-preview-styles-v1">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261027-request-actions-v2">
     <link data-portal-route-css="unavailable" data-portal-css-href="css/unavailable.css?v=20261023-mobile-404-wrap-v2">
-    <link rel="stylesheet" href="css/portal-public.css?v=20261027-admin-navigation-single-row-v2">
+    <link rel="stylesheet" href="css/portal-public.css?v=20261027-admin-navigation-fixed-columns-v1">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>

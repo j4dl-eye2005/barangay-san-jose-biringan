@@ -4643,36 +4643,62 @@ body:has(#resident-profile.active) #resident-profile .resident-profile-quick-lin
 @media (min-width: 768px) {
     html:has(body.admin-user-view) { scrollbar-gutter: stable; }
     body.admin-user-view #main-nav .nav-links {
-        display: flex;
+        display: grid;
+        width: 100%;
         min-width: 0;
         flex: 1 1 auto;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        overflow-y: hidden;
-        scrollbar-width: thin;
-        gap: 4px;
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+        overflow: visible;
+        gap: 0;
     }
-    body.admin-user-view #main-nav .nav-links > li { flex: 0 0 auto; }
+    body.admin-user-view #main-nav .nav-links > li { min-width: 0; }
+    body.admin-user-view #main-nav .nav-links > li:has(#nav-tab-overview) { grid-column: 1; }
+    body.admin-user-view #main-nav .nav-links > li:has(#nav-tab-requests) { grid-column: 2; }
+    body.admin-user-view #main-nav .nav-links > li:has(#nav-tab-residents) { grid-column: 3; }
+    body.admin-user-view #main-nav .nav-links > li:has(#nav-tab-collections) { grid-column: 4; }
+    body.admin-user-view #main-nav .nav-links > li:has(#nav-tab-staff) { grid-column: 5; }
+    body.admin-user-view #main-nav .nav-links > li:has(#nav-tab-disclosures) { grid-column: 6; }
+    body.admin-user-view #main-nav .nav-links > li:has(#nav-tab-public-records) { grid-column: 7; }
+    body.admin-user-view #main-nav .nav-links > li:has(#nav-tab-activity) { grid-column: 8; }
     #main-nav .nav-links .admin-nav-tab,
     #main-nav .nav-links .admin-nav-tab.active,
     #main-nav .nav-links .admin-nav-tab[aria-current="page"] {
         box-sizing: border-box;
-        width: auto;
-        flex: 0 0 auto;
+        width: 100%;
+        min-width: 0;
+        padding-right: 4px;
+        padding-left: 4px;
         white-space: nowrap;
         font-weight: 600 !important;
     }
-    /* Keep the row from shifting when the asynchronously loaded request count appears. */
     body.admin-user-view #main-nav #nav-tab-requests {
-        box-sizing: border-box;
-        width: 132px;
-        min-width: 132px;
-        flex: 0 0 132px;
-        justify-content: flex-start;
+        justify-content: center;
     }
-    body.admin-user-view #main-nav #nav-tab-requests .admin-tab-count { margin-left: auto; }
+    body.admin-user-view #main-nav #nav-tab-requests .admin-tab-count {
+        position: absolute;
+        top: 50%;
+        right: 4px;
+        margin: 0;
+        transform: translateY(-50%);
+    }
     /* The compact admin footer only needs a small safe gap below its final row. */
     body.admin-user-view .site-footer-inner { padding-bottom: 4px; }
+}
+
+@media (min-width: 768px) and (max-width: 900px) {
+    body.admin-user-view #main-nav .nav-links .admin-nav-tab { font-size: 11px !important; }
+    body.admin-user-view #main-nav #nav-tab-requests { padding-right: 24px; }
+    body.admin-user-view #main-nav #nav-tab-requests .admin-tab-count { right: 2px; }
+}
+
+@media (min-width: 901px) and (max-width: 1100px) {
+    body.admin-user-view #main-nav .nav-links .admin-nav-tab { font-size: 12px !important; }
+    body.admin-user-view #main-nav #nav-tab-requests { padding-right: 26px; }
+    body.admin-user-view #main-nav #nav-tab-requests .admin-tab-count { right: 4px; }
+}
+
+@media (min-width: 1101px) {
+    body.admin-user-view #main-nav #nav-tab-requests { padding-right: 28px; }
 }
 
 /* Keep admin navigation at the top and anchor account actions to the drawer bottom. */
