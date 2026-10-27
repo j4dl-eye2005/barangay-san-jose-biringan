@@ -2823,6 +2823,16 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
 
 /* Request detail desktop layout and controls. */
 @media (min-width: 768px) {
+    #admin-dashboard #admin-requests-panel .request-admin-table tbody tr:not(.table-empty-row) > td[data-label="Resident"] {
+        overflow-wrap: break-word !important;
+        word-break: normal !important;
+        letter-spacing: normal;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table tbody tr:not(.table-empty-row) > td[data-label="Resident"] > span {
+        overflow-wrap: break-word;
+        word-break: normal;
+        letter-spacing: normal;
+    }
     #admin-request-detail-panel > .request-detail-back {
         display: inline-flex;
         min-height: 32px;
@@ -2852,6 +2862,13 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
         margin-bottom: 12px;
     }
     #admin-request-detail-panel .request-detail-header > div:first-child { min-width: 0; }
+    #admin-request-detail-panel .request-detail-header h2,
+    #admin-request-detail-panel .request-detail-header p,
+    #admin-request-detail-panel .request-detail-dl dd,
+    #admin-request-detail-panel .request-timeline-item :is(strong, p, small) {
+        letter-spacing: normal;
+        font-kerning: normal;
+    }
     #admin-request-detail-panel .request-detail-header-controls {
         display: flex;
         min-width: 0;
@@ -2998,7 +3015,7 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
     #admin-request-detail-panel .request-detail-dl { gap: 12px; }
     #admin-request-detail-panel .request-detail-dl > div { grid-template-columns: 128px minmax(0, 1fr); gap: 16px; }
     #admin-request-detail-panel .request-detail-dl dt { color: #4e5952; font-size: 12px; font-weight: 600; }
-    #admin-request-detail-panel .request-detail-dl dd { color: #252b27; font-size: 14px; line-height: 1.5; }
+    #admin-request-detail-panel .request-detail-dl dd { color: #252b27; font-size: 14px; line-height: 1.5; overflow-wrap: break-word; word-break: normal; }
     #admin-request-detail-panel .request-detail-purpose-row {
         margin-top: 4px;
         padding-top: 14px;
