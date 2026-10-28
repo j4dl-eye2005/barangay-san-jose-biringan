@@ -3107,6 +3107,22 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
 }
 
 /* Keep request filters and mobile card actions fully visible and clearly named. */
+#admin-dashboard #admin-requests-panel .request-filter-count {
+    display: inline-flex;
+    min-width: 20px;
+    align-items: center;
+    justify-content: center;
+    margin-left: 6px;
+    padding: 1px 5px;
+    border-radius: 999px;
+    background: #edf2ed;
+    color: inherit;
+    font-size: 11px;
+    line-height: 1.4;
+}
+#admin-dashboard #admin-requests-panel .request-filter.active .request-filter-count {
+    background: #d7e8d3;
+}
 @media (max-width: 767px) {
     #admin-dashboard #admin-requests-panel .request-payment-filter {
         width: min(100%, 340px);
@@ -3124,12 +3140,48 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
         padding: 0;
     }
     #admin-dashboard #admin-requests-panel .request-status-tabs > .request-filter {
+        display: flex;
         width: 100%;
         min-width: 0;
         min-height: 44px;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
         padding: 7px 8px;
         line-height: 1.25;
         white-space: normal;
+    }
+    #admin-dashboard #admin-requests-panel .request-filter-label {
+        min-width: 0;
+    }
+    #admin-dashboard #admin-requests-panel .request-filter-count {
+        min-width: 22px;
+        height: 22px;
+        flex: 0 0 auto;
+        margin-left: 0;
+        padding: 0 5px;
+        background: #edf2ed;
+        line-height: 1;
+    }
+    #admin-dashboard #admin-requests-panel .request-filter.active .request-filter-count {
+        background: #d7e8d3;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-tracking-wrap {
+        align-items: center;
+        gap: 6px;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-tracking {
+        line-height: 1.25;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-tracking-wrap > .request-tracking-copy {
+        display: inline-grid;
+        width: 36px;
+        height: 36px;
+        flex: 0 0 36px;
+        font-size: 14px;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-resident {
+        margin-top: 6px;
     }
     #admin-dashboard #admin-requests-panel .admin-request-mobile-statuses {
         display: flex;

@@ -6297,7 +6297,8 @@ function renderAdminRequests() {
     document.querySelectorAll('.request-filter').forEach(filterButton => {
         const status = filterButton.dataset.filterStatus;
         const count = Number(adminRequestStatusCounts[status]) || 0;
-        filterButton.textContent = `${filterButton.dataset.filterLabel} (${count})`;
+        const countLabel = filterButton.querySelector('.request-filter-count');
+        if (countLabel) countLabel.textContent = String(count);
     });
     const filtered = adminRequestRows;
     const pageStatus = document.getElementById('request-page-status');
