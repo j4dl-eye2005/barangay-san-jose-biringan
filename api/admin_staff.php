@@ -75,7 +75,7 @@ $phone = trim(is_string($data['contact_number'] ?? null) ? $data['contact_number
 $email = strtolower(trim(is_string($data['email'] ?? null) ? $data['email'] : ''));
 $portalUserRaw = $data['portal_user_id'] ?? null;
 $portalUserId = filter_var($portalUserRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: null;
-$staffRole = is_string($data['staff_role'] ?? null) ? $data['staff_role'] : 'service_clerk';
+$staffRole = is_string($data['staff_role'] ?? null) ? $data['staff_role'] : null;
 $allowedRoles = ['super_admin', 'service_clerk', 'cashier', 'document_issuer'];
 if ((($data['staff_id'] ?? null) !== null && $data['staff_id'] !== '' && !$staffId)
     || ($portalUserRaw !== null && $portalUserRaw !== '' && !$portalUserId)
@@ -84,7 +84,7 @@ if ((($data['staff_id'] ?? null) !== null && $data['staff_id'] !== '' && !$staff
     || !in_array($kind, ['official', 'staff'], true)
     || strlen($phone) > 30 || preg_match('/[\x00-\x1F\x7F]/', $phone)
     || ($email !== '' && (strlen($email) > 190 || !filter_var($email, FILTER_VALIDATE_EMAIL)))
-    || !in_array($staffRole, $allowedRoles, true)) {
+    || ($portalUserId && !in_array($staffRole, $allowedRoles, true))) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Check the staff name, position, contact details, category, and portal role.']);
     exit;

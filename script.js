@@ -101,6 +101,7 @@ let publicDisclosuresLoaded = false;
 let publicDisclosuresLoadedAt = 0;
 let publicDisclosuresItems = [];
 let publicDisclosuresLoadPromise = null;
+let publicDisclosuresInFlightQueryKey = '';
 let publicDisclosuresLoadError = false;
 let publicDisclosuresLoadedQueryKey = '';
 let publicDisclosuresPage = 1;
@@ -175,7 +176,7 @@ const delegatedActionNames = new Set([
     'setActivityPreset', 'setAdminRequestFilter', 'setBulletinFilter', 'showSection', 'updateAdminMfaCode', 'updateAdminMfaDigits',
     'sortActivity', 'submitModal', 'saveAdminNotificationPreferences', 'generateAdminProfileMfaRecoveryCodes', 'setPortalLanguage', 'switchAdminTab', 'toggleActivityExtraFilters',
     'toggleMobileMenu', 'toggleUserMenu', 'togglePassword', 'togglePickupCalendar', 'updatePickupReadback', 'updateLandingDocumentFinder',
-    'loadAdminCollections', 'loadAdminStaff', 'resetStaffDirectoryForm', 'saveStaffDirectoryEntry',
+    'loadAdminCollections', 'loadAdminStaff', 'openNewStaffDirectoryEntry', 'resetStaffDirectoryForm', 'saveStaffDirectoryEntry', 'toggleStaffDirectoryNotice',
     'openResidentProfileEdit', 'cancelResidentProfileEdit', 'saveResidentProfileDetails', 'updateResidentProfileSaveState',
     'openFilePicker', 'openProfilePhotoPicker', 'saveProfilePhoto', 'cancelProfilePhotoPreview',
     'removeProfilePhoto', 'updateAdminNotificationSaveState', 'updateAdminProfileDetailsSaveState', 'scrollPageTop'
@@ -520,7 +521,7 @@ function placeResidentProfileForRole() {
     }
 }
 
-function showSection(id, fromHistory = false, adminSection = null) {
+function showSection(id, fromHistory = false, adminSection = null, bulletinCategory = null) {
     if (document.body.dataset.adminEntryAuthorized === '0' && (id === 'admin-login' || id === 'admin-dashboard' || id.startsWith('admin-'))) {
         id = 'page-unavailable';
     }
@@ -666,7 +667,7 @@ function showSection(id, fromHistory = false, adminSection = null) {
         // causes the Residents tab to show stale empty data when first opened.
     }
     if (id === 'bulletin') {
-        setBulletinCategoryView(fromHistory ? getBulletinCategoryFromLocation() : null);
+        setBulletinCategoryView(fromHistory ? getBulletinCategoryFromLocation() : bulletinCategory);
         const bulletinParams = new URLSearchParams(location.hash.split('?')[1] || '');
         const searchQuery = bulletinParams.get('search');
         const searchInput = document.getElementById('public-records-search-input');
@@ -712,6 +713,10 @@ function showSection(id, fromHistory = false, adminSection = null) {
             nextState = { section: id, adminSection: sectionKey };
         } else if (['landing', 'bulletin', 'resident-dashboard'].includes(id)) {
             destinationPath = new URL('index.php', document.baseURI).pathname;
+            if (id === 'bulletin' && bulletinCategory) {
+                destinationHash = `#bulletin?category=${encodeURIComponent(String(bulletinCategory))}`;
+                nextState.bulletinCategory = Number(bulletinCategory);
+            }
         }
 
         if (location.pathname !== destinationPath || location.hash !== destinationHash || history.state?.section !== id) {
@@ -875,7 +880,11 @@ document.addEventListener('change', event => {
     } else if (field.id === 'walkin-doc-type') {
         updateBusinessRequestFields(field.value, 'walkin');
     }
-    if (field.id === 'staff-portal-user') updateStaffPortalRoleState();
+    if (field.id === 'staff-portal-user') {
+        const role = document.getElementById('staff-portal-role');
+        if (role) role.value = '';
+        updateStaffPortalRoleState();
+    }
 }, true);
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1131,6 +1140,15 @@ window.addEventListener('hashchange', () => {
     let decodedHash = rawHash;
     try { decodedHash = decodeURIComponent(rawHash); } catch { /* Malformed fragments use the common unavailable screen. */ }
     const [route, query = ''] = decodedHash.split('?', 2);
+    const bulletinParams = new URLSearchParams(query);
+    const rawBulletinCategory = Number(bulletinParams.get('category'));
+    const hashBulletinCategory = publicBulletinCategories[rawBulletinCategory] ? rawBulletinCategory : null;
+    const isCanonicalBulletinView = !bulletinParams.has('search') && !bulletinParams.has('record')
+        && (hashBulletinCategory ? bulletinParams.size === 1 : bulletinParams.size === 0);
+    if (route === 'bulletin'
+        && isCanonicalBulletinView
+        && document.querySelector('.section.active')?.id === 'bulletin'
+        && hashBulletinCategory === activeBulletinCategory) return;
     const resetQuery = new URLSearchParams(query);
     const invalidResetToken = route === 'forgot-password' && resetQuery.has('token') && !/^[a-f0-9]{64}$/i.test(resetQuery.get('token') || '');
 
@@ -1596,13 +1614,13 @@ function appendDisclosurePageControl(container) {
     if (!publicDisclosuresHasMore) return;
     container.appendChild(el('button', {
         className: 'bulletin-load-more',
-        text: 'Load more records',
+        text: activeBulletinCategory === 1 ? 'Load more announcements' : 'Load more records',
         attrs: { type: 'button' },
         on: { click: async event => {
             const button = event.currentTarget;
             if (button.disabled) return;
             button.disabled = true;
-            button.textContent = 'Loading records…';
+            button.textContent = activeBulletinCategory === 1 ? 'Loading announcements…' : 'Loading records…';
             await loadDisclosures(false, publicDisclosuresPage + 1);
         } }
     }));
@@ -1647,9 +1665,14 @@ function renderBulletinLatest(query = '') {
     const container = document.getElementById('bulletin-latest-list');
     const section = document.getElementById('bulletin-latest-section');
     if (!container || !section) return;
-    section.hidden = false;
+    // Category records are a separate page view; loading their data must not
+    // reveal the overview's latest-announcements block above that page.
+    section.hidden = Boolean(activeBulletinCategory);
+    const announcements = publicDisclosuresItems.filter(item => Number(item.category_id) === 1).slice(0, 3);
 
-    if (!publicDisclosuresLoaded) {
+    // Keep already fetched announcement cards visible while the full archive
+    // query is refreshed after returning from a category view.
+    if (!publicDisclosuresLoaded && announcements.length === 0) {
         if (publicDisclosuresLoadError) {
             clearNode(container);
             container.setAttribute('aria-busy', 'false');
@@ -1665,7 +1688,6 @@ function renderBulletinLatest(query = '') {
     }
 
     container.setAttribute('aria-busy', 'false');
-    const announcements = publicDisclosuresItems.filter(item => Number(item.category_id) === 1).slice(0, 3);
     const renderedCardCount = Math.max(1, announcements.length);
     container.style.setProperty('--bulletin-latest-columns', String(Math.max(1, Math.min(3, announcements.length))));
     const announcementKey = JSON.stringify(announcements.map(item => [
@@ -2070,12 +2092,16 @@ function renderBulletinCategory(categoryId) {
 
     categoryItems.forEach(item => {
         const posted = String(item.timestamp_posted ?? '');
+        const date = el('time', {
+            text: posted ? formatDate(posted) : 'Date unavailable',
+            attrs: posted ? { datetime: posted } : {}
+        });
         const article = el('article', { className: 'category-post bulletin-post-enter' }, [
             el('h2', { text: item.title || 'Untitled record' }),
-            el('time', {
-                text: posted ? formatDate(posted) : 'Date unavailable',
-                attrs: posted ? { datetime: posted } : {}
-            }),
+            el('div', { className: 'category-post-date' }, [
+                el('i', { className: 'far fa-calendar', attrs: { 'aria-hidden': 'true' } }),
+                date
+            ]),
             el('p', { text: item.content || '' })
         ]);
         const recordId = Number(item.disclosure_id);
@@ -2085,16 +2111,20 @@ function renderBulletinCategory(categoryId) {
             ? item.file_path
             : null;
         if (safeFilePath) {
-            article.appendChild(el('div', { className: 'attachment-section' }, [
-                el('span', { className: 'attachment-label' }, [
-                    el('i', { className: 'fas fa-paperclip', attrs: { 'aria-hidden': 'true' } }),
-                    ' Attachment'
-                ]),
-                el('a', {
-                    className: 'attachment-link',
-                    text: item.file_name || 'Open attached file',
-                    attrs: { href: safeFilePath, target: '_blank', rel: 'noopener' }
-                })
+            const fileName = String(item.file_name || 'Open attached file');
+            const fileExtension = fileName.includes('.') ? fileName.split('.').pop().toUpperCase() : '';
+            const mimeType = String(item.file_type || '').split('/').pop().toUpperCase();
+            const fileType = fileExtension || mimeType;
+            const fileSize = Number(item.file_size);
+            const fileDetails = [fileType, Number.isFinite(fileSize) && fileSize > 0 ? formatDisclosureFileSize(fileSize) : '']
+                .filter(Boolean).join(' · ');
+            article.appendChild(el('a', {
+                className: 'category-post-attachment',
+                attrs: { href: safeFilePath, target: '_blank', rel: 'noopener' }
+            }, [
+                el('i', { className: 'far fa-file-lines', attrs: { 'aria-hidden': 'true' } }),
+                el('span', { text: fileDetails || 'Attachment' }),
+                el('i', { className: 'fas fa-arrow-up-right-from-square', attrs: { 'aria-hidden': 'true' } })
             ]));
         }
         list.appendChild(article);
@@ -2109,7 +2139,9 @@ function setBulletinCategoryView(categoryId) {
     const grid = document.querySelector('#bulletin .bulletin-grid');
     const overview = document.getElementById('bulletin-overview-content');
     const view = document.getElementById('bulletin-category-view');
-    const backButton = document.getElementById('bulletin-category-back');
+    const search = document.getElementById('public-records-search');
+    const searchResults = document.getElementById('public-records-search-results');
+    const latest = document.getElementById('bulletin-latest-section');
     const header = document.querySelector('#bulletin .dashboard-header');
     const eyebrow = document.getElementById('bulletin-eyebrow');
     const heading = document.getElementById('bulletin-title');
@@ -2118,9 +2150,23 @@ function setBulletinCategoryView(categoryId) {
     if (!grid || !view || !overview || !heading || !description) return;
 
     activeBulletinCategory = id;
-    // Keep announcements and category filters visible while showing the chosen records below.
-    overview.hidden = false;
-    grid.hidden = false;
+    document.getElementById('bulletin')?.classList.toggle('is-category-page', Boolean(id));
+    // Treat a category as its own in-page view while keeping the shared URL and shell.
+    overview.hidden = Boolean(id);
+    grid.hidden = Boolean(id);
+    if (search) search.hidden = Boolean(id);
+    if (searchResults) {
+        if (id) {
+            if (searchResults.dataset.categoryViewHidden === undefined) {
+                searchResults.dataset.categoryViewHidden = String(searchResults.hidden);
+            }
+            searchResults.hidden = true;
+        } else if (searchResults.dataset.categoryViewHidden !== undefined) {
+            searchResults.hidden = searchResults.dataset.categoryViewHidden === 'true';
+            delete searchResults.dataset.categoryViewHidden;
+        }
+    }
+    if (latest) latest.hidden = Boolean(id);
     if (id) {
         view.hidden = false;
         view.classList.remove('is-leaving');
@@ -2137,8 +2183,6 @@ function setBulletinCategoryView(categoryId) {
             if (!activeBulletinCategory) view.hidden = true;
         }, { once: true });
     }
-    if (backButton) backButton.hidden = !id;
-
     if (!id) {
         if (breadcrumbCurrent) breadcrumbCurrent.textContent = 'SK Public Bulletin Board';
         if (eyebrow) {
@@ -2187,11 +2231,14 @@ function openDisclosureCategory(categoryId) {
     const id = Number(categoryId);
     if (!publicBulletinCategories[id]) return;
     const wasOutsideBulletin = document.querySelector('.section.active')?.id !== 'bulletin';
-    if (wasOutsideBulletin) showSection('bulletin');
+    if (wasOutsideBulletin) {
+        showSection('bulletin', false, null, id);
+        return;
+    }
 
     const destinationPath = new URL('index.php', document.baseURI).pathname;
     const destination = `${destinationPath}#bulletin?category=${id}`;
-    history.replaceState({ section: 'bulletin', bulletinCategory: id }, '', destination);
+    history.pushState({ section: 'bulletin', bulletinCategory: id }, '', destination);
     setBulletinCategoryView(id);
     window.scrollTo({ top: 0, left: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     loadDisclosures();
@@ -2207,7 +2254,7 @@ function getBulletinCategoryFromLocation() {
 
 function showBulletinOverview() {
     const destinationPath = new URL('index.php', document.baseURI).pathname;
-    history.replaceState({ section: 'bulletin' }, '', `${destinationPath}#bulletin`);
+    history.pushState({ section: 'bulletin' }, '', `${destinationPath}#bulletin`);
     setBulletinCategoryView(null);
     activeBulletinFilter = 'all';
     const searchInput = document.getElementById('public-records-search-input');
@@ -2215,7 +2262,7 @@ function showBulletinOverview() {
     clearPublicRecordsSearch();
     renderBulletinArchive('');
     renderBulletinLatest('');
-    void loadDisclosures(true);
+    void loadDisclosures().then(() => renderBulletinLatest(''));
     window.scrollTo({ top: 0, left: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 }
 
@@ -5492,6 +5539,7 @@ function renderResidentPaymentProof(form) {
     const fileIcon = form.querySelector('.resident-payment-file-icon');
     const name = form.querySelector('.resident-payment-file-name');
     const size = form.querySelector('.resident-payment-file-size');
+    const attached = form.querySelector('.resident-payment-file-attached');
     const file = input?.files?.[0];
     if (!picker || !preview || !input) return;
 
@@ -5507,6 +5555,7 @@ function renderResidentPaymentProof(form) {
         if (fileIcon) fileIcon.hidden = false;
         if (name) { name.textContent = ''; name.removeAttribute('title'); }
         if (size) size.textContent = '';
+        if (attached) attached.hidden = true;
         setResidentPaymentFileError(form, '');
         return;
     }
@@ -5531,7 +5580,9 @@ function renderResidentPaymentProof(form) {
         name.title = file.name;
     }
     if (size) size.textContent = formatRequestFileSize(file.size);
-    setResidentPaymentFileError(form, getResidentPaymentProofError(file));
+    const proofError = getResidentPaymentProofError(file);
+    if (attached) attached.hidden = Boolean(proofError);
+    setResidentPaymentFileError(form, proofError);
 }
 
 function submitResidentPaymentProof(event, request, form, submitButton, feedback) {
@@ -5539,21 +5590,17 @@ function submitResidentPaymentProof(event, request, form, submitButton, feedback
     if (form.dataset.submitting === 'true') return;
     const fileInput = form.querySelector('input[type="file"]');
     const file = fileInput?.files?.[0];
-    const isMobileUpload = form.dataset.mobileUpload === 'true';
-    if (isMobileUpload) {
-        const proofError = getResidentPaymentProofError(file);
-        if (proofError) {
-            setResidentPaymentFileError(form, proofError);
-            return;
-        }
-        setResidentPaymentFileError(form, '');
-    }
-    if (!form.reportValidity()) return;
-    if (!isMobileUpload && (!file || file.size > 5 * 1024 * 1024)) {
-        feedback.textContent = file ? 'Receipt is too large. Maximum size is 5 MB.' : 'Attach your payment receipt.';
-        feedback.hidden = false;
+    if (!file) {
+        setResidentPaymentFileError(form, 'Attach your payment receipt.');
         return;
     }
+    const proofError = getResidentPaymentProofError(file);
+    if (proofError) {
+        setResidentPaymentFileError(form, proofError);
+        return;
+    }
+    setResidentPaymentFileError(form, '');
+    if (!form.reportValidity()) return;
     form.dataset.submitting = 'true';
     submitButton.disabled = true;
     submitButton.setAttribute('aria-busy', 'true');
@@ -5623,15 +5670,12 @@ function createResidentPaymentControl(request, fee, paymentStatus) {
         name: 'proof',
         type: 'file',
         accept: isMobile ? 'image/*' : '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png',
-        required: ''
+        required: '',
+        tabindex: '-1',
+        'aria-hidden': 'true'
     };
     if (isMobile) {
         proofAttributes.capture = 'environment';
-        proofAttributes.tabindex = '-1';
-        proofAttributes['aria-hidden'] = 'true';
-        form.dataset.mobileUpload = 'true';
-    } else {
-        form.dataset.mobileUpload = 'false';
     }
     const proof = el('input', { className: 'resident-payment-file-input', attrs: proofAttributes });
     const submitButton = el('button', { className: 'btn-solid', text: 'Send for verification', attrs: { type: 'submit' } });
@@ -5652,14 +5696,18 @@ function createResidentPaymentControl(request, fee, paymentStatus) {
     ]);
     const fileName = el('strong', { className: 'resident-payment-file-name' });
     const fileSize = el('span', { className: 'resident-payment-file-size' });
+    const attached = el('span', { className: 'resident-payment-file-attached', attrs: { hidden: '' } }, [
+        el('i', { className: 'fas fa-check', attrs: { 'aria-hidden': 'true' } }),
+        el('span', { text: 'Attached' })
+    ]);
     const replaceButton = el('button', {
-        className: 'resident-payment-file-action',
+        className: 'resident-payment-file-action resident-payment-file-replace',
         text: 'Replace',
         attrs: { type: 'button' },
         on: { click: () => proof.click() }
     });
     const removeButton = el('button', {
-        className: 'resident-payment-file-action',
+        className: 'resident-payment-file-action resident-payment-file-remove',
         text: 'Remove',
         attrs: { type: 'button' },
         on: { click: () => { proof.value = ''; renderResidentPaymentProof(form); } }
@@ -5667,14 +5715,52 @@ function createResidentPaymentControl(request, fee, paymentStatus) {
     const preview = el('div', { className: 'resident-payment-file-row', attrs: { hidden: '' } }, [
         thumbnail,
         fileIcon,
-        el('div', { className: 'resident-payment-file-details' }, [fileName, fileSize]),
+        el('div', { className: 'resident-payment-file-details' }, [
+            fileName,
+            el('div', { className: 'resident-payment-file-meta' }, [fileSize, attached])
+        ]),
         el('div', { className: 'resident-payment-file-actions' }, [replaceButton, removeButton])
     ]);
+    const upload = el('div', { className: 'resident-payment-upload' }, [picker, preview, fileError]);
     proof.addEventListener('change', () => {
         renderResidentPaymentProof(form);
         feedback.textContent = '';
         feedback.hidden = true;
     });
+    if (!isMobile) {
+        let dragDepth = 0;
+        upload.addEventListener('dragenter', event => {
+            event.preventDefault();
+            dragDepth += 1;
+            picker.classList.add('is-drag-over');
+        });
+        upload.addEventListener('dragover', event => {
+            event.preventDefault();
+            if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+            picker.classList.add('is-drag-over');
+        });
+        upload.addEventListener('dragleave', event => {
+            event.preventDefault();
+            dragDepth = Math.max(0, dragDepth - 1);
+            if (dragDepth === 0) picker.classList.remove('is-drag-over');
+        });
+        upload.addEventListener('drop', event => {
+            event.preventDefault();
+            dragDepth = 0;
+            picker.classList.remove('is-drag-over');
+            const droppedFile = event.dataTransfer?.files?.[0];
+            if (!droppedFile) return;
+            try {
+                const transfer = new DataTransfer();
+                transfer.items.add(droppedFile);
+                proof.files = transfer.files;
+                proof.dispatchEvent(new Event('change', { bubbles: true }));
+            } catch {
+                feedback.textContent = 'This browser could not attach the dropped file. Choose it from your device instead.';
+                feedback.hidden = false;
+            }
+        });
+    }
     form.append(
         el('div', { className: 'resident-payment-field' }, [
             el('label', { text: 'Payment reference', attrs: { for: referenceId } }),
@@ -5685,7 +5771,7 @@ function createResidentPaymentControl(request, fee, paymentStatus) {
             el('label', { text: 'Receipt proof', attrs: { for: proofId } }),
             proof,
             el('small', { className: 'field-help resident-payment-desktop-helper', text: 'PDF, JPG, or PNG, up to 5 MB.' }),
-            el('div', { className: 'resident-payment-upload' }, [picker, preview, fileError])
+            upload
         ]),
         feedback,
         el('div', { className: 'resident-payment-form-actions' }, [submitButton, cancelButton])
@@ -7034,14 +7120,18 @@ async function loadAdminCollections() {
 function renderAdminCollections(data) {
     const openBody = document.getElementById('admin-collection-open-list');
     const historyBody = document.getElementById('admin-collection-history');
-    if (!openBody || !historyBody) return;
+    const openMobile = document.getElementById('admin-collection-open-mobile');
+    const historyMobile = document.getElementById('admin-collection-history-mobile');
+    if (!openBody || !historyBody || !openMobile || !historyMobile) return;
     clearNode(openBody);
     clearNode(historyBody);
+    clearNode(openMobile);
+    clearNode(historyMobile);
     const outstanding = Array.isArray(data.outstanding) ? data.outstanding : [];
     if (!outstanding.length) openBody.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No requests need payment action.', attrs: { colspan: '6' } })]));
+    if (!outstanding.length) openMobile.appendChild(el('p', { className: 'collection-mobile-empty', text: 'No requests need payment action.', attrs: { role: 'status' } }));
     outstanding.forEach(request => {
         const requestId = Number(request.request_id);
-        const actions = el('div', { className: 'table-action-group collection-actions' });
         const fee = request.fee_amount == null ? null : Number(request.fee_amount);
         const businessRequest = String(request.document_type || '').toLowerCase().includes('business');
         const requestCanBeAssessed = ['Pending', 'Approved'].includes(request.current_status)
@@ -7049,44 +7139,8 @@ function renderAdminCollections(data) {
             && Number(request.has_confirmed_payment) !== 1;
         const canManagePayments = staffHasPermission('payments.manage');
         const businessCategoryLabel = request.business_category === 'solo' ? 'Individual / sole proprietor' : request.business_category === 'organization' ? 'Organization' : '';
-        if (fee === null && businessRequest) {
-            if (!canManagePayments) {
-                actions.appendChild(el('span', { className: 'field-help collection-muted', text: 'Payment management access is required to set a fee.' }));
-            } else if (!requestCanBeAssessed) {
-                const blockedReason = !['Pending', 'Approved'].includes(request.current_status)
-                    ? 'Fee can only be set while the request is pending or approved.'
-                    : 'Payment has already been submitted or recorded; the fee cannot be changed.';
-                actions.appendChild(el('span', { className: 'field-help collection-muted', text: blockedReason }));
-            } else {
-                const feeField = el('input', { className: 'collection-fee-field', attrs: { id: `collection-fee-${requestId}`, type: 'number', min: '0', max: '999999.99', step: '0.01', inputmode: 'decimal', 'aria-label': `Approved fee for ${request.tracking_code}`, placeholder: 'Set approved fee' } });
-                const feeEntry = el('div', { className: 'collection-fee-entry' }, [el('span', { className: 'collection-fee-prefix', text: '₱', attrs: { 'aria-hidden': 'true' } }), feeField]);
-                actions.append(feeEntry, el('button', { className: 'action-btn btn-approve collection-set-fee', text: 'Set fee', attrs: { type: 'button' }, on: { click: event => assessCollectionFee(requestId, event.currentTarget) } }));
-            }
-        } else if (fee === null) {
-            actions.appendChild(el('span', { className: 'field-help', text: 'Fee schedule missing; ask a super-admin to configure it.' }));
-        } else if (request.payment_status === 'Pending Verification') {
-            if (typeof request.payment_proof_url === 'string' && /^api\/payment_proof\.php\?id=\d+$/.test(request.payment_proof_url)) {
-                actions.appendChild(el('a', { className: 'action-btn btn-view', text: 'View receipt', attrs: { href: request.payment_proof_url, target: '_blank', rel: 'noopener noreferrer' } }));
-            }
-            actions.append(
-                el('button', { className: 'action-btn btn-approve', text: 'Verify', attrs: { type: 'button' }, on: { click: () => reviewAdminPaymentProof(requestId, 'verify') } }),
-                el('button', { className: 'action-btn btn-reject', text: 'Reject', attrs: { type: 'button' }, on: { click: () => reviewAdminPaymentProof(requestId, 'reject') } })
-            );
-        } else if (['Approved', 'Ready for Pickup'].includes(request.current_status) && fee > 0) {
-            actions.appendChild(el('button', { className: 'action-btn btn-approve collection-record-cash', text: 'Record cash', attrs: { type: 'button', 'aria-label': `Record cash for ${requestId}` }, on: { click: () => recordCollectionCash(requestId) } }));
-        } else if (request.current_status === 'Pending') {
-            actions.appendChild(el('span', { className: 'field-help collection-muted', text: 'Awaiting request review' }));
-        } else if (request.payment_status === 'Rejected') {
-            actions.appendChild(el('span', { className: 'field-help', text: 'Resident must submit corrected proof' }));
-        }
-        if (!actions.childElementCount) {
-            const noActionReason = request.current_status === 'Pending'
-                ? 'Awaiting request review'
-                : ['Completed', 'Rejected'].includes(request.current_status) || ['Paid', 'Not Required'].includes(request.payment_status)
-                    ? 'No action needed'
-                    : '—';
-            actions.appendChild(el('span', { className: 'collection-no-action', text: noActionReason }));
-        }
+        const actions = buildCollectionActions(request, requestId, fee, businessRequest, requestCanBeAssessed, canManagePayments, false);
+        const mobileActions = buildCollectionActions(request, requestId, fee, businessRequest, requestCanBeAssessed, canManagePayments, true);
         const feeText = fee === null ? 'Not assessed' : fee === 0 ? 'No fee' : formatPhpAmount(fee);
         const paymentStatus = String(request.payment_status || 'Not assessed');
         const paymentStatusTone = ({
@@ -7103,12 +7157,46 @@ function renderAdminCollections(data) {
             el('td', { attrs: { 'data-label': 'Payment status' } }, [el('span', { className: `activity-badge ${paymentStatusTone} collection-status-pill`, text: paymentStatus })]),
             el('td', { attrs: { 'data-label': 'Actions' } }, [actions])
         ]));
+        const mobileCardChildren = [
+            el('div', { className: 'collection-mobile-card-top' }, [
+                el('span', { className: 'collection-tracking-code', text: request.tracking_code || '—' }),
+                el('span', { className: `activity-badge ${paymentStatusTone} collection-status-pill`, text: paymentStatus })
+            ]),
+            el('strong', { className: 'collection-mobile-resident', text: residentName }),
+            el('span', { className: 'collection-mobile-document', text: request.document_type || 'Document not recorded' }),
+            el('div', { className: 'collection-mobile-fee' }, [
+                el('span', { text: 'Assessed fee' }),
+                el('strong', { className: fee === null ? 'collection-fee-not-assessed' : '', text: feeText })
+            ])
+        ];
+        if (mobileActions.childElementCount) mobileCardChildren.push(mobileActions);
+        openMobile.appendChild(el('article', { className: 'collection-mobile-card', attrs: { role: 'listitem' } }, mobileCardChildren));
     });
 
     const payments = Array.isArray(data.payments) ? data.payments : [];
     if (!payments.length) historyBody.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state', text: 'No payment entries have been recorded.', attrs: { colspan: '7' } })]));
+    if (!payments.length) historyMobile.appendChild(el('p', { className: 'collection-mobile-empty', text: 'No payment entries have been recorded.', attrs: { role: 'status' } }));
     payments.forEach(payment => {
         const paymentStatus = payment.status === 'reversed' ? 'Reversed' : 'Confirmed';
+        const paymentStatusTone = paymentStatus === 'Reversed' ? 'is-red' : 'is-green';
+        const amountMethod = payment.method === 'cash' ? 'In person' : payment.method === 'online_proof' ? 'Online proof' : 'Older entry · channel unknown';
+        const paymentCardChildren = [
+            el('div', { className: 'collection-mobile-history-top' }, [
+                el('div', { className: 'collection-mobile-history-amount' }, [
+                    el('strong', { text: formatPhpAmount(payment.amount) }),
+                    el('span', { className: 'collection-secondary', text: amountMethod })
+                ]),
+                el('span', { className: `activity-badge ${paymentStatusTone} collection-status-pill`, text: paymentStatus })
+            ]),
+            el('span', { className: 'collection-tracking-code collection-mobile-history-tracking', text: payment.tracking_code || '—' }),
+            el('strong', { className: 'collection-mobile-history-resident', text: payment.resident_name || 'Resident' })
+        ];
+        if (payment.reference) paymentCardChildren.push(el('span', { className: 'collection-mobile-reference', text: `Ref: ${payment.reference}` }));
+        paymentCardChildren.push(el('div', { className: 'collection-mobile-history-recorded' }, [
+            el('span', { text: formatDateTime(payment.recorded_at) }),
+            el('span', { text: payment.recorded_by || 'Staff account unavailable' })
+        ]));
+        historyMobile.appendChild(el('article', { className: 'collection-mobile-card collection-mobile-history-card', attrs: { role: 'listitem' } }, paymentCardChildren));
         historyBody.appendChild(el('tr', {}, [
             el('td', { attrs: { 'data-label': 'Tracking' } }, [el('span', { className: 'collection-tracking-code', text: payment.tracking_code })]),
             el('td', { attrs: { 'data-label': 'Resident' } }, [el('span', { className: 'collection-resident-name', text: payment.resident_name || 'Resident' })]),
@@ -7121,8 +7209,70 @@ function renderAdminCollections(data) {
     });
 }
 
+function buildCollectionActions(request, requestId, fee, businessRequest, requestCanBeAssessed, canManagePayments, mobile) {
+    const actions = el('div', { className: `table-action-group collection-actions${mobile ? ' collection-mobile-actions' : ''}` });
+    const addNote = (message, className = 'field-help collection-muted') => {
+        if (mobile) {
+            actions.appendChild(el('span', { className: `collection-mobile-note ${className}` }, [
+                el('i', { className: 'fas fa-circle-info', attrs: { 'aria-hidden': 'true' } }),
+                el('span', { text: message })
+            ]));
+        } else {
+            actions.appendChild(el('span', { className, text: message }));
+        }
+    };
+    const setFeeButton = el('button', { className: 'action-btn btn-approve collection-set-fee', text: 'Set fee', attrs: { type: 'button' }, on: { click: event => assessCollectionFee(requestId, event.currentTarget) } });
+    if (fee === null && businessRequest) {
+        if (!canManagePayments) {
+            addNote('Payment management access is required to set a fee.');
+        } else if (!requestCanBeAssessed) {
+            const blockedReason = !['Pending', 'Approved'].includes(request.current_status)
+                ? 'Fee can only be set while the request is pending or approved.'
+                : 'Payment has already been submitted or recorded; the fee cannot be changed.';
+            addNote(blockedReason);
+        } else {
+            const fieldId = mobile ? `collection-fee-mobile-${requestId}` : `collection-fee-${requestId}`;
+            const feeField = el('input', { className: 'collection-fee-field', attrs: { id: fieldId, type: 'number', min: '0', max: '999999.99', step: '0.01', inputmode: 'decimal', 'aria-label': `Approved fee for ${request.tracking_code}`, placeholder: 'Set approved fee' } });
+            const feeEntry = el('div', { className: 'collection-fee-entry' }, [el('span', { className: 'collection-fee-prefix', text: '₱', attrs: { 'aria-hidden': 'true' } }), feeField]);
+            if (mobile) actions.appendChild(el('div', { className: 'collection-mobile-fee-row' }, [feeEntry, setFeeButton]));
+            else actions.append(feeEntry, setFeeButton);
+        }
+    } else if (fee === null) {
+        addNote('Fee schedule missing; ask a super-admin to configure it.', 'field-help');
+    } else if (request.payment_status === 'Pending Verification') {
+        if (typeof request.payment_proof_url === 'string' && /^api\/payment_proof\.php\?id=\d+$/.test(request.payment_proof_url)) {
+            actions.appendChild(el('a', { className: 'action-btn btn-view', text: 'View receipt', attrs: { href: request.payment_proof_url, target: '_blank', rel: 'noopener noreferrer' } }));
+        }
+        actions.append(
+            el('button', { className: 'action-btn btn-approve', text: 'Verify', attrs: { type: 'button' }, on: { click: () => reviewAdminPaymentProof(requestId, 'verify') } }),
+            el('button', { className: 'action-btn btn-reject', text: 'Reject', attrs: { type: 'button' }, on: { click: () => reviewAdminPaymentProof(requestId, 'reject') } })
+        );
+    } else if (['Approved', 'Ready for Pickup'].includes(request.current_status) && fee > 0) {
+        actions.appendChild(el('button', { className: 'action-btn btn-approve collection-record-cash', text: 'Record cash', attrs: { type: 'button', 'aria-label': `Record cash for ${requestId}` }, on: { click: event => recordCollectionCash(requestId, event.currentTarget) } }));
+    } else if (request.current_status === 'Pending') {
+        addNote('Awaiting request review.');
+    } else if (request.payment_status === 'Rejected') {
+        addNote('Resident must submit corrected proof.', 'field-help');
+    }
+    if (!actions.childElementCount) {
+        const noActionReason = request.current_status === 'Pending'
+            ? 'Awaiting request review'
+            : ['Completed', 'Rejected'].includes(request.current_status) || ['Paid', 'Not Required'].includes(request.payment_status)
+                ? 'No action needed'
+                : '—';
+        if (!mobile || noActionReason !== '—') {
+            if (mobile) addNote(noActionReason, 'collection-no-action');
+            else actions.appendChild(el('span', { className: 'collection-no-action', text: noActionReason }));
+        }
+    }
+    if (mobile && actions.querySelector('button, a')) actions.classList.add('collection-mobile-actions--interactive');
+    return actions;
+}
+
 async function assessCollectionFee(requestId, button = null) {
-    const amount = document.getElementById(`collection-fee-${requestId}`)?.value || '';
+    const amount = button?.closest('.collection-actions')?.querySelector('.collection-fee-field')?.value
+        || document.getElementById(`collection-fee-${requestId}`)?.value
+        || '';
     if (!amount.trim()) { showToast('Enter the fee from the barangay’s approved schedule.', 'error'); return; }
     const originalText = button?.textContent || 'Set fee';
     if (button) {
@@ -7152,11 +7302,10 @@ async function assessCollectionFee(requestId, button = null) {
     }
 }
 
-async function recordCollectionCash(requestId) {
+async function recordCollectionCash(requestId, button = null) {
     if (!window.confirm('Record this request as paid in person? Confirm that the cash was received and an official receipt was issued.')) return;
     const reference = window.prompt('Optional official receipt number:');
     if (reference === null) return;
-    const button = document.querySelector(`#admin-collection-open-list button[aria-label="Record cash for ${requestId}"]`);
     await updateAdminRequestPayment(requestId, 'Paid', button || { disabled: false, textContent: 'Record cash' }, reference.trim());
 }
 
@@ -7168,10 +7317,60 @@ async function loadAdminStaff() {
     renderAdminStaff(data);
 }
 
+function createStaffDirectoryActions(person) {
+    const isActive = Number(person.is_active) === 1;
+    const actions = el('div', { className: 'table-action-group staff-directory-row-actions' }, [
+        el('button', { className: 'staff-row-action', text: 'Edit', attrs: { type: 'button' }, on: { click: () => editStaffDirectoryEntry(person) } }),
+        el('button', { className: `staff-row-action${isActive ? ' staff-row-action--danger' : ''}`, text: isActive ? 'Mark inactive' : 'Restore', attrs: { type: 'button' }, on: { click: () => toggleStaffDirectoryEntry(person) } })
+    ]);
+    if (person.portal_user_id && isActive) {
+        actions.appendChild(el('button', { className: 'staff-row-action staff-row-action--danger', text: 'Unlink', attrs: { type: 'button' }, on: { click: () => unlinkStaffDirectoryEntry(person) } }));
+    }
+    return actions;
+}
+
+function createStaffDirectoryCard(person) {
+    const isActive = Number(person.is_active) === 1;
+    const category = person.staff_kind === 'official' ? 'Official' : 'Staff';
+    const portalAccess = person.portal_user_id
+        ? [
+            el('span', { className: 'staff-directory-pill staff-directory-pill--green', text: 'Linked' }),
+            person.staff_role ? el('span', { className: 'staff-directory-role-detail', text: String(person.staff_role).replaceAll('_', ' ') }) : null
+        ]
+        : [el('span', { className: 'staff-directory-pill staff-directory-pill--neutral', text: 'No portal login' })];
+    const contactRow = (icon, value) => el('div', { className: 'staff-directory-card-contact-row' }, [
+        el('i', { className: `fas ${icon}`, attrs: { 'aria-hidden': 'true' } }),
+        el('span', { text: value || '—' })
+    ]);
+    return el('article', { className: 'staff-directory-card' }, [
+        el('div', { className: 'staff-directory-card-heading' }, [
+            el('strong', { className: 'staff-directory-card-name', text: person.full_name || '—' }),
+            el('span', { className: `staff-directory-pill ${isActive ? 'staff-directory-pill--green' : 'staff-directory-pill--neutral'}`, text: isActive ? 'Active' : 'Inactive' })
+        ]),
+        el('div', { className: 'staff-directory-card-position' }, [
+            el('span', { text: person.position_title || '—' }),
+            el('span', { className: 'staff-directory-category-pill', text: category })
+        ]),
+        el('div', { className: 'staff-directory-card-contact' }, [
+            contactRow('fa-phone', person.contact_number),
+            contactRow('fa-envelope', person.email)
+        ]),
+        el('div', { className: 'staff-directory-card-portal' }, portalAccess),
+        el('div', { className: 'staff-directory-card-actions' }, [createStaffDirectoryActions(person)])
+    ]);
+}
+
+function isPunongBarangay(person) {
+    const position = String(person.position_title || '').toLocaleLowerCase('en-PH');
+    return position.includes('punong barangay') || position.includes('barangay captain');
+}
+
 function renderAdminStaff(data) {
     const body = document.getElementById('admin-staff-list');
+    const cardList = document.getElementById('admin-staff-cards');
+    const emptyState = document.getElementById('admin-staff-empty');
     const accountSelect = document.getElementById('staff-portal-user');
-    if (!body || !accountSelect) return;
+    if (!body || !cardList || !emptyState || !accountSelect) return;
     const selectedAccount = accountSelect.value;
     clearNode(accountSelect);
     accountSelect.appendChild(el('option', { text: 'No portal login', attrs: { value: '' } }));
@@ -7179,17 +7378,15 @@ function renderAdminStaff(data) {
     accountSelect.value = selectedAccount;
     updateStaffPortalRoleState();
     clearNode(body);
+    clearNode(cardList);
     const staff = Array.isArray(data.staff) ? data.staff : [];
-    if (!staff.length) body.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state staff-directory-empty', attrs: { colspan: '7' } }, [el('i', { className: 'fas fa-address-book', attrs: { 'aria-hidden': 'true' } }), el('span', { text: 'No officials or staff have been added.' })])]));
+    emptyState.hidden = staff.length > 0;
+    if (!staff.length) {
+        body.appendChild(el('tr', { className: 'table-empty-row' }, [el('td', { className: 'table-empty-state staff-directory-empty', attrs: { colspan: '7' } }, [el('i', { className: 'fas fa-address-book', attrs: { 'aria-hidden': 'true' } }), el('span', { text: 'No officials or staff have been added.' })])]));
+    }
     staff.forEach(person => {
         const isActive = Number(person.is_active) === 1;
-        const actions = el('div', { className: 'table-action-group staff-directory-row-actions' }, [
-            el('button', { className: 'staff-row-action', text: 'Edit', attrs: { type: 'button' }, on: { click: () => editStaffDirectoryEntry(person) } }),
-            el('button', { className: `staff-row-action${isActive ? ' staff-row-action--danger' : ''}`, text: isActive ? 'Mark inactive' : 'Restore', attrs: { type: 'button' }, on: { click: () => toggleStaffDirectoryEntry(person) } })
-        ]);
-        if (person.portal_user_id && isActive) {
-            actions.appendChild(el('button', { className: 'staff-row-action staff-row-action--danger', text: 'Unlink', attrs: { type: 'button' }, on: { click: () => unlinkStaffDirectoryEntry(person) } }));
-        }
+        const actions = createStaffDirectoryActions(person);
         const portalAccess = person.portal_user_id
             ? [el('span', { className: 'staff-directory-pill staff-directory-pill--green', text: 'Linked' }), el('span', { className: 'staff-directory-role-detail', text: String(person.staff_role || 'service_clerk').replaceAll('_', ' ') })]
             : [el('span', { className: 'staff-directory-pill staff-directory-pill--neutral', text: 'No portal login' })];
@@ -7203,12 +7400,16 @@ function renderAdminStaff(data) {
             el('td', { attrs: { 'data-label': 'Actions' } }, [actions])
         ]));
     });
+    [...staff].sort((left, right) => Number(isPunongBarangay(right)) - Number(isPunongBarangay(left)))
+        .forEach(person => cardList.appendChild(createStaffDirectoryCard(person)));
 }
 
 function updateStaffPortalRoleState() {
     const account = document.getElementById('staff-portal-user');
     const role = document.getElementById('staff-portal-role');
-    if (role) role.disabled = !account?.value;
+    if (!role) return;
+    role.disabled = !account?.value;
+    if (role.disabled) role.value = '';
 }
 
 function resetStaffDirectoryForm() {
@@ -7217,9 +7418,29 @@ function resetStaffDirectoryForm() {
     const role = document.getElementById('staff-portal-role');
     const feedback = document.getElementById('staff-directory-feedback');
     if (recordId) recordId.value = '';
-    if (role) role.value = 'service_clerk';
+    if (role) role.value = '';
     if (feedback) feedback.textContent = '';
     updateStaffPortalRoleState();
+}
+
+function openNewStaffDirectoryEntry() {
+    resetStaffDirectoryForm();
+    const form = document.getElementById('staff-directory-form');
+    const firstField = document.getElementById('staff-full-name');
+    if (!form || !firstField) return;
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    requestAnimationFrame(() => firstField.focus({ preventScroll: true }));
+}
+
+function toggleStaffDirectoryNotice(button) {
+    const notice = button?.closest('.staff-directory-notice');
+    if (!notice) return;
+    const expanded = notice.classList.toggle('is-expanded');
+    button.setAttribute('aria-expanded', String(expanded));
+    const label = button.querySelector('.staff-directory-notice-toggle-label');
+    const icon = button.querySelector('i');
+    if (label) label.textContent = expanded ? 'Read less' : 'Read more';
+    if (icon) icon.className = `fas ${expanded ? 'fa-chevron-up' : 'fa-chevron-down'}`;
 }
 
 function editStaffDirectoryEntry(person) {
@@ -7229,8 +7450,10 @@ function editStaffDirectoryEntry(person) {
     document.getElementById('staff-kind').value = person.staff_kind || 'staff';
     document.getElementById('staff-contact-number').value = person.contact_number || '';
     document.getElementById('staff-email').value = person.email || '';
-    document.getElementById('staff-portal-user').value = person.portal_user_id ? String(person.portal_user_id) : '';
-    document.getElementById('staff-portal-role').value = person.staff_role || 'service_clerk';
+    const portalUser = document.getElementById('staff-portal-user');
+    const portalRole = document.getElementById('staff-portal-role');
+    portalUser.value = person.portal_user_id ? String(person.portal_user_id) : '';
+    portalRole.value = person.portal_user_id ? (person.staff_role || '') : '';
     updateStaffPortalRoleState();
     document.getElementById('staff-directory-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
     document.getElementById('staff-full-name').focus({ preventScroll: true });
@@ -7263,7 +7486,7 @@ async function unlinkStaffDirectoryEntry(person) {
                 contact_number: person.contact_number || '',
                 email: person.email || '',
                 portal_user_id: null,
-                staff_role: person.staff_role || 'service_clerk'
+                staff_role: null
             })
         });
         const result = await response.json();
@@ -7276,6 +7499,8 @@ async function unlinkStaffDirectoryEntry(person) {
 async function saveStaffDirectoryEntry(event) {
     event.preventDefault();
     const feedback = document.getElementById('staff-directory-feedback');
+    const portalUserId = document.getElementById('staff-portal-user').value || null;
+    const staffRole = document.getElementById('staff-portal-role').value;
     const payload = {
         staff_id: document.getElementById('staff-record-id').value || null,
         full_name: document.getElementById('staff-full-name').value.trim(),
@@ -7283,8 +7508,8 @@ async function saveStaffDirectoryEntry(event) {
         staff_kind: document.getElementById('staff-kind').value,
         contact_number: document.getElementById('staff-contact-number').value.trim(),
         email: document.getElementById('staff-email').value.trim(),
-        portal_user_id: document.getElementById('staff-portal-user').value || null,
-        staff_role: document.getElementById('staff-portal-role').value
+        portal_user_id: portalUserId,
+        staff_role: portalUserId && staffRole ? staffRole : null
     };
     try {
         const response = await fetch('api/admin_staff.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -8266,14 +8491,22 @@ async function loadDisclosures(force = false, requestedPage = 1) {
     const requestedCategory = activeBulletinCategory || (activeBulletinFilter !== 'all' ? Number(activeBulletinFilter) : null);
     const queryKey = JSON.stringify({ category: requestedCategory, search: searchQuery });
     const nextPage = Math.max(1, Number(requestedPage) || 1);
-    const appendPage = nextPage > 1 && publicDisclosuresLoaded && queryKey === publicDisclosuresLoadedQueryKey && !force;
     if (publicDisclosuresLoaded && !force && nextPage === 1 && queryKey === publicDisclosuresLoadedQueryKey && Date.now() - publicDisclosuresLoadedAt < PUBLIC_DISCLOSURES_CACHE_MS) return publicDisclosuresItems;
     if (publicDisclosuresLoadPromise) {
-        if (!force) return publicDisclosuresLoadPromise;
+        const waitingForQueryKey = publicDisclosuresInFlightQueryKey;
         await publicDisclosuresLoadPromise;
+        const latestSearchQuery = (document.getElementById('public-records-search-input')?.value || '').trim();
+        const latestCategory = activeBulletinCategory || (activeBulletinFilter !== 'all' ? Number(activeBulletinFilter) : null);
+        const latestQueryKey = JSON.stringify({ category: latestCategory, search: latestSearchQuery });
+        if (force || latestQueryKey !== waitingForQueryKey) return loadDisclosures(force, 1);
+        if (publicDisclosuresLoaded && publicDisclosuresLoadedQueryKey === latestQueryKey) {
+            return nextPage > 1 ? loadDisclosures(false, nextPage) : publicDisclosuresItems;
+        }
+        return null;
     }
+    const appendPage = nextPage > 1 && publicDisclosuresLoaded && queryKey === publicDisclosuresLoadedQueryKey && !force;
     const page = appendPage ? nextPage : 1;
-    const hadLoadedRecords = publicDisclosuresLoaded;
+    const hadLoadedRecords = publicDisclosuresLoaded && publicDisclosuresLoadedQueryKey === queryKey;
     const lists = {
         1: document.getElementById('list-1'),
         2: document.getElementById('list-2'),
@@ -8283,24 +8516,22 @@ async function loadDisclosures(force = false, requestedPage = 1) {
     const load = async () => {
         publicDisclosuresLoadError = false;
         const currentQuery = document.getElementById('public-records-search-input')?.value || '';
-        if (!appendPage) {
-            if (!hadLoadedRecords) {
-                publicDisclosuresLoaded = false;
-                renderBulletinArchive(currentQuery);
-                renderBulletinLatest(currentQuery);
-                Object.values(lists).forEach(list => {
-                    if (!list) return;
-                    list.setAttribute('aria-busy', 'true');
-                    clearNode(list);
-                    list.appendChild(el('li', {}, [
-                        el('p', { className: 'bulletin-loading bulletin-loading-compact', attrs: { role: 'status' } }, [
-                            el('span', { className: 'bulletin-loading-spinner', attrs: { 'aria-hidden': 'true' } }),
-                            'Loading…'
-                        ])
-                    ]));
-                });
-                if (activeBulletinCategory) renderBulletinCategory(activeBulletinCategory);
-            }
+        if (!appendPage && !hadLoadedRecords) {
+            publicDisclosuresLoaded = false;
+            renderBulletinArchive(currentQuery);
+            renderBulletinLatest(currentQuery);
+            Object.values(lists).forEach(list => {
+                if (!list) return;
+                list.setAttribute('aria-busy', 'true');
+                clearNode(list);
+                list.appendChild(el('li', {}, [
+                    el('p', { className: 'bulletin-loading bulletin-loading-compact', attrs: { role: 'status' } }, [
+                        el('span', { className: 'bulletin-loading-spinner', attrs: { 'aria-hidden': 'true' } }),
+                        'Loading…'
+                    ])
+                ]));
+            });
+            if (activeBulletinCategory) renderBulletinCategory(activeBulletinCategory);
         }
 
         try {
@@ -8424,18 +8655,22 @@ async function loadDisclosures(force = false, requestedPage = 1) {
                         })
                     ]));
                 });
-                if (activeBulletinCategory) renderBulletinCategory(activeBulletinCategory);
             }
+            if (activeBulletinCategory) renderBulletinCategory(activeBulletinCategory);
             return null;
         }
     };
 
+    publicDisclosuresInFlightQueryKey = queryKey;
     const request = load();
     publicDisclosuresLoadPromise = request;
     try {
         return await request;
     } finally {
-        if (publicDisclosuresLoadPromise === request) publicDisclosuresLoadPromise = null;
+        if (publicDisclosuresLoadPromise === request) {
+            publicDisclosuresLoadPromise = null;
+            publicDisclosuresInFlightQueryKey = '';
+        }
     }
 }
 

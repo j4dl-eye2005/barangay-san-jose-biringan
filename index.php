@@ -209,11 +209,11 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <link data-portal-route-css="auth" data-portal-css-href="css/auth.css?v=20261028-proof-attached-indicator-v1">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin.css?v=20261023-server-disclosure-drafts-v1">
     <link rel="stylesheet" href="css/public.css?v=20261016-sticky-menu-stable">
-    <link data-portal-route-css="admin" data-portal-css-href="css/admin-tables.css?v=20261027-request-detail-actions-v1">
+    <link data-portal-route-css="admin" data-portal-css-href="css/admin-tables.css?v=20261028-mobile-collections-staff-directory-v1">
     <link rel="stylesheet" href="css/shared-responsive.css?v=20261028-mobile-proof-row-v1">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261027-request-detail-actions-v1">
     <link data-portal-route-css="unavailable" data-portal-css-href="css/unavailable.css?v=20261023-mobile-404-wrap-v2">
-    <link rel="stylesheet" href="css/portal-public.css?v=20261028-business-details-v1">
+    <link rel="stylesheet" href="css/portal-public.css?v=20261028-announcements-layout-v7">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -383,13 +383,12 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                 <nav class="bulletin-breadcrumb" aria-label="Breadcrumb">
                     <button type="button" data-action-click="showSection('landing')">Home</button>
                     <span aria-hidden="true">/</span>
-                    <span>Public Records</span>
+                    <button type="button" data-action-click="showBulletinOverview()">Public Records</button>
                     <span aria-hidden="true">/</span>
                     <span id="bulletin-breadcrumb-current" aria-current="page">SK Public Bulletin Board</span>
                 </nav>
                 <div class="dashboard-header">
                     <div>
-                        <button class="back-link bulletin-category-back" id="bulletin-category-back" type="button" data-action-click="showBulletinOverview()" hidden><i class="fas fa-arrow-left" aria-hidden="true"></i> All public records</button>
                         <p class="eyebrow" id="bulletin-eyebrow">Transparency center</p>
                         <div class="bulletin-title-row">
                             <h1 id="bulletin-title">SK Public Bulletin Board</h1>
@@ -1326,7 +1325,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <?php require __DIR__ . '/includes/shared/site-footer.php'; ?>
 
     <?php require __DIR__ . '/includes/shared/dialogs.php'; ?>    <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true">Message</div>
-    <script src="script.js?v=20261028-mobile-proof-filename-v1" defer></script>
+    <script src="script.js?v=20261028-announcements-layout-v3-payment-receipt-staff-directory-v1" defer></script>
 </body>
 </html>
 

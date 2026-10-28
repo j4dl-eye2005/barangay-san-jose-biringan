@@ -4,7 +4,7 @@
     </div>
     <aside class="staff-directory-notice" aria-label="Staff access information">
         <i class="fas fa-circle-info" aria-hidden="true"></i>
-        <p>A directory entry <strong>does not create a login</strong>. Only link an account after it has been securely provisioned for an authorized person. Marking a linked staff record inactive suspends its portal access; restoring it re-enables access. Unlinking an account removes its portal permissions until a super-admin assigns a role again.</p>
+        <p><span class="staff-directory-notice-first">A directory entry <strong>does not create a login</strong>.</span><span class="staff-directory-notice-rest"> Only link an account after it has been securely provisioned for an authorized person. Marking a linked staff record inactive suspends its portal access; restoring it re-enables access. Unlinking an account removes its portal permissions until a super-admin assigns a role again.</span><button class="staff-directory-notice-toggle" type="button" aria-expanded="false" data-action-click="toggleStaffDirectoryNotice(this)"><span class="staff-directory-notice-toggle-label">Read more</span><i class="fas fa-chevron-down" aria-hidden="true"></i></button></p>
     </aside>
     <form id="staff-directory-form" class="card staff-directory-form" data-action-submit="saveStaffDirectoryEntry(event)">
         <input id="staff-record-id" type="hidden">
@@ -16,14 +16,16 @@
             <div class="staff-directory-field"><label for="staff-contact-number">Contact number</label><input id="staff-contact-number" maxlength="30" type="tel"></div>
             <div class="staff-directory-field"><label for="staff-email">Work email</label><input id="staff-email" maxlength="190" type="email" autocomplete="email"></div>
             <div class="staff-directory-field"><label for="staff-portal-user">Linked portal account</label><select id="staff-portal-user"><option value="">No portal login</option></select></div>
-            <div class="staff-directory-field staff-directory-role-field"><label for="staff-portal-role">Portal role</label><select id="staff-portal-role"><option value="service_clerk">Service clerk</option><option value="cashier">Cashier</option><option value="document_issuer">Document issuer</option><option value="super_admin">Super-admin</option></select><small>Link a portal account to assign a role.</small></div>
+            <div class="staff-directory-field staff-directory-role-field"><label for="staff-portal-role">Portal role</label><select id="staff-portal-role" required disabled><option value="" selected>Select a role</option><option value="service_clerk">Service clerk</option><option value="cashier">Cashier</option><option value="document_issuer">Document issuer</option><option value="super_admin">Super-admin</option></select><small>Link a portal account to assign a role.</small></div>
         </div>
         <div class="staff-directory-actions"><button class="btn-solid" type="submit">Save staff record</button><button class="btn-outline" type="button" data-action-click="resetStaffDirectoryForm()">Clear</button><span id="staff-directory-feedback" role="status" aria-live="polite"></span></div>
     </form>
     <section class="card full-width-card table-card staff-directory-table-card" aria-labelledby="staff-directory-heading">
-        <div class="staff-directory-table-heading"><h3 id="staff-directory-heading">Directory</h3></div>
+        <div class="staff-directory-table-heading"><h3 id="staff-directory-heading">Directory</h3><button class="staff-directory-add" type="button" data-action-click="openNewStaffDirectoryEntry()">Add staff record</button></div>
         <div class="staff-directory-table-scroll admin-table-scroll">
             <table class="admin-table staff-directory-table"><caption class="visually-hidden">Barangay officials and staff directory</caption><thead><tr><th scope="col">Name</th><th scope="col">Position</th><th scope="col">Category</th><th scope="col">Contact</th><th scope="col">Portal access</th><th scope="col">Status</th><th scope="col">Actions</th></tr></thead><tbody id="admin-staff-list"></tbody></table>
         </div>
+        <div class="staff-directory-mobile-list" id="admin-staff-cards" aria-live="polite"></div>
+        <div class="staff-directory-mobile-empty" id="admin-staff-empty" role="status" hidden><i class="fas fa-address-book" aria-hidden="true"></i><span>No officials or staff have been added.</span></div>
     </section>
 </div>

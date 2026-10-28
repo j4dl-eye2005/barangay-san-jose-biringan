@@ -17,9 +17,11 @@
     <section class="card full-width-card table-card collection-table-card">
         <div class="collection-card-heading"><h3>Requests needing payment action</h3><p>Fee assessments must match the approved barangay schedule. A pending fee blocks payment and document preparation.</p></div>
         <div class="admin-table-scroll collection-table-scroll"><table class="admin-table collection-admin-table collection-open-table"><caption class="visually-hidden">Requests needing payment action</caption><thead><tr><th scope="col">Tracking</th><th scope="col">Resident</th><th scope="col">Document</th><th scope="col">Assessed fee</th><th scope="col">Payment status</th><th scope="col">Actions</th></tr></thead><tbody id="admin-collection-open-list"></tbody></table></div>
+        <div id="admin-collection-open-mobile" class="collection-mobile-list collection-mobile-list--requests" role="list" aria-label="Requests needing payment action"></div>
     </section>
     <section class="card full-width-card table-card collection-table-card">
         <div class="collection-card-heading"><h3>Recent payment history</h3><p>Latest 100 confirmed and reversed request-linked payments.</p></div>
         <div class="admin-table-scroll collection-table-scroll"><table class="admin-table collection-admin-table collection-history-table"><caption class="visually-hidden">Recent payment history</caption><thead><tr><th scope="col">Tracking</th><th scope="col">Resident</th><th scope="col">Document</th><th scope="col">Amount / method</th><th scope="col">Reference</th><th scope="col">Recorded</th><th scope="col">Status</th></tr></thead><tbody id="admin-collection-history"></tbody></table></div>
+        <div id="admin-collection-history-mobile" class="collection-mobile-list collection-mobile-list--history" role="list" aria-label="Recent payment history"></div>
     </section>
 </div>

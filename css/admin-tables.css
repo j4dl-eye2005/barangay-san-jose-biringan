@@ -407,6 +407,7 @@
     box-shadow: none;
 }
 #admin-dashboard #admin-collections-panel .collection-table-card + .collection-table-card { margin-top: 16px; }
+#admin-dashboard #admin-collections-panel .collection-mobile-list { display: none; }
 #admin-dashboard #admin-collections-panel .collection-card-heading {
     display: grid;
     gap: 7px;
@@ -671,9 +672,11 @@
     #admin-dashboard #admin-collections-panel .collection-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 720px) {
-    #admin-dashboard #admin-collections-panel .collection-summary-grid { grid-template-columns: 1fr; gap: 12px; }
-    #admin-dashboard #admin-collections-panel .collection-summary-card { min-height: 112px; padding: 18px; }
-    #admin-dashboard #admin-collections-panel .collection-summary-card > strong { font-size: 30px; }
+    #admin-dashboard #admin-collections-panel .collection-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    #admin-dashboard #admin-collections-panel .collection-summary-card { min-height: 0; gap: 5px; padding: 12px 14px; }
+    #admin-dashboard #admin-collections-panel .collection-summary-card:nth-child(3) { grid-column: 1 / -1; }
+    #admin-dashboard #admin-collections-panel .collection-summary-card > span { font-size: 12px; }
+    #admin-dashboard #admin-collections-panel .collection-summary-card > strong { font-size: 25px; line-height: 1.15; }
     #admin-dashboard #admin-collections-panel .collection-page-header { margin-bottom: 20px; }
     #admin-dashboard #admin-collections-panel .collection-title-row { align-items: center; gap: 10px; }
     #admin-dashboard #admin-collections-panel .collection-title-row h2 { min-width: 0; font-size: 24px; }
@@ -682,12 +685,146 @@
     #admin-dashboard #admin-collections-panel .collection-table-card { padding: 18px 16px; }
     #admin-dashboard #admin-collections-panel .collection-table-card + .collection-table-card { margin-top: 14px; }
     #admin-dashboard #admin-collections-panel .collection-card-heading { margin-bottom: 12px; }
-    #admin-dashboard #admin-collections-panel .collection-open-table { width: max-content; min-width: 1120px; table-layout: fixed; }
-    #admin-dashboard #admin-collections-panel .collection-history-table { width: max-content; min-width: 1180px; table-layout: fixed; }
-    #admin-dashboard #admin-collections-panel .collection-admin-table tbody tr:not(.table-empty-row) { height: 58px; }
-    #admin-dashboard #admin-collections-panel .collection-admin-table tbody td { padding: 12px; }
-    #admin-dashboard #admin-collections-panel .collection-actions { flex-wrap: nowrap; }
-    #admin-dashboard #admin-collections-panel .collection-fee-entry { flex-basis: 170px; }
+    #admin-dashboard #admin-collections-panel .collection-table-scroll {
+        display: none;
+        overflow: visible;
+        -webkit-mask-image: none;
+        mask-image: none;
+    }
+    #admin-dashboard #admin-collections-panel .collection-mobile-list {
+        display: grid;
+        min-width: 0;
+        gap: 10px;
+    }
+    #admin-dashboard #admin-collections-panel .collection-mobile-card {
+        display: grid;
+        min-width: 0;
+        gap: 7px;
+        padding: 14px;
+        border: 1px solid #d9e0d9;
+        border-radius: 8px;
+        background: #fff;
+        color: #38423c;
+    }
+    #admin-dashboard #admin-collections-panel .collection-mobile-card-top,
+    #admin-dashboard #admin-collections-panel .collection-mobile-history-top {
+        display: flex;
+        min-width: 0;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+    }
+    #admin-dashboard #admin-collections-panel .collection-mobile-card-top .collection-tracking-code { min-width: 0; font-size: 11px; }
+    #admin-dashboard #admin-collections-panel .collection-mobile-resident,
+    #admin-dashboard #admin-collections-panel .collection-mobile-history-resident {
+        color: #303a33;
+        font-size: 14px;
+        font-weight: 650;
+        line-height: 1.4;
+        overflow-wrap: anywhere;
+    }
+    #admin-dashboard #admin-collections-panel .collection-mobile-document {
+        color: #657169;
+        font-size: 12px;
+        line-height: 1.4;
+        overflow-wrap: anywhere;
+    }
+    #admin-dashboard #admin-collections-panel .collection-mobile-fee {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 2px;
+        color: #59645d;
+        font-size: 12px;
+    }
+    #admin-dashboard #admin-collections-panel .collection-mobile-fee > strong { color: #303a33; font-size: 14px; font-weight: 650; text-align: right; }
+    #admin-dashboard #admin-collections-panel .collection-mobile-fee > .collection-fee-not-assessed { color: #77817a; font-size: 12px; font-weight: 400; }
+    #admin-dashboard #admin-collections-panel .collection-actions.collection-mobile-actions {
+        display: flex;
+        width: 100%;
+        min-width: 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        margin-top: 0;
+        padding-top: 0;
+        border-top: 0;
+    }
+    #admin-dashboard #admin-collections-panel .collection-actions.collection-mobile-actions--interactive {
+        margin-top: 5px;
+        padding-top: 12px;
+        border-top: 1px solid #e3e8e3;
+    }
+    #admin-dashboard #admin-collections-panel .collection-mobile-fee-row {
+        display: grid;
+        min-width: 0;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 8px;
+    }
+    #admin-dashboard #admin-collections-panel .collection-mobile-fee-row .collection-fee-entry { min-width: 0; flex: 1 1 auto; gap: 7px; }
+    #admin-dashboard #admin-collections-panel .collection-mobile-fee-row .collection-fee-prefix { font-size: 14px; }
+    #admin-dashboard #admin-collections-panel .collection-mobile-fee-row .collection-fee-field { height: 44px; min-height: 44px; font-size: 16px; }
+    #admin-dashboard #admin-collections-panel .collection-mobile-fee-row .collection-set-fee {
+        min-width: 82px;
+        min-height: 44px;
+        height: 44px;
+        padding: 0 12px;
+        border: 1px solid #14532d;
+        border-radius: 6px;
+        background: #14532d;
+        color: #fff;
+        font-size: 13px;
+        font-weight: 650;
+    }
+    #admin-dashboard #admin-collections-panel .collection-actions .collection-record-cash {
+        width: 100%;
+        min-height: 48px;
+        height: 48px;
+        justify-content: center;
+        border: 1px solid #14532d;
+        border-radius: 6px;
+        background: #14532d;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 650;
+    }
+    #admin-dashboard #admin-collections-panel .collection-mobile-note {
+        display: flex;
+        width: 100%;
+        min-width: 0;
+        align-items: flex-start;
+        gap: 7px;
+        color: #68736b;
+        font-size: 12px;
+        line-height: 1.45;
+        text-align: left;
+        overflow-wrap: anywhere;
+        white-space: normal;
+    }
+    #admin-dashboard #admin-collections-panel .collection-mobile-note > i { flex: 0 0 auto; margin-top: 2px; color: #77817a; }
+    #admin-dashboard #admin-collections-panel .collection-mobile-history-amount { min-width: 0; }
+    #admin-dashboard #admin-collections-panel .collection-mobile-history-amount > strong { display: block; color: #303a33; font-size: 15px; font-weight: 650; }
+    #admin-dashboard #admin-collections-panel .collection-mobile-history-amount .collection-secondary { margin-top: 2px; font-size: 12px; }
+    #admin-dashboard #admin-collections-panel .collection-mobile-history-tracking { margin-top: 2px; font-size: 11px; }
+    #admin-dashboard #admin-collections-panel .collection-mobile-history-recorded {
+        display: grid;
+        gap: 2px;
+        color: #68736b;
+        font-size: 12px;
+        line-height: 1.4;
+        overflow-wrap: anywhere;
+    }
+    #admin-dashboard #admin-collections-panel .collection-mobile-reference { color: #68736b; font-size: 12px; overflow-wrap: anywhere; }
+    #admin-dashboard #admin-collections-panel .collection-mobile-empty {
+        margin: 0;
+        padding: 22px 12px;
+        color: #69736d;
+        font-size: 13px;
+        line-height: 1.5;
+        text-align: center;
+    }
 }
 
 /* Officials and staff directory */
@@ -1058,5 +1195,224 @@
     #admin-dashboard #admin-staff-panel .staff-directory-table tbody tr:not(.table-empty-row) { min-height: 56px; }
     #admin-dashboard #admin-staff-panel .staff-directory-table tbody td { padding: 11px 12px; }
     #admin-dashboard #admin-staff-panel .staff-directory-row-actions { flex-wrap: nowrap; }
+}
+
+/* Mobile officials and staff directory cards */
+#admin-dashboard #admin-staff-panel .staff-directory-notice-toggle,
+#admin-dashboard #admin-staff-panel .staff-directory-add,
+#admin-dashboard #admin-staff-panel .staff-directory-mobile-list,
+#admin-dashboard #admin-staff-panel .staff-directory-mobile-empty { display: none; }
+@media (max-width: 767px) {
+    #admin-dashboard #admin-staff-panel { display: flex; flex-direction: column; }
+    #admin-dashboard #admin-staff-panel[hidden] { display: none; }
+    #admin-dashboard #admin-staff-panel .staff-page-header { order: 0; }
+    #admin-dashboard #admin-staff-panel .staff-directory-notice { order: 1; }
+    #admin-dashboard #admin-staff-panel .staff-directory-table-card { order: 2; }
+    #admin-dashboard #admin-staff-panel .staff-directory-form { order: 3; }
+
+    #admin-dashboard #admin-staff-panel .staff-directory-notice-rest { display: none; }
+    #admin-dashboard #admin-staff-panel .staff-directory-notice.is-expanded .staff-directory-notice-rest { display: inline; }
+    #admin-dashboard #admin-staff-panel .staff-directory-notice-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin: 4px 0 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #176b2c;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 650;
+        line-height: 1.4;
+        cursor: pointer;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-notice-toggle:hover { text-decoration: underline; text-underline-offset: 2px; }
+    #admin-dashboard #admin-staff-panel .staff-directory-notice-toggle:focus-visible { outline: 2px solid #176b2c; outline-offset: 2px; }
+    #admin-dashboard #admin-staff-panel .staff-directory-notice-toggle > i { font-size: 10px; }
+
+    #admin-dashboard #admin-staff-panel .staff-directory-table-heading {
+        display: grid;
+        gap: 13px;
+        margin-bottom: 13px;
+        padding-bottom: 12px;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-add {
+        display: flex;
+        width: 100%;
+        min-height: 48px;
+        align-items: center;
+        justify-content: center;
+        padding: 11px 14px;
+        border: 1px solid #0c5700;
+        border-radius: 6px;
+        background: #0c5700;
+        color: #fff;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 650;
+        cursor: pointer;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-add:hover,
+    #admin-dashboard #admin-staff-panel .staff-directory-add:focus-visible { border-color: #084400; background: #084400; }
+
+    #admin-dashboard #admin-staff-panel .staff-directory-table-scroll { display: none; }
+    #admin-dashboard #admin-staff-panel .staff-directory-mobile-list {
+        display: grid;
+        min-width: 0;
+        gap: 11px;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-card {
+        display: grid;
+        min-width: 0;
+        gap: 11px;
+        padding: 14px;
+        border: 1px solid #dce3dc;
+        border-radius: 8px;
+        background: #fff;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-card-heading {
+        display: flex;
+        min-width: 0;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-card-name {
+        min-width: 0;
+        color: #303a33;
+        font-size: 15px;
+        font-weight: 650;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-card-heading .staff-directory-pill { flex: 0 0 auto; }
+    #admin-dashboard #admin-staff-panel .staff-directory-card-position {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px 8px;
+        margin-top: -6px;
+        color: #69746c;
+        font-size: 13px;
+        line-height: 1.4;
+        overflow-wrap: anywhere;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-category-pill {
+        display: inline-flex;
+        min-height: 20px;
+        align-items: center;
+        padding: 2px 7px;
+        border: 1px solid #dce3dc;
+        border-radius: 999px;
+        background: #f4f6f4;
+        color: #59645d;
+        font-size: 10px;
+        font-weight: 600;
+        line-height: 1.1;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-card-contact {
+        display: grid;
+        min-width: 0;
+        gap: 7px;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-card-contact-row {
+        display: flex;
+        min-width: 0;
+        align-items: flex-start;
+        gap: 8px;
+        color: #515d54;
+        font-size: 13px;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+        word-break: normal;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-card-contact-row > i {
+        flex: 0 0 14px;
+        margin-top: 3px;
+        color: #879189;
+        font-size: 12px;
+        text-align: center;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-card-contact-row > span {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-card-portal {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 7px;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-card-portal .staff-directory-role-detail {
+        margin: 0;
+        color: #69746c;
+        font-size: 12px;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-card-actions {
+        margin-top: 1px;
+        padding-top: 11px;
+        border-top: 1px solid #e3e8e3;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-card-actions .staff-directory-row-actions {
+        flex-wrap: wrap;
+        gap: 7px;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-card-actions .staff-row-action {
+        min-height: 34px;
+        height: 34px;
+        padding: 0 10px;
+        font-size: 12px;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-mobile-empty:not([hidden]) {
+        display: grid;
+        min-height: 172px;
+        justify-items: center;
+        align-content: center;
+        gap: 10px;
+        padding: 24px 18px;
+        color: #69746c;
+        font-size: 14px;
+        line-height: 1.5;
+        text-align: center;
+        overflow-wrap: anywhere;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-mobile-empty[hidden] { display: none; }
+    #admin-dashboard #admin-staff-panel .staff-directory-mobile-empty > i {
+        color: #7d8c80;
+        font-size: 20px;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-mobile-empty > span { max-width: 100%; }
+
+    #admin-dashboard #admin-staff-panel .staff-directory-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+        margin-top: 18px;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-actions > button {
+        width: 100%;
+        min-height: 50px;
+        height: auto;
+        justify-content: center;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 650;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-actions > .btn-solid {
+        border: 1px solid #0c5700;
+        background: #0c5700;
+        color: #fff;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-actions > .btn-outline {
+        min-height: 42px;
+        border: 0;
+        background: transparent;
+        color: #176b2c;
+    }
+    #admin-dashboard #admin-staff-panel .staff-directory-actions > .btn-outline:hover,
+    #admin-dashboard #admin-staff-panel .staff-directory-actions > .btn-outline:focus-visible { background: transparent; text-decoration: underline; text-underline-offset: 2px; }
 }
 
