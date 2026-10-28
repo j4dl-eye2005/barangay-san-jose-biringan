@@ -59,6 +59,7 @@ $type = strtolower(trim((string) $request['document_type']));
 $isBusiness = str_contains($type, 'business');
 $isIndigency = str_contains($type, 'indigency');
 $isResidency = str_contains($type, 'residency');
+$usesCertificateLayout = $isIndigency || $isResidency;
 $title = $isBusiness ? 'BUSINESS CLEARANCE' : ($isIndigency ? 'CERTIFICATE OF INDIGENCY' : ($isResidency ? 'CERTIFICATE OF RESIDENCY' : 'BARANGAY CLEARANCE'));
 $personDetails = '<p>This sample is prepared for <strong>' . $escape($fullName) . '</strong>'
     . ($age !== '' ? ', age ' . $escape($age) : '')
@@ -99,8 +100,8 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
         </div>
         <p id="issue-feedback" class="issue-feedback" aria-live="polite"></p>
     </div>
-    <main class="paper<?= $isIndigency ? ' paper--indigency' : '' ?>" aria-label="Print-ready document sample">
-        <?php if ($isIndigency): ?>
+    <main class="paper<?= $usesCertificateLayout ? ' paper--indigency' : '' ?>" aria-label="Print-ready document sample">
+        <?php if ($usesCertificateLayout): ?>
         <svg class="indigency-top-ribbon" viewBox="0 0 210 40" preserveAspectRatio="none" aria-hidden="true">
             <rect x="0" y="12" width="210" height="15" fill="#0E5200" />
             <polygon points="112,27 124,12 210,12 210,27" fill="#F2C200" />
@@ -120,10 +121,17 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
             <div class="indigency-divider" aria-hidden="true"></div>
             <section class="indigency-certificate-body">
                 <p class="indigency-to">To Whom It May Concern:</p>
+                <?php if ($isResidency): ?>
+                <p class="indigency-indent">This is to certify that <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span><?php if ($age !== '' || !empty($request['civil_status'])): ?>, <?php endif; ?><?php if ($age !== ''): ?><?php if ((int) $age >= 18): ?>of legal age<?php else: ?><?= $escape($age) ?> years old<?php endif; ?><?php endif; ?><?php if ($age !== '' && !empty($request['civil_status'])): ?> and <?php endif; ?><?php if (!empty($request['civil_status'])): ?><?= $escape($request['civil_status']) ?><?php endif; ?><?php if ($age !== '' || !empty($request['civil_status'])): ?>,<?php endif; ?> is a <strong>PERMANENT RESIDENT</strong> of Barangay San Jose, City of Biringan.</p>
+                <p class="indigency-indent">Based on the records of this office, the above-named resident has been residing at <span class="indigency-field indigency-field-fill"><?= $escape($address) ?></span>.</p>
+                <p>This CERTIFICATION is being issued upon the request of <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span><?php if ($purpose !== ''): ?> for <span class="indigency-field indigency-field-fill"><?= $escape($purpose) ?></span>.<?php else: ?> for whatever legal purpose it may serve.<?php endif; ?></p>
+                <p>Issued this <span class="indigency-field"><?= $escape($ordinalDay) ?></span> day of <span class="indigency-field"><?= $escape($manila->format('F')) ?></span>, <span class="indigency-field"><?= $escape($manila->format('Y')) ?></span> at Barangay San Jose, City of Biringan, Philippines.</p>
+                <?php else: ?>
                 <p class="indigency-indent">This is to certify that <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span><?php if ($age !== ''): ?>, <span class="indigency-field"><?= $escape($age) ?></span> years old<?php endif; ?>, a resident of <span class="indigency-field indigency-field-fill"><?= $escape($address) ?></span>.</p>
                 <p class="indigency-indent">This is to certify further that the above-mentioned person is personally known to me, of good moral character, a law-abiding citizen of the Republic of the Philippines, and that his/her family is listed as one of the INDIGENT families in our barangay.</p>
                 <p>This CERTIFICATION is issued upon the request of <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span> for <span class="indigency-field indigency-field-fill"><?= $escape($purpose !== '' ? $purpose : 'Purpose not recorded') ?></span>.</p>
                 <p>Issued this <span class="indigency-field"><?= $escape($ordinalDay) ?></span> day of <span class="indigency-field"><?= $escape($manila->format('F')) ?></span>, <span class="indigency-field"><?= $escape($manila->format('Y')) ?></span> at Barangay San Jose, City of Biringan.</p>
+                <?php endif; ?>
             </section>
             <div class="indigency-signature">
                 <img class="indigency-signature-image" src="../assets/julius-signature.png" alt="Signature of Julius Akeem De Leon">
