@@ -214,11 +214,12 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261027-request-detail-actions-v1-requests-mobile-ux-v2">
     <link data-portal-route-css="unavailable" data-portal-css-href="css/unavailable.css?v=20261023-mobile-404-wrap-v2">
     <link rel="stylesheet" href="css/portal-public.css?v=20261028-announcements-layout-v7">
+    <link rel="stylesheet" href="css/record-spa.css?v=20261028-record-spa-sk-maroon-v2">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body data-initial-admin-section="<?= htmlspecialchars((string) $adminInitialSection, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>" data-entry-route="<?= $verifyToken !== '' ? 'verification' : ($resetToken !== '' ? 'password-reset' : '') ?>" data-admin-entry-authorized="<?= $adminEntryAuthorized ? '1' : '0' ?>" data-account-role="<?= htmlspecialchars((string) ($_SESSION['role'] ?? 'Guest'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
-    <script src="route-boot.js?v=20261022-route-css-cascade-v1"></script>
+    <script src="route-boot.js?v=20261028-record-spa-v1"></script>
     <a class="skip-link" href="#app-container">Skip to main content</a>
 
     <?php require __DIR__ . '/includes/shared/site-header.php'; ?>
@@ -487,6 +488,30 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         </div>
                     </div>
                 </section>
+            </div>
+        </section>
+
+        <section id="record" class="section record-spa-section" aria-labelledby="record-spa-title" aria-busy="true">
+            <div class="record-spa-shell">
+                <nav class="record-spa-breadcrumb" aria-label="Breadcrumb">
+                    <a href="index.php#landing">Home</a><span aria-hidden="true">›</span><a href="index.php#bulletin">Public Records</a><span aria-hidden="true">›</span><span id="record-spa-category">Public record</span>
+                </nav>
+                <article class="record-spa-card">
+                    <p class="record-spa-eyebrow" id="record-spa-eyebrow">Public record</p>
+                    <div class="record-spa-title-row">
+                        <h1 id="record-spa-title">Loading public record…</h1>
+                        <img src="assets/Sangguniang_Kabataan_logo.svg" alt="Sangguniang Kabataan" class="record-spa-sk-logo" width="256" height="256" decoding="async">
+                    </div>
+                    <p class="record-spa-date" id="record-spa-date"></p>
+                    <div class="record-spa-content" id="record-spa-content"></div>
+                    <section class="record-spa-attachment" id="record-spa-attachment" hidden aria-labelledby="record-spa-attachment-title">
+                        <h2 id="record-spa-attachment-title">Attached document</h2>
+                        <a id="record-spa-attachment-link" href="#"></a>
+                        <span class="record-spa-file-type" id="record-spa-file-type"></span>
+                    </section>
+                    <p class="record-spa-error" id="record-spa-error" role="status" hidden>This public record is unavailable or is no longer published. <a href="index.php#bulletin">Return to Public Records</a></p>
+                    <a class="record-spa-action" id="record-spa-return" href="index.php#bulletin">Browse more Public Records</a>
+                </article>
             </div>
         </section>
 
@@ -1325,7 +1350,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <?php require __DIR__ . '/includes/shared/site-footer.php'; ?>
 
     <?php require __DIR__ . '/includes/shared/dialogs.php'; ?>    <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true">Message</div>
-    <script src="script.js?v=20261028-announcements-layout-v3-payment-receipt-staff-directory-v1-requests-mobile-ux-v2" defer></script>
+    <script src="script.js?v=20261028-announcements-layout-v3-payment-receipt-staff-directory-v1-requests-mobile-ux-v2-record-spa-v1" defer></script>
 </body>
 </html>
 

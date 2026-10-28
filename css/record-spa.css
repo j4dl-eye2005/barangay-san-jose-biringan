@@ -1,0 +1,30 @@
+body.public-portal-view #record.record-spa-section { position: relative; isolation: isolate; min-height: 0; padding: 28px 0 24px; background: #86162b; }
+body.public-portal-view #record.record-spa-section::before { position: absolute; inset: 0; z-index: -1; background: url("../assets/Sangguniang_Kabataan_logo.svg") calc(100% + 95vh) 50% / 190vh 190vh no-repeat; background-attachment: fixed; opacity: .09; content: ""; pointer-events: none; }
+.record-spa-shell { width: min(100% - 48px, 1200px); margin: 0 auto; }
+.record-spa-breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 20px; color: rgba(255,255,255,.84); font-size: 13px; }
+.record-spa-breadcrumb a { color: #fff; text-underline-offset: 3px; }
+.record-spa-card { padding: clamp(24px, 4vw, 48px); border: 1px solid rgba(255,255,255,.58); border-radius: 8px; background: #a3233b; color: #fff; box-shadow: 0 12px 30px rgba(45, 10, 19, .16); }
+.record-spa-eyebrow { margin: 0 0 8px; color: rgba(255,255,255,.92); font-size: 13px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; }
+.record-spa-title-row { display: flex; align-items: center; gap: 12px; }
+.record-spa-card h1 { max-width: 900px; margin: 0; color: #fff; font-size: clamp(28px, 4vw, 42px); font-weight: 750; line-height: 1.18; letter-spacing: -.035em; overflow-wrap: anywhere; }
+.record-spa-sk-logo { display: block; width: 40px; height: 40px; flex: 0 0 40px; object-fit: contain; }
+.record-spa-date { margin: 16px 0 0; color: rgba(255,255,255,.84); font-size: 14px; }
+.record-spa-content { max-width: 88ch; margin-top: 26px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,.48); color: rgba(255,255,255,.94); font-size: 17px; line-height: 1.8; overflow-wrap: anywhere; white-space: pre-line; }
+.record-spa-attachment:not([hidden]) { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 28px; padding: 18px; border: 1px solid rgba(255,255,255,.55); border-radius: 8px; background: rgba(112,17,35,.48); }
+.record-spa-attachment h2 { width: 100%; margin: 0; color: #fff; font-size: 16px; }
+.record-spa-attachment a { color: #fff; font-weight: 650; overflow-wrap: anywhere; }
+.record-spa-file-type { padding: 2px 8px; border-radius: 20px; background: #f7e7ea; color: #781326; font-size: 11px; font-weight: 750; }
+.record-spa-action { display: inline-flex; min-height: 42px; align-items: center; margin-top: 28px; padding: 8px 16px; border: 1px solid #fff; border-radius: 6px; background: #a3233b; color: #fff !important; font-size: 14px; font-weight: 700; text-decoration: none; }
+.record-spa-action:hover { background: #701123; }
+.record-spa-error { margin: 24px 0 0; color: #fff; }
+@media (max-width: 767px) {
+    body.public-portal-view #record.record-spa-section { min-height: 0; padding: 20px 0 20px; }
+    .record-spa-shell { width: calc(100% - 32px); }
+    .record-spa-breadcrumb { gap: 7px; margin-bottom: 14px; font-size: 12px; }
+    .record-spa-card { padding: 24px 20px; border-radius: 9px; }
+    .record-spa-card h1 { font-size: clamp(26px, 7vw, 34px); }
+    .record-spa-sk-logo { width: 34px; height: 34px; flex-basis: 34px; }
+    .record-spa-content { margin-top: 20px; padding-top: 18px; font-size: 16px; line-height: 1.75; }
+    .record-spa-attachment { padding: 14px; }
+}
+.record-spa-attachment[hidden] { display: none !important; }

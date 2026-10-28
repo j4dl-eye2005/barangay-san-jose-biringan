@@ -5363,7 +5363,8 @@ body.public-portal-view #bulletin.is-category-page .category-post-attachment > i
 body.public-portal-view #bulletin.is-category-page .category-post-attachment:hover { border-color: #fff; background: rgba(255, 255, 255, .18); }
 
 /* Keep the bulletin disclaimer on a pale, full-width band above the footer. */
-body.public-portal-view:has(#bulletin.active) .site-disclaimer-bar {
+body.public-portal-view:has(#bulletin.active) .site-disclaimer-bar,
+body.public-portal-view:has(#record.active) .site-disclaimer-bar {
     display: block;
     width: 100%;
     max-width: none;
@@ -5374,7 +5375,8 @@ body.public-portal-view:has(#bulletin.active) .site-disclaimer-bar {
     background: #17365d !important;
     color: #fff;
 }
-body.public-portal-view:has(#bulletin.active) .site-disclaimer-bar::before {
+body.public-portal-view:has(#bulletin.active) .site-disclaimer-bar::before,
+body.public-portal-view:has(#record.active) .site-disclaimer-bar::before {
     position: absolute;
     inset: 0 auto 0 50%;
     z-index: -1;
@@ -5383,8 +5385,10 @@ body.public-portal-view:has(#bulletin.active) .site-disclaimer-bar::before {
     background: #17365d !important;
     content: "";
 }
-body.public-portal-view:has(#bulletin.active) .site-disclaimer-bar::after { display: none !important; }
-body.public-portal-view:has(#bulletin.active) .site-disclaimer {
+body.public-portal-view:has(#bulletin.active) .site-disclaimer-bar::after,
+body.public-portal-view:has(#record.active) .site-disclaimer-bar::after { display: none !important; }
+body.public-portal-view:has(#bulletin.active) .site-disclaimer,
+body.public-portal-view:has(#record.active) .site-disclaimer {
     width: min(calc(100% - 48px), var(--content-width));
     max-width: var(--content-width);
     margin: 0 auto;
@@ -5399,7 +5403,13 @@ body.public-portal-view:has(#bulletin.active) .site-disclaimer {
     letter-spacing: .045em;
     line-height: 1.6;
 }
-body.public-portal-view:has(#bulletin.active) .site-disclaimer strong { color: #302b20 !important; font-weight: 600; }
+body.public-portal-view:has(#bulletin.active) .site-disclaimer strong,
+body.public-portal-view:has(#record.active) .site-disclaimer strong { color: #302b20 !important; font-weight: 600; }
+
+/* Record detail inherits the SK archive's maroon page field. */
+body.public-portal-view:has(#record.active) .site-disclaimer-bar,
+body.public-portal-view:has(#record.active) .site-disclaimer-bar::before { background: #86162b !important; }
+body.public-portal-view:has(#record.active) .site-disclaimer-bar { border-top: 1px solid rgba(255,255,255,.72); }
 
 @media (max-width: 767px) {
     body.public-portal-view #bulletin.is-category-page .page-shell { padding: 22px 16px 0; }
@@ -5416,13 +5426,15 @@ body.public-portal-view:has(#bulletin.active) .site-disclaimer strong { color: #
     body.public-portal-view #bulletin.is-category-page .bulletin-category-list .category-post h2 { font-size: 17px; }
     body.public-portal-view #bulletin.is-category-page .category-post-date { margin-top: 5px; color: rgba(255, 255, 255, .82); font-size: 12px; }
     body.public-portal-view #bulletin.is-category-page .bulletin-category-list .category-post > p { margin-top: 10px; font-size: 14px; line-height: 1.7; }
-    body.public-portal-view:has(#bulletin.active) .site-disclaimer-bar {
+    body.public-portal-view:has(#bulletin.active) .site-disclaimer-bar,
+    body.public-portal-view:has(#record.active) .site-disclaimer-bar {
         width: 100%;
         max-width: none;
         margin: 0;
         padding: 24px 0;
     }
-    body.public-portal-view:has(#bulletin.active) .site-disclaimer {
+    body.public-portal-view:has(#bulletin.active) .site-disclaimer,
+    body.public-portal-view:has(#record.active) .site-disclaimer {
         width: min(calc(100% - 32px), var(--content-width));
         padding: 15px 16px;
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

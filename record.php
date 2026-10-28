@@ -6,6 +6,12 @@ require_once __DIR__ . '/api/db.php';
 $portalSettings = portalConfig();
 $siteUrl = rtrim((string) ($portalSettings['app_url'] ?? ''), '/');
 $recordId = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+$isRecordFragment = ($_GET['fragment'] ?? '') === '1';
+if (!$isRecordFragment && $recordId !== false && $recordId !== null) {
+    header('Cache-Control: no-store');
+    header('Location: index.php#record?id=' . (int) $recordId, true, 302);
+    exit;
+}
 
 $record = null;
 if ($recordId !== false && $recordId !== null) {
@@ -47,6 +53,29 @@ $description = $notFound
 $pageTitle = $notFound ? $title . ' | Barangay San Jose' : $title . ' | ' . $categoryName . ' | Barangay San Jose';
 $canonicalUrl = !$notFound && $siteUrl !== '' ? $siteUrl . '/record.php?id=' . (int) $record['disclosure_id'] : '';
 $postedAt = !$notFound ? strtotime((string) $record['timestamp_posted']) : false;
+if ($isRecordFragment) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: public, max-age=60, stale-while-revalidate=300');
+    if ($notFound) {
+        http_response_code(404);
+        echo json_encode(['success' => false]);
+        exit;
+    }
+    echo json_encode([
+        'success' => true,
+        'id' => (int) $record['disclosure_id'],
+        'categoryId' => (int) $record['category_id'],
+        'category' => (string) $record['category_name'],
+        'title' => (string) $record['title'],
+        'content' => (string) $record['content'],
+        'published' => $postedAt !== false ? date(DATE_ATOM, $postedAt) : null,
+        'publishedLabel' => $postedAt !== false ? date('F j, Y', $postedAt) : null,
+        'attachmentId' => !empty($record['attachment_id']) ? (int) $record['attachment_id'] : null,
+        'fileName' => (string) ($record['file_name'] ?? ''),
+        'fileType' => (string) ($record['file_type'] ?? '')
+    ], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+    exit;
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -65,16 +94,27 @@ $postedAt = !$notFound ? strtotime((string) $record['timestamp_posted']) : false
     <?php else: ?><meta name="robots" content="noindex,follow"><?php endif; ?>
     <title><?= recordEscape($pageTitle) ?></title>
     <link rel="icon" type="image/png" href="assets/favicon-optimized.png">
-    <link rel="stylesheet" href="css/record.css?v=20261021-public-record-pages-v2">
+    <link rel="stylesheet" href="css/base.css?v=20261023-universal-custom-scrollbar-v1">
+    <link rel="stylesheet" href="css/record.css?v=20261028-record-portal-shell-v1">
 </head>
 <body>
     <a class="record-skip-link" href="#record-main">Skip to main content</a>
     <header class="record-header">
-        <a class="record-brand" href="index.php#landing" aria-label="Barangay San Jose home">
-            <img src="assets/barangay-seal.svg" alt="" width="128" height="128" decoding="async">
-            <span><strong>Barangay San Jose</strong><small>Digital services and public records</small></span>
-        </a>
-        <a class="record-home-link" href="index.php#bulletin">Browse public records</a>
+        <div class="record-header-inner">
+            <div class="record-utility-row">
+                <span><?= recordEscape(date('l, F j, Y')) ?></span>
+                <div><a href="index.php#contact">Contact</a><span aria-hidden="true"></span><span>English</span></div>
+            </div>
+            <div class="record-brand-row">
+                <a class="record-brand" href="index.php#landing" aria-label="Barangay San Jose home">
+                    <img src="assets/barangay-seal.svg" alt="" width="128" height="128" decoding="async">
+                    <span><strong>Barangay San Jose</strong><small>Digital services and public records</small></span>
+                    <i aria-hidden="true"></i>
+                    <small class="record-brand-statement">DIGITAL DISCLOSURE &amp;<br>DOCUMENT REQUEST PORTAL</small>
+                </a>
+                <a class="record-home-link" href="index.php#bulletin">Browse public records</a>
+            </div>
+        </div>
     </header>
     <main class="record-main" id="record-main" tabindex="-1">
         <nav class="record-breadcrumb" aria-label="Breadcrumb">
@@ -106,9 +146,26 @@ $postedAt = !$notFound ? strtotime((string) $record['timestamp_posted']) : false
             <?php endif; ?>
         </article>
     </main>
+    <aside class="record-disclaimer-band" aria-label="Site disclaimer">
+        <p><strong>Disclaimer:</strong> This website is created for demonstration and academic purposes only as part of an SIA subject project. It is not a real company, official service, registered business, or commercial website. No claims are made regarding actual business operations, legal standing, or real-world services.</p>
+    </aside>
     <footer class="record-footer">
-        <p><strong>Academic project notice:</strong> This prototype is for an academic project and is not an official barangay service.</p>
-        <a href="index.php#bulletin">Barangay San Jose Digital Portal</a>
+        <div class="record-footer-inner">
+            <div class="record-footer-brand">
+                <img src="assets/barangay-seal.svg" alt="" width="128" height="128" decoding="async">
+                <span><strong>Barangay San Jose</strong><small>Digital services and public records</small></span>
+            </div>
+            <nav class="record-footer-links" aria-label="Portal links">
+                <a href="index.php#resident-dashboard">Request a document</a>
+                <a href="index.php#resident-profile">Track my requests</a>
+                <a href="index.php#bulletin">Public Records</a>
+                <a href="index.php#privacy-policy">Privacy Policy</a>
+                <a href="index.php#terms">Terms</a>
+                <a href="index.php#moderation">Moderation</a>
+                <a href="index.php#copyright">Copyright</a>
+            </nav>
+            <p class="record-footer-note">&copy; <?= recordEscape(date('Y')) ?> Barangay San Jose. All rights reserved.</p>
+        </div>
     </footer>
 </body>
 </html>

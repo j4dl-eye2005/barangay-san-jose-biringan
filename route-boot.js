@@ -57,7 +57,7 @@
     window.portalRouteStylesAreReady = route => routeCssGroupsFor(route).every(group => routeCssLoaded.has(group));
     const adminSections = ['overview', 'requests', 'residents', 'disclosures', 'activity'];
     const sections = [
-        'landing', 'bulletin', 'login', 'admin-login', 'forgot-password', 'register',
+        'landing', 'bulletin', 'record', 'login', 'admin-login', 'forgot-password', 'register',
         'resident-dashboard', 'resident-profile', 'resident-change-email', 'resident-change-password',
         'admin-dashboard', 'privacy-policy', 'terms', 'moderation', 'copyright', 'page-unavailable'
     ];
@@ -108,7 +108,7 @@
         document.head.appendChild(heroImagePreload);
     }
     body.classList.toggle('public-portal-view', [
-        'landing', 'bulletin', 'login', 'admin-login', 'forgot-password', 'register',
+        'landing', 'bulletin', 'record', 'login', 'admin-login', 'forgot-password', 'register',
         'resident-dashboard', 'resident-change-email', 'resident-change-password',
         'privacy-policy', 'terms', 'moderation', 'copyright', 'page-unavailable'
     ].includes(body.dataset.routeStart));

@@ -100,6 +100,7 @@ let bulletinDeleteReturnFocus = null;
 let publicDisclosuresLoaded = false;
 let publicDisclosuresLoadedAt = 0;
 let publicDisclosuresItems = [];
+let publicRecordDetailLoadToken = 0;
 let publicDisclosuresLoadPromise = null;
 let publicDisclosuresInFlightQueryKey = '';
 let publicDisclosuresLoadError = false;
@@ -564,7 +565,7 @@ function showSection(id, fromHistory = false, adminSection = null, bulletinCateg
     }
     const residentWorkspaceView = currentUser?.role === 'Resident' && ['resident-dashboard', 'resident-profile'].includes(id);
     document.body.classList.toggle('resident-workspace-view', residentWorkspaceView);
-    document.body.classList.toggle('public-portal-view', ['landing', 'bulletin', 'login', 'admin-login', 'forgot-password', 'register', 'resident-change-email', 'resident-change-password', 'privacy-policy', 'terms', 'moderation', 'copyright', 'page-unavailable'].includes(id) || residentWorkspaceView);
+    document.body.classList.toggle('public-portal-view', ['landing', 'bulletin', 'record', 'login', 'admin-login', 'forgot-password', 'register', 'resident-change-email', 'resident-change-password', 'privacy-policy', 'terms', 'moderation', 'copyright', 'page-unavailable'].includes(id) || residentWorkspaceView);
     // First-paint routing only applies until the app's normal navigation takes over.
     document.body.removeAttribute('data-route-start');
     document.body.removeAttribute('data-entry-route');
@@ -575,6 +576,7 @@ function showSection(id, fromHistory = false, adminSection = null, bulletinCateg
     const sectionTitles = {
         landing: appDocumentTitle,
         bulletin: 'Public Records | Barangay San Jose Digital Portal',
+        record: 'Public record | Barangay San Jose Digital Portal',
         login: 'Resident log in | Barangay San Jose Digital Portal',
         'admin-login': 'Administrator sign in | Barangay San Jose Digital Portal',
         'forgot-password': 'Password reset | Barangay San Jose Digital Portal',
@@ -682,6 +684,11 @@ function showSection(id, fromHistory = false, adminSection = null, bulletinCateg
             void disclosuresLoad.then(() => renderPublicRecordsSearch(searchQuery));
         }
     }
+    if (id === 'record') {
+        const [recordRoute, recordQuery = ''] = location.hash.slice(1).split('?', 2);
+        const recordParams = new URLSearchParams(recordQuery);
+        void loadPublicRecordDetail(recordRoute === 'record' ? recordParams.get('id') : null);
+    }
     if (id === 'landing') loadLatestAnnouncements();
     if (id === 'register') {
         setTimeout(regInitDropzone, 50);
@@ -711,11 +718,17 @@ function showSection(id, fromHistory = false, adminSection = null, bulletinCateg
             destinationPath = new URL(`admin_${routes[sectionKey] || 'overview'}.php`, document.baseURI).pathname;
             destinationHash = `#admin-${sectionKey}`;
             nextState = { section: id, adminSection: sectionKey };
-        } else if (['landing', 'bulletin', 'resident-dashboard'].includes(id)) {
+        } else if (['landing', 'bulletin', 'resident-dashboard', 'record'].includes(id)) {
             destinationPath = new URL('index.php', document.baseURI).pathname;
             if (id === 'bulletin' && bulletinCategory) {
                 destinationHash = `#bulletin?category=${encodeURIComponent(String(bulletinCategory))}`;
                 nextState.bulletinCategory = Number(bulletinCategory);
+            } else if (id === 'record') {
+                const recordId = new URLSearchParams(location.hash.split('?')[1] || '').get('id');
+                if (recordId) {
+                    destinationHash = `#record?id=${encodeURIComponent(recordId)}`;
+                    nextState.recordId = Number(recordId);
+                }
             }
         }
 
@@ -1135,6 +1148,28 @@ window.addEventListener('popstate', (event) => {
     showSection(id, true);
 });
 
+document.addEventListener('click', (event) => {
+    const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+    if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || link.target === '_blank') return;
+    const destination = new URL(link.href, location.href);
+    if (destination.origin !== location.origin) return;
+    let recordId = null;
+    if (destination.pathname.endsWith('/record.php')) {
+        recordId = destination.searchParams.get('id');
+    } else {
+        const [route, query = ''] = destination.hash.slice(1).split('?', 2);
+        if (route === 'record') recordId = new URLSearchParams(query).get('id');
+    }
+    if (!/^[1-9]\d*$/.test(recordId || '') || !Number.isSafeInteger(Number(recordId))) return;
+    event.preventDefault();
+    const routePath = new URL('index.php', document.baseURI).pathname;
+    const routeHash = `#record?id=${encodeURIComponent(recordId)}`;
+    if (location.pathname !== routePath || location.hash !== routeHash || history.state?.section !== 'record') {
+        history.pushState({ section: 'record', recordId: Number(recordId) }, '', `${routePath}${routeHash}`);
+    }
+    showSection('record', true);
+});
+
 window.addEventListener('hashchange', () => {
     const rawHash = location.hash.slice(1);
     let decodedHash = rawHash;
@@ -1143,6 +1178,14 @@ window.addEventListener('hashchange', () => {
     const bulletinParams = new URLSearchParams(query);
     const rawBulletinCategory = Number(bulletinParams.get('category'));
     const hashBulletinCategory = publicBulletinCategories[rawBulletinCategory] ? rawBulletinCategory : null;
+    if (route === 'record') {
+        const recordId = Number(bulletinParams.get('id'));
+        if (Number.isSafeInteger(recordId) && recordId > 0) history.replaceState({ section: 'record', recordId }, '', location.href);
+    } else if (route === 'bulletin') {
+        history.replaceState({ section: 'bulletin', ...(hashBulletinCategory ? { bulletinCategory: hashBulletinCategory } : {}) }, '', location.href);
+    } else if (document.getElementById(route)?.classList.contains('section')) {
+        history.replaceState({ section: route }, '', location.href);
+    }
     const isCanonicalBulletinView = !bulletinParams.has('search') && !bulletinParams.has('record')
         && (hashBulletinCategory ? bulletinParams.size === 1 : bulletinParams.size === 0);
     if (route === 'bulletin'
@@ -1563,8 +1606,72 @@ function observeBulletinExcerpts() {
 
 function getPublicDisclosureRecordHref(item, categoryId) {
     const recordId = Number(item?.disclosure_id);
-    if (Number.isSafeInteger(recordId) && recordId > 0) return `record.php?id=${recordId}`;
+    if (Number.isSafeInteger(recordId) && recordId > 0) return `index.php#record?id=${recordId}`;
     return `index.php#bulletin?category=${encodeURIComponent(String(categoryId))}`;
+}
+
+async function loadPublicRecordDetail(recordId) {
+    const section = document.getElementById('record');
+    const heading = document.getElementById('record-spa-title');
+    const category = document.getElementById('record-spa-category');
+    const eyebrow = document.getElementById('record-spa-eyebrow');
+    const date = document.getElementById('record-spa-date');
+    const content = document.getElementById('record-spa-content');
+    const attachment = document.getElementById('record-spa-attachment');
+    const attachmentLink = document.getElementById('record-spa-attachment-link');
+    const attachmentType = document.getElementById('record-spa-file-type');
+    const error = document.getElementById('record-spa-error');
+    const returnLink = document.getElementById('record-spa-return');
+    if (!section || !heading || !category || !eyebrow || !date || !content || !attachment || !attachmentLink || !attachmentType || !error || !returnLink) return;
+    const loadToken = ++publicRecordDetailLoadToken;
+    const validId = /^[1-9]\d*$/.test(String(recordId || '')) && Number.isSafeInteger(Number(recordId));
+    section.setAttribute('aria-busy', 'true');
+    error.hidden = true;
+    attachment.hidden = true;
+    content.textContent = '';
+    heading.textContent = 'Loading public record…';
+    date.textContent = '';
+    returnLink.hidden = true;
+    if (!validId) {
+        section.setAttribute('aria-busy', 'false');
+        heading.textContent = 'Public record unavailable';
+        error.hidden = false;
+        returnLink.hidden = false;
+        return;
+    }
+    try {
+        const response = await fetch(`record.php?id=${encodeURIComponent(String(recordId))}&fragment=1`, { headers: { Accept: 'application/json' } });
+        if (!response.ok) throw new Error('Record unavailable');
+        const record = await response.json();
+        if (loadToken !== publicRecordDetailLoadToken || !record.success) return;
+        heading.textContent = record.title || 'Untitled public record';
+        category.textContent = record.category || 'Public record';
+        eyebrow.textContent = record.category || 'Public record';
+        content.textContent = record.content || '';
+        if (record.publishedLabel) {
+            const time = el('time', { text: record.publishedLabel, attrs: { datetime: record.published || '' } });
+            date.replaceChildren(document.createTextNode('Published '), time);
+        }
+        returnLink.textContent = `Browse more ${record.category || 'Public Records'}`;
+        returnLink.href = `index.php#bulletin?category=${encodeURIComponent(String(record.categoryId || ''))}`;
+        if (record.attachmentId) {
+            attachmentLink.textContent = record.fileName || 'Open attached document';
+            attachmentLink.href = `api/public_attachment.php?id=${encodeURIComponent(String(record.attachmentId))}`;
+            attachmentType.textContent = String(record.fileType || '').toUpperCase();
+            attachmentType.hidden = !attachmentType.textContent;
+            attachment.hidden = false;
+        }
+        returnLink.hidden = false;
+        document.title = `${heading.textContent} | ${record.category || 'Public Records'} | Barangay San Jose Digital Portal`;
+        section.setAttribute('aria-busy', 'false');
+    } catch {
+        if (loadToken !== publicRecordDetailLoadToken) return;
+        section.setAttribute('aria-busy', 'false');
+        heading.textContent = 'Public record unavailable';
+        error.hidden = false;
+        returnLink.hidden = false;
+        document.title = 'Public record unavailable | Barangay San Jose Digital Portal';
+    }
 }
 
 function getBulletinRecordIdFromLocation() {
@@ -8949,9 +9056,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const [publicSection, publicQuery = ''] = location.hash.slice(1).split('?', 2);
             const canOpenProfile = publicSection === 'resident-profile' && ['Resident', 'Admin'].includes(sessionData.role);
             const canOpenResidentSecurityPage = ['resident-change-email', 'resident-change-password'].includes(publicSection) && ['Resident', 'Admin'].includes(sessionData.role);
-            if (canOpenProfile || canOpenResidentSecurityPage || (!window.INITIAL_ADMIN_SECTION && ['landing', 'bulletin'].includes(publicSection))) {
+            if (canOpenProfile || canOpenResidentSecurityPage || (!window.INITIAL_ADMIN_SECTION && ['landing', 'bulletin', 'record'].includes(publicSection))) {
                 const requestedParams = new URLSearchParams(publicQuery);
                 const routeParams = new URLSearchParams();
+                const directRecordId = requestedParams.get('id');
+                if (publicSection === 'record' && /^[1-9]\d*$/.test(directRecordId || '') && Number.isSafeInteger(Number(directRecordId))) routeParams.set('id', directRecordId);
                 const categoryParam = requestedParams.get('category');
                 const categoryId = publicSection === 'bulletin' && /^[1-4]$/.test(categoryParam || '') ? Number(categoryParam) : null;
                 const recordParam = requestedParams.get('record');
@@ -8964,7 +9073,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const portalFocus = publicSection === 'landing' ? requestedParams.get('portalFocus') : null;
                 if (['services', 'contact-info'].includes(portalFocus)) routeParams.set('portalFocus', portalFocus);
                 const publicHash = `#${publicSection}${routeParams.size ? `?${routeParams}` : ''}`;
-                history.replaceState({ section: publicSection, ...(categoryId ? { bulletinCategory: categoryId } : {}) }, '', `${location.pathname}${publicHash}`);
+                history.replaceState({ section: publicSection, ...(categoryId ? { bulletinCategory: categoryId } : {}), ...(publicSection === 'record' && directRecordId ? { recordId: Number(directRecordId) } : {}) }, '', `${location.pathname}${publicHash}`);
                 showSection(publicSection, true);
                 return;
             }
@@ -8998,7 +9107,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try { decodedInitialHash = decodeURIComponent(rawInitialHash); } catch { /* Invalid fragments resolve to the common unavailable page. */ }
     const [initialRoute, initialQuery = ''] = decodedInitialHash.split('?', 2);
     const initialParams = new URLSearchParams(initialQuery);
-    const validHashRoutes = ['landing', 'bulletin', 'login', 'admin-login', 'forgot-password', 'register', 'resident-dashboard', 'resident-profile', 'resident-change-email', 'resident-change-password', 'admin-dashboard', 'privacy-policy', 'terms', 'moderation', 'copyright', 'page-unavailable'];
+    const validHashRoutes = ['landing', 'bulletin', 'record', 'login', 'admin-login', 'forgot-password', 'register', 'resident-dashboard', 'resident-profile', 'resident-change-email', 'resident-change-password', 'admin-dashboard', 'privacy-policy', 'terms', 'moderation', 'copyright', 'page-unavailable'];
     const initialResetRoute = initialRoute === 'password-reset' || initialRoute === 'forgot-password';
     const initialHasResetToken = initialParams.has('token');
     const initialResetTokenValid = initialHasResetToken && /^[a-f0-9]{64}$/i.test(initialParams.get('token') || '');
@@ -9027,11 +9136,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         initialRouteParams.set('category', String(initialBulletinCategory));
         if (initialBulletinRecord) initialRouteParams.set('record', String(initialBulletinRecord));
     }
+    const directRecordId = initialParams.get('id');
+    if (resolvedStart === 'record' && /^[1-9]\d*$/.test(directRecordId || '') && Number.isSafeInteger(Number(directRecordId))) initialRouteParams.set('id', directRecordId);
     const initialSearch = resolvedStart === 'bulletin' ? initialParams.get('search') : null;
     if (initialSearch !== null) initialRouteParams.set('search', initialSearch.slice(0, 300));
     const initialPortalFocus = resolvedStart === 'landing' ? initialParams.get('portalFocus') : null;
     if (['services', 'contact-info'].includes(initialPortalFocus)) initialRouteParams.set('portalFocus', initialPortalFocus);
     const initialHash = `#${resolvedStart}${initialRouteParams.size ? `?${initialRouteParams}` : ''}`;
-    history.replaceState({ section: resolvedStart, ...(resolvedStart === 'bulletin' && initialBulletinCategory ? { bulletinCategory: initialBulletinCategory } : {}) }, '', initialHash);
+    history.replaceState({ section: resolvedStart, ...(resolvedStart === 'bulletin' && initialBulletinCategory ? { bulletinCategory: initialBulletinCategory } : {}), ...(resolvedStart === 'record' && directRecordId ? { recordId: Number(directRecordId) } : {}) }, '', initialHash);
     showSection(resolvedStart, true);
 });
