@@ -2810,8 +2810,53 @@ img.proof-preview-media { width: auto; }
     #resident-dashboard #request-form select { min-height: 48px; font-size: 16px; }
     #resident-dashboard #request-form > .btn-solid { min-height: 44px; }
     #resident-dashboard .request-upload-area { min-height: 64px; font-size: 16px; }
-    #resident-dashboard .request-proof-actions { grid-column: 1 / -1; }
-    #resident-dashboard .request-proof-actions button { min-height: 44px; flex: 1 1 0; }
+    #resident-dashboard .request-proof-preview {
+        grid-template-columns: 48px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 18px;
+        padding: 12px;
+    }
+    #resident-dashboard .request-proof-preview:not(.has-thumbnail) { grid-template-columns: 48px minmax(0, 1fr) auto; }
+    #resident-dashboard .request-proof-preview::after { display: none; }
+    #resident-dashboard .request-proof-preview > img { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; }
+    #resident-dashboard .request-proof-preview:not(.has-thumbnail)::before {
+        display: grid;
+        width: 48px;
+        height: 48px;
+        place-items: center;
+        border-radius: 6px;
+        background: #e1f2e4;
+        color: #23723a;
+        font-size: 20px;
+    }
+    #resident-dashboard .request-proof-file-details { gap: 4px; }
+    #resident-dashboard .request-proof-file-details strong { font-size: 14px; font-weight: 650; }
+    #resident-dashboard .request-proof-file-meta { display: flex; min-width: 0; align-items: center; gap: 8px; }
+    #resident-dashboard .request-proof-file-details #request-proof-size { color: #46534a; font-size: 13px; }
+    #resident-dashboard .request-proof-attached { display: inline-flex; align-items: center; gap: 4px; color: #17632e; font-size: 11px; font-weight: 650; white-space: nowrap; }
+    #resident-dashboard .request-proof-attached i { font-size: 10px; }
+    #resident-dashboard .request-proof-actions { grid-column: auto; gap: 2px; }
+    #resident-dashboard .request-proof-actions button {
+        box-sizing: border-box;
+        min-width: 44px;
+        min-height: 44px;
+        height: auto;
+        flex: 0 0 auto;
+        padding: 10px 6px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        color: #17632e;
+        font-size: 13px;
+        font-weight: 650;
+        text-decoration: none;
+        text-underline-offset: 2px;
+    }
+    #resident-dashboard .request-proof-actions button:first-child { color: #b42318; }
+    #resident-dashboard .request-proof-actions button:hover,
+    #resident-dashboard .request-proof-actions button:active { background: transparent; text-decoration: underline; }
+    #resident-dashboard .request-proof-actions button:focus-visible { outline: 2px solid #17632e; outline-offset: 2px; }
     #resident-dashboard .request-proof-hint,
     #resident-dashboard .request-proof-privacy,
     #resident-dashboard .request-submit-guidance,

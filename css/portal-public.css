@@ -4761,3 +4761,301 @@ body:has(#resident-profile.active) #resident-profile .resident-profile-identity-
     text-align: left;
 }
 
+/* Payment proof form: mobile card, upload, and touch-sized actions. */
+.resident-payment-field { display: contents; }
+.resident-payment-upload { display: none; }
+.resident-payment-form .resident-payment-field > label {
+    color: var(--color-text);
+    font-size: var(--text-12);
+    font-weight: 700;
+}
+.resident-payment-form .resident-payment-field > input[type="text"] {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    padding: 9px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--text-13);
+}
+.resident-payment-form .resident-payment-field > input[type="file"] {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    padding: 9px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--text-13);
+}
+@media (max-width: 767px) {
+    .resident-payment-form {
+        box-sizing: border-box;
+        display: grid;
+        gap: 16px;
+        width: 100%;
+        padding: 16px;
+        border: 1px solid #d7ded8;
+        border-radius: 8px;
+        background: #fff;
+    }
+    .resident-payment-form[hidden] { display: none; }
+    .resident-payment-field { display: grid; min-width: 0; gap: 6px; }
+    .resident-payment-field > label {
+        color: #3f4941;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.35;
+    }
+    .resident-payment-form > .resident-payment-field > input[type="text"] {
+        box-sizing: border-box;
+        width: 100%;
+        min-width: 0;
+        min-height: 48px;
+        padding: 11px 12px;
+        border: 1px solid #cbd3cc;
+        border-radius: 4px;
+        outline: none;
+        background: #fff;
+        color: #26352b;
+        font: inherit;
+        font-size: 16px;
+    }
+    .resident-payment-form > .resident-payment-field > input[type="text"]:focus {
+        border-color: #17632e;
+        box-shadow: 0 0 0 3px rgba(23, 99, 46, .16);
+    }
+    .resident-payment-helper {
+        margin: 0;
+        color: #515d54;
+        font-size: 14px;
+        line-height: 1.45;
+    }
+    .resident-payment-field > input[type="file"],
+    .resident-payment-desktop-helper { display: none; }
+    .resident-payment-upload { display: grid; gap: 7px; min-width: 0; }
+    .resident-payment-picker {
+        box-sizing: border-box;
+        min-height: 128px;
+        padding: 14px 12px;
+        border: 1.5px dashed #69a873;
+        border-radius: 8px;
+        background: #f0f8f1;
+        color: #14532d;
+        font-size: 14px;
+    }
+    .resident-payment-picker:hover,
+    .resident-payment-picker:active { border-color: #14532d; background: #e8f3e9; }
+    .resident-payment-picker:focus-visible { outline: 3px solid rgba(105, 168, 115, .48); outline-offset: 2px; }
+    .resident-payment-picker > i { width: 36px; height: 36px; flex-basis: 36px; font-size: 16px; }
+    .resident-payment-picker > i::before { content: "\f093"; }
+    .resident-payment-picker > span { color: #14532d; font-weight: 600; }
+    .resident-payment-picker .resident-payment-upload-guidance {
+        color: #566059;
+        font-size: 12px;
+        font-weight: 400;
+    }
+    .resident-payment-picker[hidden],
+    .resident-payment-file-row[hidden],
+    .resident-payment-file-error[hidden] { display: none; }
+    .resident-payment-file-input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+    .resident-payment-file-row {
+        box-sizing: border-box;
+        display: grid;
+        grid-template-columns: 40px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        min-height: 76px;
+        padding: 10px;
+        border: 1px dashed #69a873;
+        border-radius: 8px;
+        background: #f0f8f1;
+    }
+    .resident-payment-file-row.has-thumbnail { grid-template-columns: 40px minmax(0, 1fr) auto; }
+    .resident-payment-thumbnail,
+    .resident-payment-file-icon {
+        display: grid;
+        width: 40px;
+        height: 40px;
+        place-items: center;
+        border-radius: 7px;
+        background: #dcefe0;
+        color: #17632e;
+    }
+    .resident-payment-thumbnail { object-fit: cover; }
+    .resident-payment-thumbnail[hidden],
+    .resident-payment-file-icon[hidden] { display: none; }
+    .resident-payment-file-icon { font-size: 18px; }
+    .resident-payment-file-details { display: grid; min-width: 0; gap: 4px; }
+    .resident-payment-file-name {
+        overflow: hidden;
+        color: #26352b;
+        font-size: 13px;
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .resident-payment-file-size { color: #566059; font-size: 12px; }
+    .resident-payment-file-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+    .resident-payment-file-action {
+        min-height: 30px;
+        padding: 2px 4px;
+        border: 0;
+        background: transparent;
+        color: #17632e;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        cursor: pointer;
+    }
+    .resident-payment-file-action:focus-visible { outline: 2px solid #17632e; outline-offset: 1px; }
+    .resident-payment-upload.is-invalid .resident-payment-picker,
+    .resident-payment-upload.is-invalid .resident-payment-file-row {
+        border-color: #c62828;
+    }
+    .resident-payment-file-error {
+        display: block;
+        margin: 0;
+        color: #b42318;
+        font-size: 13px;
+        line-height: 1.4;
+    }
+    .resident-payment-feedback { margin: 0; }
+    .resident-payment-form-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+        margin-top: 4px;
+    }
+    .resident-payment-form-actions > button {
+        box-sizing: border-box;
+        display: inline-flex;
+        width: 100%;
+        min-height: 52px;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        padding: 12px 16px;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: 700;
+        line-height: 1.25;
+    }
+    .resident-payment-form-actions > .btn-solid {
+        border: 1px solid #0c5700;
+        background: #0c5700;
+        color: #fff;
+    }
+    .resident-payment-form-actions > .btn-solid:hover:not(:disabled) { border-color: #084400; background: #084400; }
+    .resident-payment-form-actions > .btn-solid:disabled { cursor: wait; opacity: .88; }
+    .resident-payment-form-actions > .resident-payment-cancel {
+        border: 1px solid #cbd3cc;
+        background: #fff;
+        color: #26352b;
+    }
+    .resident-payment-form-actions > .resident-payment-cancel:hover { background: #f7f9f7; }
+    .resident-payment-spinner {
+        width: 16px;
+        height: 16px;
+        flex: 0 0 16px;
+        border: 2px solid rgba(255, 255, 255, .48);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: resident-payment-spin .75s linear infinite;
+    }
+    @keyframes resident-payment-spin { to { transform: rotate(360deg); } }
+}
+
+/* Business-clearance details stay grouped while matching the resident request form. */
+body.resident-workspace-view #resident-dashboard #request-form #online-business-fields {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    margin: 4px 0 0;
+    padding: 16px;
+    border: 1px solid #c8ddca;
+    border-radius: 10px;
+    background: #f2f8f2;
+}
+body.resident-workspace-view #resident-dashboard #request-form #online-business-fields[hidden] { display: none; }
+body.resident-workspace-view #resident-dashboard #request-form #online-business-fields > legend {
+    width: 100%;
+    box-sizing: border-box;
+    grid-column: 1 / -1;
+    margin: 0;
+    padding: 0 0 10px;
+    border-bottom: 1px solid #d7e5d8;
+    color: #26352b;
+    font-size: 16px;
+    font-weight: 650;
+    line-height: 1.35;
+    text-transform: none;
+    letter-spacing: normal;
+}
+body.resident-workspace-view #resident-dashboard #request-form #online-business-fields .business-field {
+    display: grid;
+    min-width: 0;
+    gap: 7px;
+}
+body.resident-workspace-view #resident-dashboard #request-form #online-business-fields .business-field > label {
+    margin: 0;
+    color: #414a43;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.35;
+    letter-spacing: normal;
+    text-transform: none;
+}
+body.resident-workspace-view #resident-dashboard #request-form #online-business-fields .business-field > label::after {
+    color: #b42318;
+    content: " *";
+}
+body.resident-workspace-view #resident-dashboard #request-form #request-business-category:has(option:checked[value=""]) { color: #747d75; }
+body.resident-workspace-view #resident-dashboard #request-form #request-business-category option { color: #26352b; }
+body.resident-workspace-view #resident-dashboard #request-form #online-business-fields .business-request-note {
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: flex-start;
+    gap: 9px;
+    margin: 2px 0 0;
+    padding: 12px;
+    border: 1px solid #ead9a8;
+    border-radius: 8px;
+    background: #fff8e8;
+    color: #594a2b;
+    font-size: 14px;
+    line-height: 1.5;
+}
+body.resident-workspace-view #resident-dashboard #request-form #online-business-fields .business-request-note > i {
+    flex: 0 0 auto;
+    margin-top: 3px;
+    color: #9a6b12;
+    font-size: 14px;
+}
+body.resident-workspace-view #resident-dashboard #request-form #online-business-fields .business-request-note strong { color: #594a2b; font-weight: 650; }
+@media (min-width: 768px) {
+    body.resident-workspace-view #resident-dashboard #request-form #online-business-fields {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px 18px;
+        padding: 18px;
+    }
+}
+

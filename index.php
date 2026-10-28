@@ -206,14 +206,14 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <link rel="stylesheet" href="css/base.css?v=20261023-universal-custom-scrollbar-v1">
     <link rel="stylesheet" href="css/home.css?v=20261023-static-request-arrows-v1">
     <link rel="stylesheet" href="css/components.css?v=20261027-admin-shared-action-modal-v1">
-    <link data-portal-route-css="auth" data-portal-css-href="css/auth.css?v=20261027-shared-action-dialog-v1">
+    <link data-portal-route-css="auth" data-portal-css-href="css/auth.css?v=20261028-proof-attached-indicator-v1">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin.css?v=20261023-server-disclosure-drafts-v1">
     <link rel="stylesheet" href="css/public.css?v=20261016-sticky-menu-stable">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin-tables.css?v=20261027-request-detail-actions-v1">
-    <link rel="stylesheet" href="css/shared-responsive.css?v=20261027-proof-preview-styles-v2">
+    <link rel="stylesheet" href="css/shared-responsive.css?v=20261028-mobile-proof-row-v1">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261027-request-detail-actions-v1">
     <link data-portal-route-css="unavailable" data-portal-css-href="css/unavailable.css?v=20261023-mobile-404-wrap-v2">
-    <link rel="stylesheet" href="css/portal-public.css?v=20261027-admin-navigation-compact-tabs-v3">
+    <link rel="stylesheet" href="css/portal-public.css?v=20261028-business-details-v1">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -813,11 +813,11 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                             </div>
                             <fieldset id="online-business-fields" class="input-group business-request-fields" hidden>
                                 <legend>Business details</legend>
-                                <label for="request-business-name">Business name</label><input id="request-business-name" name="businessName" maxlength="180" autocomplete="organization" disabled>
-                                <label for="request-business-category">Business registration type</label><select id="request-business-category" name="businessCategory" disabled><option value="">Choose type</option><option value="solo">Individual / sole proprietor</option><option value="organization">Organization / partnership / corporation</option></select>
-                                <label for="request-business-address">Business address</label><input id="request-business-address" name="businessAddress" maxlength="255" disabled>
-                                <label for="request-business-activity">Business activity</label><input id="request-business-activity" name="businessActivity" maxlength="180" placeholder="e.g. sari-sari store, food services" disabled>
-                                <p class="form-hint">The barangay will confirm the applicable fee. A barangay business clearance does not replace a city or municipal business permit or required inspections.</p>
+                                <div class="business-field"><label for="request-business-name">Business name</label><input id="request-business-name" name="businessName" maxlength="180" autocomplete="organization" placeholder="e.g. Maria's Sari-Sari Store" disabled></div>
+                                <div class="business-field"><label for="request-business-category">Business registration type</label><select id="request-business-category" name="businessCategory" disabled><option value="">Choose type</option><option value="solo">Individual / sole proprietor</option><option value="organization">Organization / partnership / corporation</option></select></div>
+                                <div class="business-field"><label for="request-business-address">Business address</label><input id="request-business-address" name="businessAddress" maxlength="255" placeholder="Street, purok, or sitio in Barangay San Jose" disabled></div>
+                                <div class="business-field"><label for="request-business-activity">Business activity</label><input id="request-business-activity" name="businessActivity" maxlength="180" placeholder="e.g. sari-sari store, food services" disabled></div>
+                                <p class="form-hint business-request-note"><i class="fas fa-circle-info" aria-hidden="true"></i><span>The barangay will confirm the applicable fee. A barangay business clearance <strong>does not replace a city or municipal business permit</strong> or required inspections.</span></p>
                             </fieldset>
                             <fieldset class="input-group request-proof-group">
                                 <label for="request-proof-type">Proof of Residency</label>
@@ -827,7 +827,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                                 <input type="file" id="request-proof" name="proof" class="request-proof-input" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/*" aria-hidden="true" tabindex="-1">
                                 <div class="request-proof-preview" id="request-proof-preview" hidden>
                                     <img id="request-proof-thumbnail" alt="" hidden>
-                                    <div class="request-proof-file-details"><strong id="request-proof-name"></strong><span id="request-proof-size"></span></div>
+                                    <div class="request-proof-file-details"><strong id="request-proof-name"></strong><span class="request-proof-file-meta"><span id="request-proof-size"></span><span class="request-proof-attached"><i class="fas fa-check" aria-hidden="true"></i> Attached</span></span></div>
                                     <div class="request-proof-actions"><button type="button" data-action-click="removeRequestProof()">Remove</button><button type="button" data-action-click="openRequestProofPicker()">Replace</button></div>
                                 </div>
                                 <span class="reg-field-error request-proof-error" id="request-proof-error" role="alert"></span>
@@ -1326,7 +1326,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <?php require __DIR__ . '/includes/shared/site-footer.php'; ?>
 
     <?php require __DIR__ . '/includes/shared/dialogs.php'; ?>    <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true">Message</div>
-    <script src="script.js?v=20261027-request-detail-desktop-v1" defer></script>
+    <script src="script.js?v=20261028-mobile-proof-filename-v1" defer></script>
 </body>
 </html>
 

@@ -325,6 +325,7 @@ body[data-route-start="register"] #register .reg-right-panel {
 .request-proof-file-details { display: grid; min-width: 0; gap: 3px; color: var(--color-text); font-size: var(--text-12); }
 .request-proof-file-details strong { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .request-proof-file-details span { color: var(--color-muted); font-size: var(--text-11); }
+.request-proof-attached { display: none; }
 .request-proof-actions { display: flex; flex-direction: row-reverse; align-items: center; gap: 4px; }
 .request-proof-actions button { min-height: 36px; padding: 6px 5px; border: 0; border-radius: 7px; background: transparent; color: #17632e; font: inherit; font-size: var(--text-11); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .request-proof-actions button:hover { background: #e4f2e6; }

@@ -4111,6 +4111,47 @@ function formatRequestFileSize(bytes) {
     return `${(bytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, '')} MB`;
 }
 
+function fitRequestProofName() {
+    const name = document.getElementById('request-proof-name');
+    const details = name?.parentElement;
+    const input = document.getElementById('request-proof');
+    const fileName = input?.files?.[0]?.name;
+    if (!name || !details || !fileName) return;
+    name.title = fileName;
+    name.setAttribute('aria-label', fileName);
+    if (!window.matchMedia('(max-width: 767px)').matches) {
+        name.textContent = fileName;
+        return;
+    }
+
+    const availableWidth = details.clientWidth;
+    const style = window.getComputedStyle(name);
+    const canvas = fitRequestProofName.canvas || (fitRequestProofName.canvas = document.createElement('canvas'));
+    const context = canvas.getContext('2d');
+    if (!context || !availableWidth) return;
+    context.font = style.font;
+    if (context.measureText(fileName).width <= availableWidth) {
+        name.textContent = fileName;
+        return;
+    }
+
+    const extensionIndex = fileName.lastIndexOf('.');
+    const extension = extensionIndex > 0 ? fileName.slice(extensionIndex) : '';
+    const baseName = extension ? fileName.slice(0, extensionIndex) : fileName;
+    let keepStart = Math.ceil(baseName.length / 2);
+    let keepEnd = Math.floor(baseName.length / 2);
+    let displayName = fileName;
+    while (keepStart + keepEnd > 0) {
+        displayName = `${baseName.slice(0, keepStart)}…${keepEnd ? baseName.slice(-keepEnd) : ''}${extension}`;
+        if (context.measureText(displayName).width <= availableWidth) break;
+        if (keepStart >= keepEnd && keepStart > 1) keepStart--;
+        else if (keepEnd > 1) keepEnd--;
+        else if (keepStart > 1) keepStart--;
+        else break;
+    }
+    name.textContent = displayName;
+}
+
 function clearRequestProofPreview() {
     if (requestProofObjectUrl) URL.revokeObjectURL(requestProofObjectUrl);
     requestProofObjectUrl = null;
@@ -4169,7 +4210,10 @@ function handleRequestProofSelection(event) {
         preview?.classList.add('has-thumbnail');
     }
     if (preview) preview.hidden = false;
+    requestAnimationFrame(fitRequestProofName);
 }
+
+window.addEventListener('resize', fitRequestProofName, { passive: true });
 
 function updateRequestPurposeFields() {
     const purpose = document.getElementById('doc-purpose');
@@ -5264,6 +5308,9 @@ function fillResidentRequestListWithPlaceholders(list, visibleRequestCount) {
 window.addEventListener('resize', () => {
     clearTimeout(residentRequestPlaceholderResizeTimer);
     residentRequestPlaceholderResizeTimer = setTimeout(() => {
+        // Mobile keyboards resize the viewport. Keep the live form mounted while
+        // a resident is typing so the focused field and keyboard stay open.
+        if (document.activeElement?.closest?.('.resident-payment-form')) return;
         const list = document.getElementById('request-list');
         if (list) renderResidentRequestList(residentRequestItems);
     }, 120);
@@ -5378,13 +5425,131 @@ function formatDateTime(value) {
     });
 }
 
+function getResidentPaymentProofError(file) {
+    if (!file) return 'Attach your payment receipt.';
+    if (file.size > 5 * 1024 * 1024) return 'File is too large. Maximum is 5 MB.';
+
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    const allowedTypes = {
+        pdf: ['application/pdf', 'application/x-pdf'],
+        jpg: ['image/jpeg'],
+        jpeg: ['image/jpeg'],
+        png: ['image/png']
+    };
+    const matchingTypes = allowedTypes[extension];
+    const mimeType = String(file.type || '').toLowerCase();
+    if (!matchingTypes || (mimeType && !matchingTypes.includes(mimeType))) {
+        return 'Choose a PDF, JPG, or PNG file.';
+    }
+    return '';
+}
+
+function setResidentPaymentFileError(form, message) {
+    const picker = form.querySelector('.resident-payment-picker');
+    const upload = form.querySelector('.resident-payment-upload');
+    const error = form.querySelector('.resident-payment-file-error');
+    if (error) {
+        error.textContent = message;
+        error.hidden = !message;
+    }
+    if (upload) upload.classList.toggle('is-invalid', Boolean(message));
+    if (picker) {
+        if (message) picker.setAttribute('aria-invalid', 'true');
+        else picker.removeAttribute('aria-invalid');
+    }
+}
+
+function residentPaymentFileDisplayName(fileName, availableWidth, font) {
+    if (!availableWidth) return fileName.length <= 30 ? fileName : `${fileName.slice(0, 18)}…${fileName.slice(-9)}`;
+    const canvas = residentPaymentFileDisplayName.canvas || (residentPaymentFileDisplayName.canvas = document.createElement('canvas'));
+    const context = canvas.getContext('2d');
+    if (!context) return fileName.length <= 30 ? fileName : `${fileName.slice(0, 18)}…${fileName.slice(-9)}`;
+    context.font = font;
+    if (context.measureText(fileName).width <= availableWidth) return fileName;
+
+    const extensionIndex = fileName.lastIndexOf('.');
+    const extension = extensionIndex > 0 ? fileName.slice(extensionIndex) : '';
+    const baseName = extension ? fileName.slice(0, extensionIndex) : fileName;
+    let keepStart = Math.ceil(baseName.length / 2);
+    let keepEnd = Math.floor(baseName.length / 2);
+    let displayName = fileName;
+    while (keepStart + keepEnd > 0) {
+        displayName = `${baseName.slice(0, keepStart)}…${keepEnd ? baseName.slice(-keepEnd) : ''}${extension}`;
+        if (context.measureText(displayName).width <= availableWidth) return displayName;
+        if (keepStart >= keepEnd && keepStart > 1) keepStart--;
+        else if (keepEnd > 1) keepEnd--;
+        else if (keepStart > 1) keepStart--;
+        else break;
+    }
+    return `…${extension}`;
+}
+
+function renderResidentPaymentProof(form) {
+    const input = form.querySelector('input[type="file"]');
+    const picker = form.querySelector('.resident-payment-picker');
+    const preview = form.querySelector('.resident-payment-file-row');
+    const thumbnail = form.querySelector('.resident-payment-thumbnail');
+    const fileIcon = form.querySelector('.resident-payment-file-icon');
+    const name = form.querySelector('.resident-payment-file-name');
+    const size = form.querySelector('.resident-payment-file-size');
+    const file = input?.files?.[0];
+    if (!picker || !preview || !input) return;
+
+    if (form._residentPaymentPreviewUrl) {
+        URL.revokeObjectURL(form._residentPaymentPreviewUrl);
+        form._residentPaymentPreviewUrl = null;
+    }
+
+    if (!file) {
+        picker.hidden = false;
+        preview.hidden = true;
+        if (thumbnail) { thumbnail.hidden = true; thumbnail.removeAttribute('src'); }
+        if (fileIcon) fileIcon.hidden = false;
+        if (name) { name.textContent = ''; name.removeAttribute('title'); }
+        if (size) size.textContent = '';
+        setResidentPaymentFileError(form, '');
+        return;
+    }
+
+    picker.hidden = true;
+    preview.hidden = false;
+    const isPhoto = file.type.startsWith('image/') || /\.(?:jpe?g|png)$/i.test(file.name);
+    preview.classList.toggle('has-thumbnail', isPhoto);
+    if (thumbnail) {
+        if (isPhoto) {
+            form._residentPaymentPreviewUrl = URL.createObjectURL(file);
+            thumbnail.src = form._residentPaymentPreviewUrl;
+            thumbnail.hidden = false;
+        } else {
+            thumbnail.hidden = true;
+            thumbnail.removeAttribute('src');
+        }
+    }
+    if (fileIcon) fileIcon.hidden = isPhoto;
+    if (name) {
+        name.textContent = residentPaymentFileDisplayName(file.name, name.clientWidth, getComputedStyle(name).font);
+        name.title = file.name;
+    }
+    if (size) size.textContent = formatRequestFileSize(file.size);
+    setResidentPaymentFileError(form, getResidentPaymentProofError(file));
+}
+
 function submitResidentPaymentProof(event, request, form, submitButton, feedback) {
     event.preventDefault();
     if (form.dataset.submitting === 'true') return;
     const fileInput = form.querySelector('input[type="file"]');
     const file = fileInput?.files?.[0];
+    const isMobileUpload = form.dataset.mobileUpload === 'true';
+    if (isMobileUpload) {
+        const proofError = getResidentPaymentProofError(file);
+        if (proofError) {
+            setResidentPaymentFileError(form, proofError);
+            return;
+        }
+        setResidentPaymentFileError(form, '');
+    }
     if (!form.reportValidity()) return;
-    if (!file || file.size > 5 * 1024 * 1024) {
+    if (!isMobileUpload && (!file || file.size > 5 * 1024 * 1024)) {
         feedback.textContent = file ? 'Receipt is too large. Maximum size is 5 MB.' : 'Attach your payment receipt.';
         feedback.hidden = false;
         return;
@@ -5392,7 +5557,10 @@ function submitResidentPaymentProof(event, request, form, submitButton, feedback
     form.dataset.submitting = 'true';
     submitButton.disabled = true;
     submitButton.setAttribute('aria-busy', 'true');
-    submitButton.textContent = 'Submitting…';
+    submitButton.replaceChildren(
+        el('span', { className: 'resident-payment-spinner', attrs: { 'aria-hidden': 'true' } }),
+        el('span', { text: 'Sending…' })
+    );
     feedback.hidden = true;
     const payload = new FormData(form);
     payload.set('requestId', String(request.request_id));
@@ -5449,16 +5617,76 @@ function createResidentPaymentControl(request, fee, paymentStatus) {
     const feedback = el('p', { className: 'reg-field-error resident-payment-feedback', attrs: { role: 'status', 'aria-live': 'polite', hidden: '' } });
     const form = el('form', { className: 'resident-payment-form', attrs: { enctype: 'multipart/form-data', hidden: '' } });
     const reference = el('input', { attrs: { id: referenceId, name: 'paymentReference', type: 'text', maxlength: '120', required: '', autocomplete: 'off' } });
-    const proof = el('input', { attrs: { id: proofId, name: 'proof', type: 'file', accept: '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png', required: '' } });
+    const isMobile = window.matchMedia('(max-width: 767px)').matches;
+    const proofAttributes = {
+        id: proofId,
+        name: 'proof',
+        type: 'file',
+        accept: isMobile ? 'image/*' : '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png',
+        required: ''
+    };
+    if (isMobile) {
+        proofAttributes.capture = 'environment';
+        proofAttributes.tabindex = '-1';
+        proofAttributes['aria-hidden'] = 'true';
+        form.dataset.mobileUpload = 'true';
+    } else {
+        form.dataset.mobileUpload = 'false';
+    }
+    const proof = el('input', { className: 'resident-payment-file-input', attrs: proofAttributes });
     const submitButton = el('button', { className: 'btn-solid', text: 'Send for verification', attrs: { type: 'submit' } });
-    const cancelButton = el('button', { className: 'btn-outline', text: 'Cancel', attrs: { type: 'button' }, on: { click: () => { form.hidden = true; } } });
+    const cancelButton = el('button', { className: 'btn-outline resident-payment-cancel', text: 'Cancel', attrs: { type: 'button' }, on: { click: () => { form.hidden = true; } } });
+    const fileError = el('small', { className: 'resident-payment-file-error', attrs: { id: `${proofId}-error`, role: 'alert', hidden: '' } });
+    const picker = el('button', {
+        className: 'request-upload-area resident-payment-picker',
+        attrs: { type: 'button', 'aria-describedby': `${proofId}-guidance ${proofId}-error` },
+        on: { click: () => proof.click() }
+    }, [
+        el('i', { className: 'fas fa-upload', attrs: { 'aria-hidden': 'true' } }),
+        el('span', { text: 'Choose a file or take a photo' }),
+        el('small', { className: 'request-upload-guidance resident-payment-upload-guidance', text: 'PDF, JPG, or PNG, up to 5 MB', attrs: { id: `${proofId}-guidance` } })
+    ]);
+    const thumbnail = el('img', { className: 'resident-payment-thumbnail', attrs: { alt: '', hidden: '' } });
+    const fileIcon = el('span', { className: 'resident-payment-file-icon', attrs: { 'aria-hidden': 'true' } }, [
+        el('i', { className: 'fas fa-file-lines' })
+    ]);
+    const fileName = el('strong', { className: 'resident-payment-file-name' });
+    const fileSize = el('span', { className: 'resident-payment-file-size' });
+    const replaceButton = el('button', {
+        className: 'resident-payment-file-action',
+        text: 'Replace',
+        attrs: { type: 'button' },
+        on: { click: () => proof.click() }
+    });
+    const removeButton = el('button', {
+        className: 'resident-payment-file-action',
+        text: 'Remove',
+        attrs: { type: 'button' },
+        on: { click: () => { proof.value = ''; renderResidentPaymentProof(form); } }
+    });
+    const preview = el('div', { className: 'resident-payment-file-row', attrs: { hidden: '' } }, [
+        thumbnail,
+        fileIcon,
+        el('div', { className: 'resident-payment-file-details' }, [fileName, fileSize]),
+        el('div', { className: 'resident-payment-file-actions' }, [replaceButton, removeButton])
+    ]);
+    proof.addEventListener('change', () => {
+        renderResidentPaymentProof(form);
+        feedback.textContent = '';
+        feedback.hidden = true;
+    });
     form.append(
-        el('label', { text: 'Payment reference', attrs: { for: referenceId } }),
-        reference,
-        el('small', { className: 'field-help', text: 'Enter the transaction or receipt number.' }),
-        el('label', { text: 'Receipt proof', attrs: { for: proofId } }),
-        proof,
-        el('small', { className: 'field-help', text: 'PDF, JPG, or PNG, up to 5 MB.' }),
+        el('div', { className: 'resident-payment-field' }, [
+            el('label', { text: 'Payment reference', attrs: { for: referenceId } }),
+            reference,
+            el('small', { className: 'field-help resident-payment-helper', text: 'Enter the transaction or receipt number.' })
+        ]),
+        el('div', { className: 'resident-payment-field' }, [
+            el('label', { text: 'Receipt proof', attrs: { for: proofId } }),
+            proof,
+            el('small', { className: 'field-help resident-payment-desktop-helper', text: 'PDF, JPG, or PNG, up to 5 MB.' }),
+            el('div', { className: 'resident-payment-upload' }, [picker, preview, fileError])
+        ]),
         feedback,
         el('div', { className: 'resident-payment-form-actions' }, [submitButton, cancelButton])
     );
