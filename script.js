@@ -6329,14 +6329,14 @@ function renderAdminRequests() {
         const proofCell = el('td', { attrs: { 'data-label': 'Proof' } }, [safeProofPath
             ? el('button', {
                 className: 'link-button request-proof-view',
-                text: 'View file',
+                text: 'View proof',
                 attrs: { type: 'button', 'aria-haspopup': 'dialog', 'aria-label': `View submitted proof for request ${tracking}` },
                 on: { click: () => openRequestProofPreview(r) }
             })
             : el('span', { className: 'unavailable-label', text: '—' })
         ]);
         const actionGroup = el('div', { className: 'table-action-group' }, [
-            el('button', { className: 'link-button request-row-view', text: 'View', attrs: { type: 'button', 'aria-label': `View request ${tracking}` }, on: { click: () => openAdminRequestDetail(requestId) } })
+            el('button', { className: 'link-button request-row-view', text: 'Open request', attrs: { type: 'button', 'aria-label': `Open request ${tracking}` }, on: { click: () => openAdminRequestDetail(requestId) } })
         ]);
         const actionsCell = el('td', { attrs: { 'data-label': 'Actions' } }, [actionGroup]);
         const paymentStatus = getRequestPaymentStatus(r.payment_status, r.current_status, r.pickupDetails);
@@ -6419,18 +6419,15 @@ function renderAdminRequests() {
 
         if (mobileList) {
             const openRequest = () => openAdminRequestDetail(requestId);
-            const paymentPill = el('span', {
-                className: `payment-status-chip ${fee === 0 ? 'payment-free' : paymentStatusClass(paymentStatus)}`,
-                text: fee === 0 ? 'No payment required' : paymentStatus
-            });
+            const paymentPillClass = `payment-status-chip ${fee === 0 ? 'payment-free' : paymentStatusClass(paymentStatus)}`;
             const mobileProofActions = el('div', { className: 'admin-request-mobile-actions' }, [
                 safeProofPath ? el('button', {
                     className: 'admin-request-mobile-proof',
-                    text: 'View file',
+                    text: 'View proof',
                     attrs: { type: 'button', 'aria-haspopup': 'dialog', 'aria-label': `View submitted proof for request ${tracking}` },
                     on: { click: () => openRequestProofPreview(r) }
                 }) : null,
-                el('button', { className: 'admin-request-mobile-view', text: 'View', attrs: { type: 'button', 'aria-label': `View request ${tracking}` }, on: { click: openRequest } })
+                el('button', { className: 'admin-request-mobile-view', text: 'Open request', attrs: { type: 'button', 'aria-label': `Open request ${tracking}` }, on: { click: openRequest } })
             ]);
             const mobileTracking = el('div', { className: 'admin-request-mobile-tracking-wrap' }, [
                 el('strong', { className: 'admin-request-mobile-tracking', text: tracking }),
@@ -6450,8 +6447,7 @@ function renderAdminRequests() {
                 }
             }, [
                 el('div', { className: 'admin-request-mobile-top' }, [
-                    mobileTracking,
-                    el('span', { className: statusClass(r.current_status), text: r.current_status })
+                    mobileTracking
                 ]),
                 el('div', { className: 'admin-request-mobile-resident' }, [
                     el('span', { text: r.residentName || 'Resident' }),
@@ -6459,10 +6455,11 @@ function renderAdminRequests() {
                 ]),
                 el('div', { className: 'admin-request-mobile-document', text: r.documentType || 'Document' }),
                 el('div', { className: 'admin-request-mobile-date', text: `Requested ${formatDate(r.created_at)}` }),
-                el('div', { className: 'admin-request-mobile-bottom' }, [
-                    paymentPill,
-                    mobileProofActions
-                ])
+                el('div', { className: 'admin-request-mobile-statuses', attrs: { 'aria-label': 'Request and payment status' } }, [
+                    el('span', { className: statusClass(r.current_status), text: r.current_status, attrs: { 'aria-label': `Request status: ${r.current_status}` } }),
+                    el('span', { className: paymentPillClass, text: `Payment: ${fee === 0 ? 'Not required' : paymentStatus}` })
+                ]),
+                mobileProofActions
             ]));
         }
     });
