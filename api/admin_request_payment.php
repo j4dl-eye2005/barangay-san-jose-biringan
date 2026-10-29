@@ -1,5 +1,6 @@
 <?php
 require_once 'db.php';
+require_once __DIR__ . '/email.php';
 header('Content-Type: application/json; charset=utf-8');
 requireAdminAccess('payments.manage');
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
@@ -21,10 +22,14 @@ if (!$requestId || !in_array($status, ['Paid', 'Unpaid'], true) || strlen($refer
 
 try {
     $pdo->beginTransaction();
-    $lookup = $pdo->prepare("SELECT dr.payment_status, dr.current_status, COALESCE(dr.assessed_fee, dt.fee_amount) AS fee_amount,
+    $lookup = $pdo->prepare("SELECT dr.payment_status, dr.current_status, dr.tracking_code, dt.name AS document_name,
+                                    COALESCE((SELECT r.first_name FROM resident r WHERE r.resident_id = dr.resident_id), dr.walk_in_name) AS resident_name,
+                                    (SELECT r.email FROM resident r WHERE r.resident_id = dr.resident_id) AS email,
+                                    COALESCE(dr.assessed_fee, dt.fee_amount) AS fee_amount,
                                     (SELECT rpt.payment_id FROM request_payment_transaction rpt WHERE rpt.request_id = dr.request_id AND rpt.status = 'confirmed' ORDER BY rpt.recorded_at DESC, rpt.payment_id DESC LIMIT 1) AS latest_payment_id,
                                     (SELECT rpt.method FROM request_payment_transaction rpt WHERE rpt.request_id = dr.request_id AND rpt.status = 'confirmed' ORDER BY rpt.recorded_at DESC, rpt.payment_id DESC LIMIT 1) AS latest_payment_method
-                             FROM document_request dr JOIN document_type dt ON dt.document_type_id = dr.document_type_id WHERE dr.request_id = ? FOR UPDATE");
+                             FROM document_request dr JOIN document_type dt ON dt.document_type_id = dr.document_type_id
+                             WHERE dr.request_id = ? FOR UPDATE");
     $lookup->execute([$requestId]);
     $request = $lookup->fetch();
     if (!$request) {
@@ -81,7 +86,23 @@ try {
     $audit = $pdo->prepare('INSERT INTO audit_log (user_id, action, details) VALUES (?, ?, ?)');
     $audit->execute([(int) $_SESSION['user_id'], 'request_payment_updated', 'Request ID ' . $requestId . ' ' . $actionText . ($reference !== '' ? '; reference recorded' : '')]);
     $pdo->commit();
-    echo json_encode(['success' => true, 'payment_status' => $status]);
+    $emailDelivery = 'failed';
+    if (is_string($request['email']) && filter_var($request['email'], FILTER_VALIDATE_EMAIL)) {
+        $residentName = trim((string) ($request['resident_name'] ?? '')) ?: 'Resident';
+        $amount = 'PHP ' . number_format((float) $request['fee_amount'], 2);
+        $message = $status === 'Paid'
+            ? "Hello $residentName,\n\nYour in-person payment of $amount for {$request['document_name']} (tracking code: {$request['tracking_code']}) has been recorded."
+            : "Hello $residentName,\n\nThe in-person payment of $amount for {$request['document_name']} (tracking code: {$request['tracking_code']}) was reversed. Please contact the barangay office if you have questions.";
+        $paragraphs = $status === 'Paid'
+            ? ["Hello $residentName,", "Your in-person payment of $amount for {$request['document_name']} (tracking code: {$request['tracking_code']}) has been recorded."]
+            : ["Hello $residentName,", "The in-person payment of $amount for {$request['document_name']} (tracking code: {$request['tracking_code']}) was reversed.", 'Please contact the barangay office if you have questions.'];
+        $config = portalConfig();
+        $html = portalEmailTemplate('Payment update', $status === 'Paid' ? 'Payment recorded' : 'Payment reversed', $paragraphs, 'View your request', rtrim((string) $config['app_url'], '/') . '/#dashboard');
+        $mailError = null;
+        $emailDelivery = deliverOrQueuePortalEmail($pdo, (string) $request['email'], 'Update on your document payment', $message, $html, $mailError);
+        if ($emailDelivery === 'failed') error_log("admin_request_payment.php email failed for request $requestId: " . ($mailError ?? 'unknown error'));
+    }
+    echo json_encode(['success' => true, 'payment_status' => $status, 'emailDelivery' => $emailDelivery]);
 } catch (Throwable $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('Manual request payment update failed.');

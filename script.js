@@ -1533,6 +1533,12 @@ function showToast(msg, type='info') {
     }, 3760);
 }
 
+function residentEmailDeliveryNotice(result) {
+    if (result?.emailDelivery === 'sent') return { text: '', type: 'success' };
+    if (result?.emailDelivery === 'queued') return { text: ' Email delivery is delayed; it has been queued for retry.', type: 'info' };
+    return { text: ' The update was saved, but no resident email could be sent. Check SMTP settings and the resident account email.', type: 'error' };
+}
+
 const portalSearchDocuments = [
     { title: 'Barangay Clearance', requestName: 'Barangay Clearance' },
     { title: 'Certificate of Residency', requestName: 'Certificate of Residency' },
@@ -6648,7 +6654,8 @@ async function updateAdminRequestPayment(requestId, paymentStatus, button, refer
         });
         const result = await response.json();
         if (!response.ok || !result.success) throw new Error(result.message || 'Could not update payment status.');
-        showToast(paymentStatus === 'Paid' ? 'In-person payment recorded.' : 'Cash payment reversed.', 'success');
+        const notice = residentEmailDeliveryNotice(result);
+        showToast((paymentStatus === 'Paid' ? 'In-person payment recorded.' : 'Cash payment reversed.') + notice.text, notice.type);
         if (currentUser?.staffRole === 'cashier') await loadAdminCollections();
         else await openAdminRequestDetail(requestId);
     } catch (error) {
@@ -6667,7 +6674,8 @@ async function saveAdminPaymentReview(requestId, action, reason = '') {
         });
         const result = await response.json();
         if (!response.ok || !result.success) throw new Error(result.message || 'Payment review could not be saved.');
-        showToast(action === 'verify' ? 'Payment verified.' : 'Payment proof rejected.', 'success');
+        const notice = residentEmailDeliveryNotice(result);
+        showToast((action === 'verify' ? 'Payment verified.' : 'Payment proof rejected.') + notice.text, notice.type);
         invalidateAdminPanelCache('activity');
         if (currentUser?.staffRole === 'cashier') await loadAdminCollections();
         else await openAdminRequestDetail(requestId);
@@ -6993,7 +7001,8 @@ async function sendProcessRequest(id, action, details) {
         const result = await res.json();
         if (res.ok && result.success) {
             const messages = { Approve: 'Request approved.', Reject: 'Request rejected.', Ready: 'Request marked ready for pickup.', Pickup: 'Request marked as picked up.' };
-            showToast(messages[action] || 'Request updated.', 'success');
+            const notice = residentEmailDeliveryNotice(result);
+            showToast((messages[action] || 'Request updated.') + notice.text, notice.type);
             invalidateAdminPanelCache('overview', 'activity');
             loadAdminData();
             if (currentAdminDetailId === Number(id)) openAdminRequestDetail(currentAdminDetailId);

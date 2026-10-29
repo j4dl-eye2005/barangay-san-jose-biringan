@@ -76,18 +76,24 @@ try {
     $audit = $pdo->prepare('INSERT INTO audit_log (user_id, action, details) VALUES (?, ?, ?)');
     $audit->execute([(int) $_SESSION['user_id'], $auditAction, $auditDetails]);
 
+    $pdo->commit();
+    $emailDelivery = 'failed';
     if (is_string($request['email']) && filter_var($request['email'], FILTER_VALIDATE_EMAIL)) {
         $residentName = trim((string) ($request['first_name'] ?? '')) ?: 'Resident';
         $amount = 'PHP ' . number_format((float) $request['fee_amount'], 2);
         $message = $action === 'verify'
             ? "Hello $residentName,\n\nYour payment proof for request {$request['tracking_code']} ($amount) has been verified.\n"
             : "Hello $residentName,\n\nYour payment proof for request {$request['tracking_code']} ($amount) could not be verified.\nReason: $reason\nPlease submit a new receipt or contact the barangay office.\n";
+        $paragraphs = $action === 'verify'
+            ? ["Hello $residentName,", "Your payment proof for request {$request['tracking_code']} ($amount) has been verified."]
+            : ["Hello $residentName,", "Your payment proof for request {$request['tracking_code']} ($amount) could not be verified.", "Reason: $reason", 'Please submit a new receipt or contact the barangay office.'];
+        $config = portalConfig();
+        $html = portalEmailTemplate('Payment update', $action === 'verify' ? 'Payment verified' : 'Payment proof needs an update', $paragraphs, 'View your request', rtrim((string) $config['app_url'], '/') . '/#dashboard');
         $mailError = null;
-        queuePortalEmail($pdo, (string) $request['email'], 'Update on your document payment', $message, null, $mailError);
+        $emailDelivery = deliverOrQueuePortalEmail($pdo, (string) $request['email'], 'Update on your document payment', $message, $html, $mailError);
+        if ($emailDelivery === 'failed') error_log("review_request_payment.php email failed for request $requestId: " . ($mailError ?? 'unknown error'));
     }
-
-    $pdo->commit();
-    echo json_encode(['success' => true, 'payment_status' => $newStatus]);
+    echo json_encode(['success' => true, 'payment_status' => $newStatus, 'emailDelivery' => $emailDelivery]);
 } catch (Throwable $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('Request payment review failed.');
