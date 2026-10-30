@@ -362,14 +362,14 @@ body,
     page: business-clearance;
     display: flex;
     flex-direction: column;
-    gap: 1.8cqw;
+    gap: 3.78mm;
     position: relative;
     overflow: hidden;
     width: min(210mm, calc(100% - 2rem));
     aspect-ratio: 210 / 297;
     min-height: 0;
     margin: 2rem auto;
-    padding: 3.2cqw 4.8cqw 2.8cqw;
+    padding: 6.72mm 10.08mm 5.88mm;
     background: #fff;
     color: #202822;
     container-type: inline-size;
