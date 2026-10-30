@@ -91,11 +91,12 @@ try {
                 "Hello $firstName,",
                 "The fee for your {$request['document_name']} request has been assessed as $formattedAmount.",
                 "Tracking code: $trackingCode",
-                'Please pay in person at the Barangay Hall cashier in Barangay San Jose, Biringan City. Show your tracking code and confirm the accepted payment method with the cashier before paying.',
-                'Keep the official receipt. This portal does not process online payments.'
+                'You can pay in person at the Barangay Hall cashier in Barangay San Jose, Biringan City, or online through GCash using the QR code below.',
+                'After paying through GCash, enter the GCash receipt number as the payment reference in your request and upload a screenshot of the receipt. Verify the recipient before confirming; transfer fees may apply.',
+                'Keep the official receipt or GCash receipt.'
             ];
             $plainBody = implode("\n\n", $paragraphs) . "\n\nThank you,\nBarangay San Jose";
-            $emailNote = 'Do not send payment through this portal. Follow the cashier’s instructions and keep the official receipt.';
+            $emailNote = 'This email contains the assessed amount and payment options for this request. Keep your receipt.';
         }
         $html = portalEmailTemplate(
             'Business clearance fee',
@@ -103,7 +104,8 @@ try {
             $paragraphs,
             'View your request',
             $appUrl . '/#dashboard',
-            $emailNote
+            $emailNote,
+            (float) $amount > 0
         );
         $mailError = null;
         $emailDelivery = queuePortalNotification(

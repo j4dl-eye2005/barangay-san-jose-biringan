@@ -5487,5 +5487,14 @@ body.public-portal-view:has(#record.active) .site-disclaimer-bar { border-top: 1
     font-size: 13px;
     font-weight: 800;
 }
+.resident-payment-gcash-qr {
+    display: block;
+    width: min(100%, 260px);
+    height: auto;
+    justify-self: center;
+    border: 1px solid #dce6d8;
+    border-radius: 8px;
+    background: #fff;
+}
 .resident-payment-confirmed { border-color: #b8d5b3; }
 

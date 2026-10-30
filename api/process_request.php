@@ -93,10 +93,12 @@ try {
     };
     $audit->execute([$_SESSION['user_id'], $auditAction, "Request ID $requestId; new status $newStatus"]);
 
-    $request = $pdo->prepare("SELECT dr.tracking_code, r.email, COALESCE(r.first_name, dr.walk_in_name) AS first_name, r.middle_name, r.last_name, dr.request_source, dt.name AS document_name
+    $request = $pdo->prepare("SELECT dr.tracking_code, r.email, COALESCE(r.first_name, dr.walk_in_name) AS first_name,
+                                     r.middle_name, r.last_name, dr.request_source, dt.name AS document_name,
+                                     COALESCE(dr.assessed_fee, dt.fee_amount) AS fee_amount
                               FROM document_request dr
-                              LEFT JOIN resident r ON r.resident_id = dr.resident_id
                               JOIN document_type dt ON dt.document_type_id = dr.document_type_id
+                              LEFT JOIN resident r ON r.resident_id = dr.resident_id
                               WHERE dr.request_id = ?");
     $request->execute([$requestId]);
     $requestInfo = $request->fetch();
@@ -114,6 +116,8 @@ $appUrl   = portalConfig()['app_url'];
 $firstName = trim((string) ($requestInfo['first_name'] ?? '')) ?: 'there';
 $isBusinessClearance = stripos((string) ($requestInfo['document_name'] ?? ''), 'business') !== false;
 $isBusinessApproval = $action === 'Approve' && $isBusinessClearance;
+$approvedFee = $requestInfo['fee_amount'] === null ? null : (float) $requestInfo['fee_amount'];
+$includeGcashQr = false;
 
 $statusLabels = [
     'Approved'        => 'Approved',
@@ -138,7 +142,13 @@ $plainBody = "Hello $firstName,\n\n"
     . "Tracking code: {$requestInfo['tracking_code']}\n"
     . "Status: $statusLabel\n";
 if ($isBusinessApproval) {
-    $plainBody .= "\nThe business clearance fee will be assessed by barangay staff. We will email you again when the amount is set. Please wait for that notice before paying. After assessment, payment is made in person at the Barangay Hall cashier in Barangay San Jose, Biringan City; confirm the accepted payment method with the cashier.\n";
+    if ($approvedFee === null) {
+        $plainBody .= "\nThe business clearance fee has not been assessed yet. Please wait for a follow-up email with the amount and payment instructions before paying.\n";
+    }
+}
+if ($action === 'Approve' && $approvedFee !== null && $approvedFee > 0) {
+    $plainBody .= "\nPayment instructions for the assessed fee of PHP " . number_format($approvedFee, 2) . ": pay in person at the Barangay Hall cashier in Barangay San Jose, Biringan City, or online through GCash using the QR code in this email. After paying through GCash, enter the receipt number as the payment reference in your request and upload a screenshot of the receipt. Verify the recipient before confirming; transfer fees may apply.\n";
+    $includeGcashQr = true;
 }
 if ($details) {
     $plainBody .= "\nNote: {$details}\n";
@@ -147,8 +157,15 @@ $plainBody .= "\nPlease log in to the Barangay Digital Portal for more informati
 
 $paragraphs = ["Hello $firstName,", "Your request for {$requestInfo['document_name']} (tracking code: {$requestInfo['tracking_code']}) has been updated to: $statusLabel."];
 if ($isBusinessApproval) {
-    $paragraphs[] = 'The business clearance fee will be assessed by barangay staff. We will email you again when the amount is set. Please wait for that notice before paying.';
-    $paragraphs[] = 'After assessment, payment is made in person at the Barangay Hall cashier in Barangay San Jose, Biringan City. Confirm the accepted payment method with the cashier.';
+    if ($approvedFee === null) {
+        $paragraphs[] = 'The business clearance fee has not been assessed yet. Please wait for a follow-up email with the amount and payment instructions before paying.';
+    }
+}
+if ($action === 'Approve' && $approvedFee !== null && $approvedFee > 0) {
+    $paragraphs[] = 'Payment instructions for the assessed fee of PHP ' . number_format($approvedFee, 2) . ': pay in person at the Barangay Hall cashier in Barangay San Jose, Biringan City, or online through GCash using the QR code below.';
+}
+if ($includeGcashQr) {
+    $paragraphs[] = 'After paying through GCash, enter the receipt number as the payment reference in your request and upload a screenshot of the receipt. Verify the recipient before confirming; transfer fees may apply.';
 }
 if ($details) $paragraphs[] = "Note from the administrator: $details";
 $note = match ($action) {
@@ -158,15 +175,22 @@ $note = match ($action) {
     default   => null,
 };
 if ($isBusinessApproval) {
-    $note = 'This message confirms request approval only. The fee will be set separately; wait for the follow-up email before paying.';
+    $note = $approvedFee === null
+        ? 'This message confirms approval, not payment. Wait for the follow-up email with the assessed fee before sending money.'
+        : null;
 }
+$emailNote = $note;
+$emailNote = $action === 'Approve' && $approvedFee !== null && $approvedFee <= 0
+    ? 'No payment is required for this request.'
+    : $emailNote;
 $htmlBody = portalEmailTemplate(
     'Document request',
     "Request $statusLabel",
     $paragraphs,
     'View your request',
     $appUrl . '/#dashboard',
-    $note
+    $emailNote,
+    $includeGcashQr
 );
 
 $emailError = null;

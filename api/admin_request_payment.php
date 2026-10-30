@@ -93,14 +93,14 @@ try {
         if ($status === 'Paid') {
             $recordedAt = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('F j, Y g:i A') . ' (Philippine time)';
             $referenceLine = $reference !== '' ? $reference : 'Not recorded';
-            $message = "Hello $residentName,\n\nYour in-person payment has been recorded by staff.\nRequest: {$request['tracking_code']}\nDocument: {$request['document_name']}\nAmount: $amount\nPayment reference: $referenceLine\nRecorded: $recordedAt\n\nKeep the official receipt issued by the Barangay Hall cashier. This email is a payment-status confirmation, not an official receipt.\n";
+            $message = "Hello $residentName,\n\nThe Barangay Hall cashier received your in-person cash payment, and staff recorded it as paid.\nRequest: {$request['tracking_code']}\nDocument: {$request['document_name']}\nAmount: $amount\nPayment reference: $referenceLine\nRecorded: $recordedAt\n\nKeep the official receipt issued by the Barangay Hall cashier. This email confirms the portal payment status; it is not an official receipt.\n";
             $paragraphs = [
                 "Hello $residentName,",
-                "Your in-person payment has been recorded by staff for {$request['document_name']}.",
+                "The Barangay Hall cashier received your in-person cash payment, and staff recorded it as paid for {$request['document_name']}.",
                 "Request: {$request['tracking_code']}\nAmount: $amount\nPayment reference: $referenceLine\nRecorded: $recordedAt",
                 'Keep the official receipt issued by the Barangay Hall cashier.'
             ];
-            $emailTitle = 'Payment recorded';
+            $emailTitle = 'Cash payment received';
             $emailNote = 'This email confirms the portal payment record. The cashier-issued official receipt is your payment receipt.';
         } else {
             $message = "Hello $residentName,\n\nThe in-person payment of $amount for {$request['document_name']} (tracking code: {$request['tracking_code']}) was reversed. Please contact the barangay office if you have questions.";

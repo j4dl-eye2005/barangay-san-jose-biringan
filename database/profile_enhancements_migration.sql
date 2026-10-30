@@ -3,7 +3,7 @@ ALTER TABLE `user`
     ADD COLUMN `profile_photo` VARCHAR(80) DEFAULT NULL,
     ADD COLUMN `position_title` VARCHAR(120) DEFAULT NULL,
     ADD COLUMN `contact_number` VARCHAR(30) DEFAULT NULL,
-    ADD COLUMN `notification_new_requests` TINYINT(1) NOT NULL DEFAULT 0,
+    ADD COLUMN `notification_new_requests` TINYINT(1) NOT NULL DEFAULT 1,
     ADD COLUMN `notification_payment_verification` TINYINT(1) NOT NULL DEFAULT 0,
     ADD COLUMN `password_changed_at` DATETIME DEFAULT NULL;
 

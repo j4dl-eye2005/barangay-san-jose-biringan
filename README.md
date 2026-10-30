@@ -60,7 +60,7 @@ For an existing database, run `database/disclosure_category_alignment_migration.
 
 For an existing database, run `database/disclosure_drafts_migration.sql` to enable disclosure drafts saved to each administrator account.
 
-For an existing database, apply `database/mail_queue_migration.sql` before enabling email delivery through the queued worker.
+For an existing database, apply `database/mail_queue_migration.sql` before enabling email delivery through the queued worker. Apply `database/admin_request_email_notifications_migration.sql` to enable resident-submitted request alerts for existing administrator accounts; admins can turn these alerts off later in Profile > Email notifications.
 
 For an existing database, run `database/query_performance_migration.sql` once to support request-list ordering and indexed weekly admin overview counts.
 

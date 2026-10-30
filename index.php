@@ -40,7 +40,7 @@ if (isset($_GET['admin_access_form'])) {
     $publicCssUrl = htmlspecialchars($appBasePath . '/css/public.css?v=20261016-sticky-menu-stable', ENT_QUOTES, 'UTF-8');
     $responsiveCssUrl = htmlspecialchars($appBasePath . '/css/shared-responsive.css?v=20261027-proof-preview-styles-v2', ENT_QUOTES, 'UTF-8');
     $cssUrl = htmlspecialchars($appBasePath . '/css/admin-access.css?v=20261021-admin-access-panel-contrast-v3', ENT_QUOTES, 'UTF-8');
-    $portalCssUrl = htmlspecialchars($appBasePath . '/css/portal-public.css?v=20261030-payment-instructions-email-v1', ENT_QUOTES, 'UTF-8');
+    $portalCssUrl = htmlspecialchars($appBasePath . '/css/portal-public.css?v=20261030-payment-instructions-gcash-v2', ENT_QUOTES, 'UTF-8');
     $jsUrl = htmlspecialchars($appBasePath . '/admin-access.js?v=20261021-shared-mobile-shell-v1', ENT_QUOTES, 'UTF-8');
     $adminInitialSection = null;
     ob_start();
@@ -213,7 +213,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <link rel="stylesheet" href="css/shared-responsive.css?v=20261028-mobile-proof-row-v1">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261030-request-mobile-refinements-v4">
     <link data-portal-route-css="unavailable" data-portal-css-href="css/unavailable.css?v=20261023-mobile-404-wrap-v2">
-    <link rel="stylesheet" href="css/portal-public.css?v=20261030-payment-instructions-email-v1">
+    <link rel="stylesheet" href="css/portal-public.css?v=20261030-payment-instructions-gcash-v2">
     <link rel="stylesheet" href="css/record-spa.css?v=20261028-record-spa-sk-maroon-v2">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -1350,7 +1350,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <?php require __DIR__ . '/includes/shared/site-footer.php'; ?>
 
     <?php require __DIR__ . '/includes/shared/dialogs.php'; ?>    <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true">Message</div>
-    <script src="script.js?v=20261030-business-fee-email-v2" defer></script>
+    <script src="script.js?v=20261030-gcash-payment-flow-v3" defer></script>
 </body>
 </html>
 

@@ -24,12 +24,23 @@ require_once __DIR__ . '/email.php';
 if ($isWebDispatch) {
     $dispatch = jsonBody(1024);
     $permission = is_string($dispatch['permission'] ?? null) ? $dispatch['permission'] : '';
-    if (!in_array($permission, ['requests.manage', 'payments.manage'], true)) {
+    $workerRecipient = null;
+    if (in_array($permission, ['requests.manage', 'payments.manage'], true)) {
+        requireAdminAccess($permission);
+    } elseif ($permission === 'resident.payment' && ($_SESSION['role'] ?? '') === 'Resident' && (int) ($_SESSION['resident_id'] ?? 0) > 0) {
+        $residentEmail = $pdo->prepare('SELECT email FROM resident WHERE resident_id = ? AND archived_at IS NULL LIMIT 1');
+        $residentEmail->execute([(int) $_SESSION['resident_id']]);
+        $workerRecipient = $residentEmail->fetchColumn();
+        if (!is_string($workerRecipient) || !filter_var($workerRecipient, FILTER_VALIDATE_EMAIL)) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Resident email is unavailable.']);
+            exit;
+        }
+    } else {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Invalid mail queue dispatch.']);
         exit;
     }
-    requireAdminAccess($permission);
 }
 
 $maxJobs = $isWebDispatch ? 1 : 20;
@@ -41,11 +52,15 @@ $pdo->exec("DELETE FROM portal_email_queue WHERE status = 'sent' AND sent_at < D
 while ($processed < $maxJobs) {
     try {
         $pdo->beginTransaction();
-        $job = $pdo->query("SELECT queue_id, recipient, subject, text_body, html_body, attempts
+        $query = "SELECT queue_id, recipient, subject, text_body, html_body, attempts
             FROM portal_email_queue
             WHERE ((status = 'queued' AND available_at <= UTC_TIMESTAMP() AND attempts < 5)
                 OR (status = 'processing' AND locked_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE) AND attempts < 5))
-            ORDER BY queue_id ASC LIMIT 1 FOR UPDATE")->fetch();
+            " . ($isWebDispatch && $workerRecipient !== null ? 'AND recipient = ? ' : '') . "
+            ORDER BY queue_id ASC LIMIT 1 FOR UPDATE";
+        $select = $pdo->prepare($query);
+        $select->execute($isWebDispatch && $workerRecipient !== null ? [$workerRecipient] : []);
+        $job = $select->fetch();
         if (!$job) {
             $pdo->commit();
             break;

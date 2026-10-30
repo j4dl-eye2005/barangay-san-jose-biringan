@@ -1539,7 +1539,7 @@ function residentEmailDeliveryNotice(result) {
 }
 
 function dispatchQueuedEmailInBackground(permission) {
-    if (!['requests.manage', 'payments.manage'].includes(permission)) return;
+    if (!['requests.manage', 'payments.manage', 'resident.payment'].includes(permission)) return;
     try {
         void fetch('api/process_mail_queue.php', {
             method: 'POST',
@@ -5785,10 +5785,11 @@ function submitResidentPaymentProof(event, request, form, submitButton, feedback
             const result = await response.json();
             if (!response.ok || !result.success) throw new Error(result.message || 'Payment proof could not be submitted.');
             const emailAddress = String(currentUser?.email || 'your account email');
+            if (result.emailDelivery === 'queued') dispatchQueuedEmailInBackground('resident.payment');
             const emailNote = result.emailDelivery === 'queued'
-                ? ` An acknowledgment is queued for ${emailAddress}; the review decision will be emailed after staff checks the receipt.`
-                : ' The receipt was submitted, but an email could not be queued. You can still check the request status here.';
-            showToast(`Payment proof submitted for review.${emailNote}`, 'success');
+                ? ` Your payment is pending verification. A confirmation is being sent to ${emailAddress}; the review decision will be emailed after staff checks the receipt.`
+                : ' Your payment is pending verification. The receipt was submitted, but an email could not be queued; you can still check the request status here.';
+            showToast(`Payment proof submitted. Your payment is pending review.${emailNote}`, result.emailDelivery === 'queued' ? 'success' : 'error');
             selectResidentRequestTab('list');
             try {
                 await loadResidentData();
@@ -5838,8 +5839,9 @@ function createResidentPaymentControl(request, fee, paymentStatus) {
     section.appendChild(el('div', { className: 'resident-payment-instructions' }, [
         el('strong', { className: 'resident-payment-instructions-title', text: 'Where and how to pay' }),
         el('p', { text: `For an in-person payment, visit the Barangay Hall cashier in Barangay San Jose, Biringan City. Show tracking code ${String(request.tracking_code || '')}, confirm the accepted payment method, and ask the cashier to record the payment against this request.` }),
-        el('p', { text: 'This prototype does not process GCash, card, or bank payments directly. Use another payment channel only if the Barangay office gives you verified instructions. Keep the official receipt.' }),
-        el('p', { text: `If staff asks you to submit proof for an approved payment method, enter its receipt or transaction reference and attach the receipt below. Once staff records or verifies payment, the portal emails an update to ${emailAddress}.` })
+        el('p', { text: 'For online payment, scan the GCash QR below and pay the exact assessed fee. Verify the recipient shown in GCash before confirming; transfer fees may apply.' }),
+        el('img', { className: 'resident-payment-gcash-qr', attrs: { src: 'assets/gcash-payment-qr.png', alt: 'GCash payment QR code' } }),
+        el('p', { text: `After paying through GCash, enter the receipt number as the Payment reference and attach a screenshot of the receipt under Receipt proof. Staff must verify the payment before the request can move forward. The portal emails an update to ${emailAddress}.` })
     ]));
     if (paymentStatus === 'Rejected' && request.payment_rejection_reason) {
         section.appendChild(el('p', { className: 'request-payment-rejection', text: `Payment proof needs an update: ${request.payment_rejection_reason}` }));
@@ -5952,7 +5954,7 @@ function createResidentPaymentControl(request, fee, paymentStatus) {
         el('div', { className: 'resident-payment-field' }, [
             el('label', { text: 'Payment reference', attrs: { for: referenceId } }),
             reference,
-            el('small', { className: 'field-help resident-payment-helper', text: 'Enter the receipt number from the cashier or transaction reference for a payment method confirmed by the Barangay office.' })
+            el('small', { className: 'field-help resident-payment-helper', text: 'Enter the GCash receipt number or cashier receipt number.' })
         ]),
         el('div', { className: 'resident-payment-field' }, [
             el('label', { text: 'Receipt proof', attrs: { for: proofId } }),

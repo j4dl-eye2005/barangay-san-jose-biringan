@@ -3117,13 +3117,13 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
     }
     #admin-dashboard #admin-requests-panel .request-admin-table {
         width: 100% !important;
-        min-width: 1600px !important;
+        min-width: 1420px !important;
         table-layout: fixed !important;
     }
     #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(1),
-    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(1) { width: 15% !important; }
+    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(1) { width: 16% !important; }
     #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(2),
-    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(2) { width: 17% !important; }
+    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(2) { width: 19% !important; }
     #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(3),
     #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(3) { width: 12% !important; }
     #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(4),
@@ -3134,7 +3134,7 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
     #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(6) { width: 10% !important; }
     #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(7),
     #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(7) {
-        width: 8% !important;
+        width: 9% !important;
         padding-right: 14px !important;
         padding-left: 14px !important;
         text-align: left !important;
@@ -3142,7 +3142,7 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
     }
     #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(8),
     #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(8) {
-        width: 22% !important;
+        width: 18% !important;
         padding-right: 16px !important;
         padding-left: 12px !important;
         text-align: right !important;

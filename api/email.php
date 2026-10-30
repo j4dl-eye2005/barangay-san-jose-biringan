@@ -206,6 +206,16 @@ function sendPortalEmail(string $recipient, string $subject, string $message, ?s
             } else {
                 $mail->Body = preg_replace('/<img src="cid:barangay-seal"[^>]*>/i', '', $mail->Body, 1) ?? $mail->Body;
             }
+            if (str_contains($mail->Body, 'cid:gcash-payment-qr')) {
+                $qrPath = dirname(__DIR__) . '/assets/gcash-payment-qr.png';
+                $qrBytes = @file_get_contents($qrPath);
+                if ($qrBytes !== false) {
+                    $mail->addStringEmbeddedImage($qrBytes, 'gcash-payment-qr', 'gcash-payment-qr.png', 'base64', 'image/png');
+                } else {
+                    error_log('GCash payment QR could not be embedded in the queued email.');
+                    $mail->Body = preg_replace('/<img src="cid:gcash-payment-qr"[^>]*>/i', '<p>GCash QR unavailable in this message. Please use the in-person payment option.</p>', $mail->Body, 1) ?? $mail->Body;
+                }
+            }
         }
         $mail->CharSet = 'UTF-8';
         // Keep a readable fallback for clients that do not display HTML.
@@ -223,7 +233,7 @@ function sendPortalEmail(string $recipient, string $subject, string $message, ?s
 }
 
 /** Build an email-client-safe template matching the Barangay San Jose portal. */
-function portalEmailTemplate(string $eyebrow, string $title, array $paragraphs, ?string $buttonLabel = null, ?string $buttonUrl = null, ?string $note = null): string
+function portalEmailTemplate(string $eyebrow, string $title, array $paragraphs, ?string $buttonLabel = null, ?string $buttonUrl = null, ?string $note = null, bool $includeGcashQr = false): string
 {
     $escape = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
@@ -251,6 +261,14 @@ function portalEmailTemplate(string $eyebrow, string $title, array $paragraphs, 
                . nl2br($escape((string) $paragraph))
                . '</p>';
     }
+
+    $gcashQrHtml = $includeGcashQr
+        ? '<div style="margin:14px 0 16px;padding:14px;border:1px solid ' . $border . ';border-radius:10px;background:#ffffff;text-align:center">'
+            . '<p style="margin:0 0 10px;color:' . $ink . ';font-family:' . $font . ';font-size:14px;font-weight:700">Pay online with GCash</p>'
+            . '<img src="cid:gcash-payment-qr" alt="Scan this QR code with GCash to pay the assessed fee" width="280" style="display:block;width:100%;max-width:280px;height:auto;margin:0 auto;border:0">'
+            . '<p style="margin:10px 0 0;color:' . $quiet . ';font-family:' . $font . ';font-size:12px;line-height:1.5">Scan in GCash, verify the recipient before confirming, and note the receipt number. Transfer fees may apply.</p>'
+            . '</div>'
+        : '';
 
     // CTA button
     $button = '';
@@ -337,6 +355,7 @@ function portalEmailTemplate(string $eyebrow, string $title, array $paragraphs, 
          . 'color:' . $ink . ';line-height:1.25;letter-spacing:-.035em">' . $escape($title) . '</h1>'
          // Paragraphs
          . $body
+         . $gcashQrHtml
          . '</td></tr>'
 
          // CTA button row

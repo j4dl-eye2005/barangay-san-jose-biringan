@@ -109,17 +109,17 @@ try {
         try {
             $residentName = trim((string) ($_SESSION['fullName'] ?? '')) ?: 'Resident';
             $amount = 'PHP ' . number_format((float) $request['fee_amount'], 2);
-            $message = "Hello $residentName,\n\nWe received the payment proof for {$request['document_name']} (request {$request['tracking_code']}, $amount). It is waiting for staff review; this email does not mean the payment has been verified. We will email you again after the review.\n\nKeep the original receipt from the cashier or payment provider.\n";
+            $message = "Hello $residentName,\n\nWe received your payment proof for {$request['document_name']} (request {$request['tracking_code']}, $amount). Your payment is pending verification by staff; it has not been verified yet. We will email you again after the review.\n\nKeep the original GCash or cashier receipt.\n";
             $paragraphs = [
                 "Hello $residentName,",
-                "We received the payment proof for {$request['document_name']} (request {$request['tracking_code']}, $amount).",
-                'It is waiting for staff review; this email does not mean the payment has been verified. We will email you again after the review.',
-                'Keep the original receipt from the cashier or payment provider.'
+                "We received your payment proof for {$request['document_name']} (request {$request['tracking_code']}, $amount).",
+                'Your payment is pending verification by staff; it has not been verified yet. We will email you again after the review.',
+                'Keep the original GCash or cashier receipt.'
             ];
             $config = portalConfig();
-            $html = portalEmailTemplate('Payment update', 'Payment proof received', $paragraphs, 'View your request', rtrim((string) $config['app_url'], '/') . '/#dashboard', 'This email is an acknowledgment, not an official receipt or proof that payment has cleared.');
+            $html = portalEmailTemplate('Payment update', 'Your payment is pending verification', $paragraphs, 'View your request', rtrim((string) $config['app_url'], '/') . '/#dashboard', 'This email confirms receipt of your proof, not payment verification or an official receipt.');
             $mailError = null;
-            $emailDelivery = queuePortalNotification($pdo, (string) $request['email'], 'Payment proof received for request ' . $request['tracking_code'], $message, $html, $mailError);
+            $emailDelivery = queuePortalNotification($pdo, (string) $request['email'], 'Your payment is pending verification for request ' . $request['tracking_code'], $message, $html, $mailError);
             if ($emailDelivery === 'failed') error_log("submit_payment_proof.php acknowledgment email failed for request $requestId: " . ($mailError ?? 'unknown queue error'));
         } catch (Throwable $mailException) {
             error_log("submit_payment_proof.php acknowledgment email could not be queued for request $requestId.");
