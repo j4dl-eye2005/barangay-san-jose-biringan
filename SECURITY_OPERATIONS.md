@@ -5,11 +5,11 @@ Keep this file in the project repository. The root `.htaccess` blocks direct web
 ## Before deployment
 
 1. Rotate credentials that have been shared or may have been exposed:
-   - Change the database user's password in the hosting control panel, then update the protected env file outside the web root or the deployment-specific `api/db.php` settings.
+   - Change the database user's password in the hosting control panel, then update the protected env file outside the web root.
    - Generate a new SMTP credential with the mail provider, then update the protected mail configuration.
-   - Do not commit `.env`, `api/db.php`, database exports, or SMTP credentials. Set `PORTAL_ENV_FILE` to the absolute path of the protected env file when it is not at the default location.
+   - Do not commit `.env`, database exports, or SMTP credentials. `api/db.php` contains shared connection logic only; keep database credentials in the protected env file. Set `PORTAL_ENV_FILE` to the absolute path of that file when it is not at the default location.
 2. Apply the SQL migration supplied with the release before deploying PHP that reads the new account-version columns.
-3. Upload the current project files over HTTPS. `api/db.php` is deployment-specific and Git-ignored, so upload its intended changes separately while retaining the correct database settings.
+3. Deploy the current project files over HTTPS. Keep the protected env file on the server; deployment must not replace it.
 
 ## cPanel backups
 
