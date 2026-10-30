@@ -11,13 +11,19 @@ function resetResponse(string $message): void
 }
 $genericMessage = 'If an account matches that email, a password reset link will be sent shortly.';
 
+$requestHost = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+$requestHost = preg_replace('/:\d+$/', '', $requestHost);
+$remoteAddress = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+$isLocalResetTest = in_array($requestHost, ['localhost', '127.0.0.1', '::1', '[::1]'], true)
+    && in_array($remoteAddress, ['127.0.0.1', '::1'], true);
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['success' => false, 'message' => 'Method not allowed.']);
     exit;
 }
 
-if (!rateLimit($pdo, 'password-reset', 5, 3600)) {
+if (!$isLocalResetTest && !rateLimit($pdo, 'password-reset', 5, 3600)) {
     http_response_code(429);
     header('Retry-After: 3600');
     resetResponse($genericMessage);
@@ -61,10 +67,13 @@ try {
     $appUrl = portalConfig()['app_url'];
     if (!isAllowedPortalUrl($appUrl)) resetResponse($genericMessage);
 
-    // Limit email sends to three per account per hour.
-    $rate = $pdo->prepare("SELECT COUNT(*) FROM password_reset_token WHERE account_type = ? AND account_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)");
-    $rate->execute([$context, $account['account_id']]);
-    if ((int) $rate->fetchColumn() >= 3) resetResponse($genericMessage);
+    // Limit production email sends to three per account per hour. Local XAMPP
+    // requests are loopback-only, so developers can retry the flow while debugging.
+    if (!$isLocalResetTest) {
+        $rate = $pdo->prepare("SELECT COUNT(*) FROM password_reset_token WHERE account_type = ? AND account_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)");
+        $rate->execute([$context, $account['account_id']]);
+        if ((int) $rate->fetchColumn() >= 3) resetResponse($genericMessage);
+    }
 
     $pdo->prepare('DELETE FROM password_reset_token WHERE expires_at < NOW()')->execute();
     $rawToken = bin2hex(random_bytes(32));
@@ -82,8 +91,9 @@ try {
         'We received a request to reset the password for your Barangay San Jose portal account. Use the button below to choose a new password.'
     ], 'Choose a new password', $resetUrl, $expiryMessage);
     $mailError = null;
-    if (!sendPortalEmail($email, 'Reset your Barangay San Jose password', $text, $mailError, $html)) {
-        error_log('Password reset email could not be sent.');
+    $mailQueued = queuePortalEmail($pdo, $email, 'Reset your Barangay San Jose password', $text, $html, $mailError);
+    if (!$mailQueued) {
+        error_log('Password reset email could not be queued.');
         // Keep the response generic so account existence is never disclosed.
         $pdo->prepare('DELETE FROM password_reset_token WHERE token_hash = ?')->execute([$tokenHash]);
     }

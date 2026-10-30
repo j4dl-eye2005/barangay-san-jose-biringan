@@ -46,21 +46,6 @@ try {
 
     $table = $reset['account_type'] === 'admin' ? 'user' : 'resident';
     $idColumn = $reset['account_type'] === 'admin' ? 'user_id' : 'resident_id';
-    $currentPassword = $pdo->prepare("SELECT password_hash FROM $table WHERE $idColumn = ? LIMIT 1 FOR UPDATE");
-    $currentPassword->execute([$reset['account_id']]);
-    $currentPasswordHash = $currentPassword->fetchColumn();
-    if (!is_string($currentPasswordHash)) {
-        $pdo->rollBack();
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'This account could not be found. Request a new reset link.']);
-        exit;
-    }
-    if (password_verify($password, $currentPasswordHash)) {
-        $pdo->rollBack();
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Choose a new password that differs from your current password.']);
-        exit;
-    }
     $newPasswordHash = password_hash($password, PASSWORD_DEFAULT);
     $update = $pdo->prepare("UPDATE $table SET password_hash = ?, password_changed_at = UTC_TIMESTAMP(), auth_version = auth_version + 1 WHERE $idColumn = ?");
     $update->execute([$newPasswordHash, $reset['account_id']]);
@@ -88,12 +73,19 @@ try {
     }
     $delete = $pdo->prepare('DELETE FROM password_reset_token WHERE account_type = ? AND account_id = ?');
     $delete->execute([$reset['account_type'], $reset['account_id']]);
-    $audit = $pdo->prepare("INSERT INTO audit_log (user_id, subject_resident_id, action, details) VALUES (NULL, ?, 'password_reset_completed', ?)");
-    $audit->execute([
-        $reset['account_type'] === 'resident' ? (int) $reset['account_id'] : null,
-        'Account type ' . $reset['account_type'] . '; account ID ' . (int) $reset['account_id'],
-    ]);
     $pdo->commit();
+
+    // The account update and token consumption are the critical operation.
+    // A legacy or differently migrated audit_log table must not roll them back.
+    try {
+        $audit = $pdo->prepare("INSERT INTO audit_log (user_id, subject_resident_id, action, details) VALUES (NULL, ?, 'password_reset_completed', ?)");
+        $audit->execute([
+            $reset['account_type'] === 'resident' ? (int) $reset['account_id'] : null,
+            'Account type ' . $reset['account_type'] . '; account ID ' . (int) $reset['account_id'],
+        ]);
+    } catch (Throwable $auditError) {
+        error_log('Password reset completed but the audit event could not be written.');
+    }
 
     $sessionRestored = is_array($profileResident);
     $response = ['success' => true, 'message' => 'Your password has been changed. You can now log in with your new password.', 'sessionRestored' => false];

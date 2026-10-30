@@ -3,7 +3,8 @@ api/mail_config.php
 api/global/
 api/local/
 
-# Database credentials stay in the private env file; keep the shared connection code deployable.
+# DATABASE CREDENTIALS — never commit
+api/db.php
 
 # Uploaded files
 uploads/proofs/

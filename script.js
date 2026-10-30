@@ -163,7 +163,7 @@ const appDocumentTitle = document.body?.dataset.appTitle || 'Barangay San Jose D
 
 window.INITIAL_ADMIN_SECTION = document.body?.dataset.initialAdminSection || null;
 const delegatedActionNames = new Set([
-    'activateDisclosureCategory', 'changePickupCalendarMonth', 'checkAuthAndRedirect', 'clearPublicRecordsSearchInput', 'copyAuthenticatorSetupKey',
+    'activateDisclosureCategory', 'changePickupCalendarMonth', 'checkAuthAndRedirect', 'clearPublicRecordsSearchInput', 'copyAuthenticatorSetupKey', 'completePasswordReset',
     'clearActivityFilters', 'clearDisclosureFile', 'closeAdminRequestDetail', 'closeMobileMenu',
     'closeBulletinDeleteDialog', 'closeModal', 'confirmBulletinDelete', 'exportActivityCsv',
     'focusContactInfo', 'handleActivityFilterChange', 'handleAdminLogin', 'handleAdminMfaSubmit', 'handleAdminMfaDigitKeydown', 'handleAdminMfaPaste', 'handleAdminMfaRecoveryInput', 'cancelAdminMfa', 'showAdminMfaRecoveryCodeInput', 'useAdminMfaAuthenticatorCode', 'handleViewProfile',
@@ -5184,7 +5184,8 @@ function updateResidentEmailSubmit() {
 
 async function changeResidentEmail(event) {
     event.preventDefault();
-    const form = event.currentTarget;
+    const form = event.target instanceof HTMLFormElement ? event.target : event.target?.closest?.('form');
+    if (!form) return;
     const emailField = document.getElementById('resident-new-email');
     const passwordField = document.getElementById('resident-email-password');
     const emailError = document.getElementById('resident-new-email-error');
@@ -5399,7 +5400,8 @@ document.addEventListener('keydown', event => {
 
 async function submitManualRequest(event) {
     event.preventDefault();
-    const form = event.currentTarget;
+    const form = event.target instanceof HTMLFormElement ? event.target : event.target?.closest?.('form');
+    if (!form) return;
     const phoneField = document.getElementById('walkin-phone');
     if (phoneField && !setPhoneValidation(phoneField)) { phoneField.reportValidity(); return; }
     const businessFields = document.getElementById('walkin-business-fields');
