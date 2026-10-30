@@ -1417,6 +1417,7 @@ body.public-portal-view #bulletin .bulletin-filter-card.is-active { background: 
         letter-spacing: -.02em;
     }
 }
+
 body.public-portal-view #bulletin {
     --color-logo-green: #0c5700;
     --color-accent: #0c5700;
@@ -3957,13 +3958,13 @@ body.resident-workspace-view #resident-dashboard .request-item-heading .status-b
     margin-top: 0;
 }
 body.resident-workspace-view #resident-dashboard #request-list {
-    height: auto;
+    height: min(68vh, 580px);
     min-height: 0;
     max-height: none;
-    overflow: visible;
-    overscroll-behavior: auto;
-    padding-right: 0;
-    scrollbar-gutter: auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 8px;
+    scrollbar-gutter: stable;
 }
 body.resident-workspace-view #resident-dashboard .request-item .request-tracking-line {
     margin: 3px 0 0;
@@ -5441,6 +5442,13 @@ body.public-portal-view:has(#record.active) .site-disclaimer-bar { border-top: 1
         font-size: 12px;
         letter-spacing: .025em;
         text-align: left;
+    }
+}
+
+@media (max-width: 767px) {
+    body.resident-workspace-view #resident-dashboard #request-list {
+        height: min(62vh, 520px);
+        min-height: 260px;
     }
 }
 

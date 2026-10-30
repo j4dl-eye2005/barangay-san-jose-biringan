@@ -213,7 +213,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <link rel="stylesheet" href="css/shared-responsive.css?v=20261028-mobile-proof-row-v1">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261027-request-detail-actions-v1-requests-mobile-ux-v2">
     <link data-portal-route-css="unavailable" data-portal-css-href="css/unavailable.css?v=20261023-mobile-404-wrap-v2">
-    <link rel="stylesheet" href="css/portal-public.css?v=20261028-announcements-layout-v7">
+    <link rel="stylesheet" href="css/portal-public.css?v=20261030-request-list-fixed-height-v1">
     <link rel="stylesheet" href="css/record-spa.css?v=20261028-record-spa-sk-maroon-v2">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">

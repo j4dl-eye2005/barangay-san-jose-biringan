@@ -353,3 +353,305 @@ body,
         print-color-adjust: exact;
     }
 }
+
+/* Business-clearance sample layout, based on the provided letter-size reference. */
+@page business-clearance { size: letter portrait; margin: 0; }
+.paper--business {
+    --business-green: #176b3b;
+    --business-green-dark: #10562f;
+    page: business-clearance;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    width: min(8.5in, calc(100% - 2rem));
+    min-height: 0;
+    aspect-ratio: 1583 / 2048;
+    margin: 2rem auto;
+    padding: 0;
+    background: #fff;
+    color: #111;
+    container-type: inline-size;
+    font-family: Arial, Helvetica, sans-serif;
+}
+.business-watermark,
+.business-seal,
+.business-jurisdiction,
+.business-main-heading,
+.business-header-bar,
+.business-year,
+.business-field-label,
+.business-value,
+.business-classification-value,
+.business-legal,
+.business-warning,
+.business-receipt,
+.business-issued,
+.business-signatory,
+.business-permit-number,
+.business-footer,
+.business-sample-note { position: absolute; z-index: 1; }
+.business-watermark {
+    inset: 10% 0 5%;
+    z-index: 0;
+    width: 100%;
+    height: 85%;
+    opacity: .66;
+    pointer-events: none;
+}
+.business-seal {
+    top: -1.2%;
+    left: 1.1%;
+    width: 17.3%;
+    height: 10.3%;
+    object-fit: contain;
+    object-position: top left;
+}
+.business-jurisdiction {
+    top: .7%;
+    left: 19.1%;
+    margin: 0;
+    color: var(--business-green-dark);
+    font-size: 1.55cqw;
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+.business-main-heading {
+    top: 1.8%;
+    left: 19%;
+    width: 61.2%;
+    margin: 0;
+    color: var(--business-green-dark);
+    font-size: 6.8cqw;
+    line-height: .92;
+    font-weight: 1000;
+    letter-spacing: -.075em;
+    white-space: nowrap;
+    text-transform: uppercase;
+    transform: scaleX(.94);
+    transform-origin: left center;
+}
+.business-header-bar {
+    top: 5.35%;
+    left: 19.2%;
+    width: 58.4%;
+    height: 4.2%;
+    background: var(--business-green);
+}
+.business-year {
+    top: 5.15%;
+    right: 3.5%;
+    margin: 0;
+    color: var(--business-green-dark);
+    font-size: 6.3cqw;
+    line-height: .9;
+    font-weight: 1000;
+    letter-spacing: -.04em;
+    text-align: right;
+}
+.business-year small {
+    display: block;
+    margin-top: .4cqw;
+    font-size: 1.15cqw;
+    letter-spacing: .12em;
+}
+.business-field-label {
+    left: 0;
+    display: flex;
+    height: 2%;
+    align-items: center;
+    padding: 0 2.6%;
+    background: var(--business-green-dark);
+    color: #fff;
+    font-size: 1.72cqw;
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: .01em;
+    white-space: nowrap;
+    text-transform: uppercase;
+    clip-path: polygon(0 0, 88% 0, 100% 100%, 0 100%);
+}
+.business-label { top: 26.9%; width: 28.4%; }
+.owner-label { top: 33.5%; width: 28.3%; }
+.account-label { top: 40.1%; width: 28.1%; }
+.address-label { top: 47.5%; width: 30.3%; }
+.class-label { top: 54%; width: 38.5%; }
+.business-value {
+    left: 12%;
+    width: 76%;
+    margin: 0;
+    color: #111;
+    font-size: 1.86cqw;
+    line-height: 1.18;
+    font-weight: 800;
+    text-align: center;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+}
+.business-value-name { top: 30.4%; }
+.owner-value { top: 37%; }
+.account-value {
+    top: 42.9%;
+    font-size: 3.6cqw;
+    line-height: 1;
+    font-weight: 500;
+    letter-spacing: .025em;
+}
+.address-value { top: 50.4%; }
+.business-classification-value {
+    top: 55.3%;
+    left: 39%;
+    width: 45%;
+    margin: 0;
+    color: #111;
+    font-size: 1.86cqw;
+    font-style: italic;
+    font-weight: 700;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+.business-legal {
+    top: 57%;
+    left: 1.1%;
+    width: 37.4%;
+    margin: 0;
+    color: #111;
+    font-size: 1.35cqw;
+    line-height: 1.22;
+    font-weight: 700;
+    text-align: justify;
+}
+.business-warning {
+    top: 69%;
+    left: 1%;
+    width: 38%;
+    margin: 0;
+    color: #111;
+    font-size: 1.48cqw;
+    line-height: 1.19;
+    font-weight: 900;
+    text-align: center;
+}
+.business-receipt {
+    top: 79.2%;
+    left: 2.7%;
+    width: 38%;
+    display: grid;
+    grid-template-columns: 1.1fr 12px 1.15fr;
+    gap: .55cqw .5cqw;
+    align-items: baseline;
+    color: #111;
+    font-size: 1.23cqw;
+    font-style: italic;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+.business-receipt .colon { text-align: center; }
+.business-receipt .entry { font-style: normal; font-weight: 600; }
+.business-issued {
+    top: 78.4%;
+    left: 39%;
+    width: 22.2%;
+    color: #111;
+    font-size: 1.36cqw;
+    line-height: 1.28;
+    font-weight: 700;
+    text-align: center;
+}
+.business-issued p { margin: 0 0 1.4cqw; }
+.business-issued strong { display: block; font-size: 1.48cqw; }
+.business-signatory {
+    top: 73%;
+    right: 4.4%;
+    width: 31%;
+    text-align: center;
+}
+.business-signature-line {
+    width: 76%;
+    height: 5.3cqw;
+    margin: 0 auto .4cqw;
+    border-bottom: 1px solid #222;
+}
+.business-signatory-name {
+    margin: 0;
+    color: #111;
+    font-size: 1.95cqw;
+    line-height: 1.1;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+.business-signatory-role {
+    margin: .2cqw 0 0;
+    color: #111;
+    font-size: 1.8cqw;
+    font-style: italic;
+}
+.business-permit-number {
+    top: 85%;
+    right: 5.1%;
+    width: 29.5%;
+    color: #111;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+.business-permit-number .number-label {
+    margin: 0 0 .4cqw;
+    font-size: 1.6cqw;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+.business-permit-number .number-value {
+    margin: 0;
+    font-size: 2.4cqw;
+    line-height: 1.1;
+    font-weight: 1000;
+    letter-spacing: .02em;
+}
+.business-footer {
+    top: 89.2%;
+    left: 0;
+    width: 100%;
+    height: 4%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 2%;
+    background: var(--business-green);
+    color: #fff;
+    font-size: 2.45cqw;
+    line-height: 1;
+    font-weight: 500;
+    letter-spacing: .035em;
+    text-align: center;
+    text-transform: uppercase;
+}
+.business-sample-note {
+    top: 94%;
+    left: 0;
+    width: 100%;
+    margin: 0;
+    color: #46514a;
+    font-size: 1.05cqw;
+    font-weight: 800;
+    letter-spacing: .09em;
+    text-align: center;
+    text-transform: uppercase;
+}
+@media(max-width:560px) {
+    .paper--business { width: calc(100% - .5rem); margin: .5rem auto; }
+}
+@media print {
+    .paper--business {
+        width: 8.5in;
+        height: 11in;
+        min-height: 11in;
+        margin: 0 !important;
+        aspect-ratio: auto;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .business-watermark,
+    .business-field-label,
+    .business-footer { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

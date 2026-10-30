@@ -90,7 +90,7 @@ try {
         $config = portalConfig();
         $html = portalEmailTemplate('Payment update', $action === 'verify' ? 'Payment verified' : 'Payment proof needs an update', $paragraphs, 'View your request', rtrim((string) $config['app_url'], '/') . '/#dashboard');
         $mailError = null;
-        $emailDelivery = deliverOrQueuePortalEmail($pdo, (string) $request['email'], 'Update on your document payment', $message, $html, $mailError);
+        $emailDelivery = queuePortalNotification($pdo, (string) $request['email'], 'Update on your document payment', $message, $html, $mailError);
         if ($emailDelivery === 'failed') error_log("review_request_payment.php email failed for request $requestId: " . ($mailError ?? 'unknown error'));
     }
     echo json_encode(['success' => true, 'payment_status' => $newStatus, 'emailDelivery' => $emailDelivery]);

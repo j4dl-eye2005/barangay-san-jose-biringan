@@ -99,7 +99,7 @@ try {
         $config = portalConfig();
         $html = portalEmailTemplate('Payment update', $status === 'Paid' ? 'Payment recorded' : 'Payment reversed', $paragraphs, 'View your request', rtrim((string) $config['app_url'], '/') . '/#dashboard');
         $mailError = null;
-        $emailDelivery = deliverOrQueuePortalEmail($pdo, (string) $request['email'], 'Update on your document payment', $message, $html, $mailError);
+        $emailDelivery = queuePortalNotification($pdo, (string) $request['email'], 'Update on your document payment', $message, $html, $mailError);
         if ($emailDelivery === 'failed') error_log("admin_request_payment.php email failed for request $requestId: " . ($mailError ?? 'unknown error'));
     }
     echo json_encode(['success' => true, 'payment_status' => $status, 'emailDelivery' => $emailDelivery]);

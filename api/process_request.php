@@ -158,7 +158,7 @@ $htmlBody = portalEmailTemplate(
 $emailError = null;
 $emailDelivery = 'failed';
 if (!empty($requestInfo['email'])) {
-    $emailDelivery = deliverOrQueuePortalEmail($pdo, (string) $requestInfo['email'], $emailSubject, $plainBody, $htmlBody, $emailError);
+    $emailDelivery = queuePortalNotification($pdo, (string) $requestInfo['email'], $emailSubject, $plainBody, $htmlBody, $emailError);
     if ($emailDelivery === 'failed') error_log("process_request.php email failed for request $requestId: " . ($emailError ?? 'unknown error'));
 }
 

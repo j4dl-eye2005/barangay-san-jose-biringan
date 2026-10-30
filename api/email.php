@@ -76,19 +76,11 @@ function queuePortalEmail(PDO $pdo, string $recipient, string $subject, string $
     }
 }
 
-/** Deliver action notices immediately; retain a queued retry if SMTP is down. */
-function deliverOrQueuePortalEmail(PDO $pdo, string $recipient, string $subject, string $message, ?string $htmlMessage = null, ?string &$error = null): string
+/** Queue action notices for asynchronous delivery by the mail worker. */
+function queuePortalNotification(PDO $pdo, string $recipient, string $subject, string $message, ?string $htmlMessage = null, ?string &$error = null): string
 {
     $error = null;
-    if (sendPortalEmail($recipient, $subject, $message, $error, $htmlMessage)) return 'sent';
-    $smtpError = $error;
-    $queueError = null;
-    if (queuePortalEmail($pdo, $recipient, $subject, $message, $htmlMessage, $queueError)) {
-        $error = $smtpError;
-        return 'queued';
-    }
-    $error = $queueError ?: $smtpError ?: 'Email delivery failed.';
-    return 'failed';
+    return queuePortalEmail($pdo, $recipient, $subject, $message, $htmlMessage, $error) ? 'queued' : 'failed';
 }
 
 /** Queue a new-request alert only for administrators who opted in. */

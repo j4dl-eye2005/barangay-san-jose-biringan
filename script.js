@@ -1534,8 +1534,7 @@ function showToast(msg, type='info') {
 }
 
 function residentEmailDeliveryNotice(result) {
-    if (result?.emailDelivery === 'sent') return { text: '', type: 'success' };
-    if (result?.emailDelivery === 'queued') return { text: ' Email delivery is delayed; it has been queued for retry.', type: 'info' };
+    if (result?.emailDelivery === 'queued') return { text: ' Resident email queued for background delivery.', type: 'success' };
     return { text: ' The update was saved, but no resident email could be sent. Check SMTP settings and the resident account email.', type: 'error' };
 }
 
