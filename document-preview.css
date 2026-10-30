@@ -365,8 +365,7 @@ body,
     gap: 1.8cqw;
     position: relative;
     overflow: hidden;
-    /* Match the on-screen scale shown by the Indigency preview; print remains full A4. */
-    width: min(176mm, calc(100% - 2rem));
+    width: min(210mm, calc(100% - 2rem));
     aspect-ratio: 210 / 297;
     min-height: 0;
     margin: 2rem auto;
