@@ -126,7 +126,7 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $escape($title) ?> · Sample preview</title>
-    <link rel="stylesheet" href="../document-preview.css?v=20261030-business-clearance-header-v12">
+    <link rel="stylesheet" href="../document-preview.css?v=20261030-business-clearance-header-v14">
 </head>
 <body>
     <div class="preview-toolbar" role="region" aria-label="Document preview actions">
@@ -149,6 +149,7 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
                     <div class="business-header-bar" aria-hidden="true"></div>
                 </div>
             </div>
+            <span class="business-header-divider" aria-hidden="true"></span>
             <p class="business-year"><span id="business-year-value"><?= $escape($issueYear) ?></span><small><span>BARANGAY BUSINESS</span><span>CLEARANCE</span></small></p>
         </header>
 

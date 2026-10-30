@@ -391,7 +391,7 @@ body,
 .business-header {
     min-height: 11%;
     display: grid;
-    grid-template-columns: 14% minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: 14% minmax(0, 1fr) .38cqw minmax(0, 1fr);
     gap: 2%;
     align-items: center;
     border-bottom: .38cqw solid var(--business-green);
@@ -423,6 +423,8 @@ body,
     text-transform: uppercase;
 }
 .business-main-heading {
+    width:max-content;
+    max-width:100%;
     margin: 0;
     color: var(--business-green);
     font-size: 4.8cqw;
@@ -432,9 +434,9 @@ body,
     text-transform: uppercase;
     white-space: nowrap;
 }
-.business-header-bar { width:100%; height:.8cqw; margin:1.5cqw 0 0; background:var(--business-gold); }
+.business-header-bar { width:calc(100% + 1cqw); height:.8cqw; margin:1.5cqw 0 0; background:var(--business-gold); }
+.business-header-divider { width:100%; height:7.8cqw; align-self:center; background:#e5e9e6; }
 .business-year {
-    position: relative;
     margin: 0;
     min-width: 0;
     padding-left: 2cqw;
@@ -444,16 +446,6 @@ body,
     font-weight: 800;
     letter-spacing: -.04em;
     text-align: right;
-}
-.business-year::before {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 5.2cqw;
-    width: .38cqw;
-    height: 7.8cqw;
-    background: #e5e9e6;
-    transform: translateY(-50%);
 }
 .business-year small {
     display:block;
@@ -504,7 +496,7 @@ body,
     margin:0;
     padding:2.3cqw 2.6cqw;
     border-left:.75cqw solid var(--business-gold);
-    background:#f6f8f4;
+    background:rgba(246,248,244,.5);
     color:#26332b;
     font-size:2.05cqw;
     line-height:1.42;
