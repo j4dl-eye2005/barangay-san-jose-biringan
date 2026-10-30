@@ -46,12 +46,22 @@ try {
 
     $table = $reset['account_type'] === 'admin' ? 'user' : 'resident';
     $idColumn = $reset['account_type'] === 'admin' ? 'user_id' : 'resident_id';
+    $newPasswordHash = password_hash($password, PASSWORD_DEFAULT);
     $update = $pdo->prepare("UPDATE $table SET password_hash = ?, password_changed_at = UTC_TIMESTAMP(), auth_version = auth_version + 1 WHERE $idColumn = ?");
-    $update->execute([password_hash($password, PASSWORD_DEFAULT), $reset['account_id']]);
+    $update->execute([$newPasswordHash, $reset['account_id']]);
     if ($update->rowCount() !== 1) {
         $pdo->rollBack();
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'This account could not be found. Request a new reset link.']);
+        exit;
+    }
+    $verifyPassword = $pdo->prepare("SELECT password_hash FROM $table WHERE $idColumn = ? LIMIT 1");
+    $verifyPassword->execute([$reset['account_id']]);
+    $storedPasswordHash = $verifyPassword->fetchColumn();
+    if (!is_string($storedPasswordHash) || !password_verify($password, $storedPasswordHash)) {
+        $pdo->rollBack();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'We could not confirm the password update. Please request a new reset link and try again.']);
         exit;
     }
     $profileResident = null;

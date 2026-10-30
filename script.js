@@ -3600,14 +3600,10 @@ async function completePasswordReset(event) {
                 return;
             }
         }
-        const success = document.getElementById('password-reset-success');
-        success.textContent = result.message;
-        success.classList.remove('hidden');
-        document.getElementById('reset-password-form').classList.add('hidden');
-        document.getElementById('password-reset-intro').classList.add('hidden');
-        document.getElementById('forgot-password-title').textContent = 'Password updated';
         passwordResetToken = '';
-        history.replaceState(history.state, '', `${window.location.pathname}#forgot-password`);
+        history.replaceState({ section: 'login' }, '', `${window.location.pathname}#login`);
+        showSection('login', true);
+        showToast('Your password has been changed. Log in with your new password.', 'success');
     } catch (error) {
         const message = document.getElementById('password-reset-error');
         message.textContent = error.message || 'Unable to contact the server. Please try again.';

@@ -630,19 +630,19 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                 <div class="left-panel" aria-hidden="true"><div class="panel-content"><img src="assets/barangay-seal.svg" alt="" class="panel-logo" width="128" height="128" loading="lazy" decoding="async"><span class="badge">Account security</span><h1>Secure access to your portal account.</h1><p>Use a private reset link to choose a new password.</p><div class="panel-footer">Barangay San Jose</div></div></div>
                 <div class="right-panel"><div class="form-wrapper">
                     <button class="back-button" type="button" data-action-click="returnFromPasswordReset()"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to log in</button>
-                    <p class="eyebrow" id="password-reset-eyebrow">Account recovery</p>
-                    <h1 id="forgot-password-title">Forgot your password?</h1>
-                    <p class="form-subtitle" id="password-reset-intro">Enter the email address for your portal account. We’ll send a secure link if it matches an account.</p>
+                    <p class="eyebrow" id="password-reset-eyebrow"><?= $resetReturnToProfile ? 'Login and security' : 'Account recovery' ?></p>
+                    <h1 id="forgot-password-title"><?= $resetToken !== '' ? ($resetReturnToProfile ? 'Change password' : 'Choose a new password') : 'Forgot your password?' ?></h1>
+                    <p class="form-subtitle" id="password-reset-intro"><?= $resetToken !== '' ? 'Create a new password for your Barangay San Jose portal account.' : ($resetReturnToProfile ? 'We’ll send a secure password-change link to your account email.' : 'Enter the email address for your portal account. We’ll send a secure link if it matches an account.') ?></p>
                     <p class="login-error hidden" id="password-reset-error" role="alert" aria-live="polite"></p>
                     <p class="password-reset-success hidden" id="password-reset-success" role="status" aria-live="polite"></p>
-                    <form id="forgot-password-form" data-action-submit="requestPasswordReset(event)">
+                    <form id="forgot-password-form" class="<?= $resetToken !== '' ? 'hidden' : '' ?>" data-action-submit="requestPasswordReset(event)">
                         <div class="input-group"><label for="password-reset-email">Email address</label><input type="email" id="password-reset-email" autocomplete="email" placeholder="you@example.com" required><span class="reg-field-error" id="password-reset-email-error" role="alert"></span></div>
                         <input type="hidden" id="password-reset-context" value="resident">
                         <button type="submit" class="btn-solid full-width mt-3" id="password-reset-submit">Send reset link</button>
                     </form>
-                    <form id="reset-password-form" class="hidden" data-action-submit="completePasswordReset(event)">
-                        <div class="input-group"><label for="new-password">New password</label><input type="password" id="new-password" autocomplete="new-password" minlength="8" maxlength="256" required aria-describedby="reset-pw-checklist"><ul class="pw-checklist" id="reset-pw-checklist" aria-live="polite"><li id="reset-pwc-length" class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>8+ characters</span></li><li id="reset-pwc-upper" class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Uppercase (A-Z)</span></li><li id="reset-pwc-lower" class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Lowercase (a-z)</span></li><li id="reset-pwc-number" class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Number (0-9)</span></li></ul></div>
-                        <div class="input-group"><label for="confirm-new-password">Confirm new password</label><input type="password" id="confirm-new-password" autocomplete="new-password" minlength="8" maxlength="256" required aria-describedby="reset-pwc-match"><p class="pwc-match-line" id="reset-pwc-match" aria-live="polite"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Passwords match</span></p></div>
+                    <form id="reset-password-form" class="<?= $resetToken === '' ? 'hidden' : '' ?>" data-action-submit="completePasswordReset(event)">
+                        <div class="input-group"><label for="new-password">New password</label><div class="password-field"><input type="password" id="new-password" autocomplete="new-password" minlength="8" maxlength="256" required aria-describedby="reset-pw-checklist"><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false" data-action-click="togglePassword('new-password', this)"><i class="fas fa-eye" aria-hidden="true"></i></button></div><ul class="pw-checklist" id="reset-pw-checklist" aria-live="polite"><li id="reset-pwc-length" class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>8+ characters</span></li><li id="reset-pwc-upper" class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Uppercase (A-Z)</span></li><li id="reset-pwc-lower" class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Lowercase (a-z)</span></li><li id="reset-pwc-number" class="pwc-item"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Number (0-9)</span></li></ul></div>
+                        <div class="input-group"><label for="confirm-new-password">Confirm new password</label><div class="password-field"><input type="password" id="confirm-new-password" autocomplete="new-password" minlength="8" maxlength="256" required aria-describedby="reset-pwc-match"><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false" data-action-click="togglePassword('confirm-new-password', this)"><i class="fas fa-eye" aria-hidden="true"></i></button></div><p class="pwc-match-line" id="reset-pwc-match" aria-live="polite"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Passwords match</span></p></div>
                         <button type="submit" class="btn-solid full-width mt-3" id="reset-password-submit">Save new password</button>
                     </form>
                     <p class="switch-form"><button type="button" class="text-button" data-action-click="returnFromPasswordReset()">Return to log in</button></p>
@@ -1350,7 +1350,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <?php require __DIR__ . '/includes/shared/site-footer.php'; ?>
 
     <?php require __DIR__ . '/includes/shared/dialogs.php'; ?>    <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true">Message</div>
-    <script src="script.js?v=20261030-unified-mail-worker-v5" defer></script>
+    <script src="script.js?v=20261030-password-reset-flow-v1" defer></script>
 </body>
 </html>
 
