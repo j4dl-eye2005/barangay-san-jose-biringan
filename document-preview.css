@@ -391,8 +391,8 @@ body,
 .business-header {
     min-height: 11%;
     display: grid;
-    grid-template-columns: 14% minmax(0, 1fr) 27%;
-    gap: 3%;
+    grid-template-columns: 14% minmax(0, 1fr) minmax(0, 1fr);
+    gap: 2%;
     align-items: center;
     border-bottom: .38cqw solid var(--business-green);
     padding: 1cqw .6cqw 2.2cqw;
@@ -425,14 +425,15 @@ body,
 .business-header-bar { width:100%; height:.8cqw; margin:1.5cqw 0 0; background:var(--business-gold); }
 .business-year {
     margin: 0;
-    padding-left: 3cqw;
+    min-width: 0;
+    padding-left: 2cqw;
     border-left: .38cqw solid var(--business-gold);
     color: var(--business-green);
     font-size: 5.8cqw;
     line-height: .95;
     font-weight: 800;
     letter-spacing: -.04em;
-    text-align: right;
+    text-align: center;
 }
 .business-year small {
     display:block;
@@ -441,6 +442,10 @@ body,
     line-height:1.25;
     font-weight:800;
     letter-spacing:.09em;
+    white-space:normal;
+}
+.business-year small span {
+    display:block;
     white-space:nowrap;
 }
 .business-fields {
