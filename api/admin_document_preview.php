@@ -35,7 +35,7 @@ $staffRole = (string) ($roleStmt->fetchColumn() ?: '');
 $punongStmt = $pdo->query("SELECT full_name FROM barangay_staff
     WHERE is_active = 1 AND staff_kind = 'official' AND LOWER(TRIM(position_title)) = 'punong barangay'");
 $punongRows = $punongStmt->fetchAll(PDO::FETCH_COLUMN);
-$punongName = count($punongRows) === 1 ? trim((string) $punongRows[0]) : '';
+$punongName = count($punongRows) === 1 ? trim((string) $punongRows[0]) : 'JULIUS AKEEM DE LEON';
 $punongName = $punongName !== ''
     ? (function_exists('mb_strtoupper') ? mb_strtoupper($punongName, 'UTF-8') : strtoupper($punongName))
     : '';
@@ -93,7 +93,19 @@ $formatManilaDate = static function ($value, string $format): string {
         return '';
     }
 };
-$issuedDate = $formatManilaDate($issuance['issued_at'] ?? null, 'F j, Y');
+$issueDate = $manila;
+if (!empty($issuance['issued_at'])) {
+    try {
+        $issueDate = (new DateTimeImmutable((string) $issuance['issued_at'], new DateTimeZone('UTC')))
+            ->setTimezone(new DateTimeZone('Asia/Manila'));
+    } catch (Throwable $ignored) { $issueDate = $manila; }
+}
+$issuedDate = $issueDate->format('F d, Y');
+$issueYear = $issueDate->format('Y');
+$trackingSuffix = strtoupper(substr((string) preg_replace('/[^A-Za-z0-9]/', '', (string) $request['tracking_code']), -4));
+$accountNumber = $issueDate->format('y') . '-' . $trackingSuffix;
+$permitNumber = $issueDate->format('y-m') . '-' . $trackingSuffix;
+$validUntil = 'December 31, ' . $issueDate->format('Y');
 $paidDate = $formatManilaDate($request['payment_reviewed_at'] ?? null, 'Y-m-d');
 $businessClassification = trim($businessActivity);
 if ($businessCategory !== 'Not recorded') {
@@ -108,74 +120,60 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $escape($title) ?> · Sample preview</title>
-    <link rel="stylesheet" href="../document-preview.css?v=20261030-business-clearance-layout-v1">
+    <link rel="stylesheet" href="../document-preview.css?v=20261030-business-clearance-layout-v2">
 </head>
 <body>
     <div class="preview-toolbar" role="region" aria-label="Document preview actions">
         <div><strong>Staff-only sample preview</strong><span>Verify the facts and follow the barangay’s approved form before issuance. Save as PDF through your browser’s Print dialog.</span></div>
         <div class="preview-actions">
-            <?php if ($issuedByRole): ?><button type="button" id="record-sample-issue" data-request-id="<?= (int) $requestId ?>">Record reviewed sample</button><?php endif; ?>
+            <?php if ($issuedByRole): ?><button type="button" id="record-sample-issue" data-request-id="<?= (int) $requestId ?>" data-business="<?= $isBusiness ? 'true' : 'false' ?>"<?= ($isBusiness && $issuance) ? ' disabled' : '' ?>><?= $isBusiness ? ($issuance ? 'Issue date recorded' : 'Record issue date') : 'Record reviewed sample' ?></button><?php endif; ?>
             <button type="button" class="secondary" id="print-document">Print / Save as PDF</button>
         </div>
         <p id="issue-feedback" class="issue-feedback" aria-live="polite"></p>
     </div>
     <?php if ($isBusiness): ?>
-    <main class="paper paper--business" aria-label="Sample barangay business clearance">
-        <svg class="business-watermark" viewBox="0 0 816 880" preserveAspectRatio="none" aria-hidden="true">
-            <defs>
-                <pattern id="business-watermark-pattern" width="300" height="105" patternUnits="userSpaceOnUse" patternTransform="rotate(-19)">
-                    <text x="0" y="38" fill="#d9dfda" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" letter-spacing="1.1">BARANGAY SAN JOSE BUSINESS CLEARANCE</text>
-                    <text x="0" y="88" fill="#d9dfda" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" letter-spacing="1.1">SAMPLE · NOT VALID FOR OFFICIAL USE</text>
-                </pattern>
-            </defs>
-            <rect width="816" height="880" fill="url(#business-watermark-pattern)" />
-        </svg>
-        <img src="../assets/barangay-seal.svg" alt="Barangay San Jose seal" class="business-seal">
-        <p class="business-jurisdiction">Barangay San Jose</p>
-        <h1 class="business-main-heading">Business Permit</h1>
-        <div class="business-header-bar" aria-hidden="true"></div>
-        <p class="business-year"><?= $escape($manila->format('Y')) ?><small>BARANGAY BUSINESS CLEARANCE</small></p>
+    <main class="paper paper--business" aria-label="Barangay business clearance">
+        <header class="business-header">
+            <img src="../assets/barangay-seal.svg" alt="Barangay San Jose seal" class="business-seal">
+            <div class="business-heading">
+                <p class="business-jurisdiction">Barangay San Jose</p>
+                <h1 class="business-main-heading">Business Permit</h1>
+                <div class="business-header-bar" aria-hidden="true"></div>
+            </div>
+            <p class="business-year"><span id="business-year-value"><?= $escape($issueYear) ?></span><small>BARANGAY BUSINESS CLEARANCE</small></p>
+        </header>
 
-        <div class="business-field-label business-label">Business Name</div>
-        <p class="business-value business-value-name"><?= $escape($businessName ?: 'Not recorded') ?></p>
-        <div class="business-field-label owner-label">Business Owner</div>
-        <p class="business-value owner-value"><?= $escape($fullName) ?></p>
-        <div class="business-field-label account-label">Account Number</div>
-        <p class="business-value account-value"><?= $escape($request['tracking_code']) ?></p>
-        <div class="business-field-label address-label">Business Address</div>
-        <p class="business-value address-value"><?= $escape($businessAddress ?: 'Not recorded') ?></p>
-        <div class="business-field-label class-label">Business Classification</div>
-        <p class="business-classification-value"><?= $escape($businessClassification) ?></p>
+        <section class="business-fields" aria-label="Business details">
+            <div class="business-field"><div class="business-field-label">Business Name</div><p class="business-value"><?= $escape($businessName ?: 'Not recorded') ?></p></div>
+            <div class="business-field"><div class="business-field-label">Business Owner</div><p class="business-value"><?= $escape($fullName) ?></p></div>
+            <div class="business-field"><div class="business-field-label">Account Number</div><p class="business-value"><?= $escape($accountNumber) ?></p></div>
+            <div class="business-field"><div class="business-field-label">Business Address</div><p class="business-value"><?= $escape($businessAddress ?: 'Not recorded') ?></p></div>
+            <div class="business-field business-field--wide"><div class="business-field-label">Business Classification</div><p class="business-value"><?= $escape($businessClassification) ?></p></div>
+        </section>
 
-        <p class="business-legal">
-            This clearance is prepared from the business owner’s application and the information declared in the request. The applicant remains responsible for complying with applicable barangay ordinances, national laws, and the requirements of the concerned city or municipal government. This sample does not authorize business operations.
-        </p>
-        <p class="business-warning">
-            SAMPLE ONLY — NOT AN OFFICIAL CLEARANCE. THIS DOCUMENT DOES NOT AUTHORIZE BUSINESS OPERATIONS. Verify all requirements and secure the appropriate permits from the proper government offices.
-        </p>
+        <p class="business-legal">This clearance is prepared from the business owner's application and the information declared in the request. The applicant remains responsible for complying with applicable barangay ordinances, national laws, and the requirements of the concerned city or municipal government. This clearance does not replace a city or municipal business permit. Verify all requirements and secure the appropriate permits from the proper government offices.</p>
 
-        <div class="business-receipt" aria-label="Payment information">
-            <span>Payment reference</span><span class="colon">:</span><span class="entry"><?= $escape($request['payment_reference'] ?: 'Not recorded') ?></span>
-            <span>Date paid</span><span class="colon">:</span><span class="entry"><?= $escape($paidDate ?: 'Not recorded') ?></span>
-            <span>Amount paid</span><span class="colon">:</span><span class="entry"><?= $paid ? '₱ ' . $escape(number_format((float) $request['fee_amount'], 2)) : 'Not recorded' ?></span>
-            <span>Printed date</span><span class="colon">:</span><span class="entry"><?= $escape($manila->format('Y-m-d')) ?></span>
-        </div>
-
-        <div class="business-issued">
-            <p>Reviewed sample recorded:<strong><?= $escape($issuedDate ?: 'Pending staff review') ?></strong></p>
-            <p>Validity period:<strong>To be confirmed by the barangay</strong></p>
-        </div>
-        <div class="business-signatory">
-            <div class="business-signature-line"></div>
-            <p class="business-signatory-name"><?= $escape($punongName ?: 'PUNONG BARANGAY') ?></p>
-            <p class="business-signatory-role">Punong Barangay</p>
-        </div>
-        <div class="business-permit-number">
-            <p class="number-label">Clearance No. · sample</p>
-            <p class="number-value" id="document-number"><?= $escape($documentNumber ?: 'Pending review') ?></p>
-        </div>
+        <section class="business-bottom" aria-label="Issue and payment details">
+            <div class="business-receipt" aria-label="Payment information">
+                <p><span>Payment reference</span><strong><?= $escape($request['payment_reference'] ?: 'Not recorded') ?></strong></p>
+                <p><span>Date paid</span><strong><?= $escape($paidDate ?: 'Not recorded') ?></strong></p>
+                <p><span>Amount paid</span><strong><?= $paid ? '₱ ' . $escape(number_format((float) $request['fee_amount'], 2)) : 'Not recorded' ?></strong></p>
+                <p><span>Printed date</span><strong><?= $escape($manila->format('F d, Y')) ?></strong></p>
+            </div>
+            <div class="business-issued">
+                <p><span>Issued on:</span><strong id="issued-date-value"><?= $escape($issuedDate) ?></strong></p>
+                <p><span>Unless otherwise revoked, valid until:</span><strong id="valid-until-value"><?= $escape($validUntil) ?></strong></p>
+            </div>
+            <div class="business-signatory">
+                <div class="business-signature-wrap"><img src="../assets/julius-signature.png" alt="Signature of Julius Akeem De Leon" class="business-signature-image"><div class="business-signature-line"></div></div>
+                <p class="business-signatory-name"><?= $escape($punongName) ?></p>
+                <p class="business-signatory-role">Punong Barangay</p>
+                <p class="business-permit-label">PERMIT NO.</p>
+                <p class="business-permit-number" id="document-number"><?= $escape($permitNumber) ?></p>
+            </div>
+        </section>
         <div class="business-footer">Serbisyong Tapat · Pamayanang Maunlad</div>
-        <p class="business-sample-note">Staff preview · Sample document · Not valid for official use</p>
+        <p class="business-document-note">Barangay San Jose Digital Portal · Academic project · Not an official government document</p>
     </main>
     <?php else: ?>
     <main class="paper<?= $usesCertificateLayout ? ' paper--indigency' : '' ?>" aria-label="Print-ready document sample">
@@ -254,6 +252,6 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
         <?php endif; ?>
     </main>
     <?php endif; ?>
-    <script src="../document-preview.js" defer></script>
+    <script src="../document-preview.js?v=20261030-business-clearance-v2" defer></script>
 </body>
 </html>

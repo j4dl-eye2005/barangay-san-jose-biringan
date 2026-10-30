@@ -36,8 +36,34 @@ try {
         echo json_encode(['success' => false, 'message' => 'Confirm request approval and payment before recording a reviewed sample.']);
         exit;
     }
+    $isBusiness = str_contains(strtolower(trim((string) $request['document_type'])), 'business');
+    if ($isBusiness) {
+        $existingStmt = $pdo->prepare('SELECT document_number, issued_at FROM document_issuance WHERE request_id = ? ORDER BY issued_at DESC, issuance_id DESC LIMIT 1');
+        $existingStmt->execute([$requestId]);
+        $existing = $existingStmt->fetch(PDO::FETCH_ASSOC);
+        if ($existing) {
+            $existingDate = (new DateTimeImmutable((string) $existing['issued_at'], new DateTimeZone('UTC')))
+                ->setTimezone(new DateTimeZone('Asia/Manila'));
+            $suffix = strtoupper(substr((string) preg_replace('/[^A-Za-z0-9]/', '', (string) $request['tracking_code']), -4));
+            $permitNumber = $existingDate->format('y-m') . '-' . $suffix;
+            $pdo->commit();
+            echo json_encode([
+                'success' => true,
+                'document_number' => $permitNumber,
+                'issued_at' => $existingDate->format(DateTimeInterface::ATOM),
+                'issued_date' => $existingDate->format('F d, Y'),
+                'issued_year' => $existingDate->format('Y'),
+            ]);
+            exit;
+        }
+    }
     $issuedAt = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
-    $documentNumber = 'SJ-SAMPLE-' . $issuedAt->format('Y') . '-' . str_pad((string) $requestId, 8, '0', STR_PAD_LEFT) . '-' . strtoupper(bin2hex(random_bytes(3)));
+    if ($isBusiness) {
+        $suffix = strtoupper(substr((string) preg_replace('/[^A-Za-z0-9]/', '', (string) $request['tracking_code']), -4));
+        $documentNumber = $issuedAt->format('y-m') . '-' . $suffix;
+    } else {
+        $documentNumber = 'SJ-SAMPLE-' . $issuedAt->format('Y') . '-' . str_pad((string) $requestId, 8, '0', STR_PAD_LEFT) . '-' . strtoupper(bin2hex(random_bytes(3)));
+    }
     $payload = json_encode(['template_version' => 1, 'document_number' => $documentNumber, 'prepared_on' => $issuedAt->format('Y-m-d'), 'request' => $request], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
     $hash = hash('sha256', (string) $payload);
     $insert = $pdo->prepare('INSERT INTO document_issuance (request_id, document_number, content_hash, issued_by_user_id, issued_at) VALUES (?, ?, ?, ?, UTC_TIMESTAMP())');
@@ -45,7 +71,13 @@ try {
     $audit = $pdo->prepare("INSERT INTO audit_log (user_id, action, details) VALUES (?, 'sample_document_recorded', ?)");
     $audit->execute([(int) $_SESSION['user_id'], 'Reviewed sample print recorded for request ID ' . $requestId . '; document number ' . $documentNumber]);
     $pdo->commit();
-    echo json_encode(['success' => true, 'document_number' => $documentNumber, 'issued_at' => $issuedAt->format(DateTimeInterface::ATOM)]);
+    echo json_encode([
+        'success' => true,
+        'document_number' => $documentNumber,
+        'issued_at' => $issuedAt->format(DateTimeInterface::ATOM),
+        'issued_date' => $issuedAt->format('F d, Y'),
+        'issued_year' => $issuedAt->format('Y'),
+    ]);
 } catch (Throwable $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('Reviewed sample document record failed.');
