@@ -57,6 +57,39 @@ function logPortalMailFailure(string $reason): void
     }
 }
 
+/** Start the CLI worker without holding up the page request; cron remains the fallback. */
+function startPortalEmailQueueWorker(): void
+{
+    static $started = false;
+    if ($started || PHP_SAPI === 'cli') return;
+    $started = true;
+
+    $disabled = array_filter(array_map('trim', explode(',', (string) ini_get('disable_functions'))));
+    $worker = __DIR__ . DIRECTORY_SEPARATOR . 'process_mail_queue.php';
+    $php = PHP_BINARY;
+    if ($php === '' || !is_file($worker)) return;
+
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $host = preg_replace('/:\\d+$/', '', $host) ?? $host;
+    $localArg = in_array($host, ['localhost', '127.0.0.1', '::1', '[::1]'], true) ? ' --local' : '';
+
+    try {
+        if (PHP_OS_FAMILY === 'Windows') {
+            if (!function_exists('popen') || in_array('popen', $disabled, true)) return;
+            $command = 'start "" /B ' . escapeshellarg($php) . ' ' . escapeshellarg($worker) . $localArg . ' > NUL 2>&1';
+            $process = @popen($command, 'r');
+            if (is_resource($process)) @pclose($process);
+            return;
+        }
+
+        if (!function_exists('exec') || in_array('exec', $disabled, true)) return;
+        $command = escapeshellarg($php) . ' ' . escapeshellarg($worker) . $localArg . ' </dev/null >/dev/null 2>&1 &';
+        @exec($command);
+    } catch (Throwable $error) {
+        error_log('Portal mail queue worker could not be started; scheduled worker remains available.');
+    }
+}
+
 /** Persist an email for asynchronous delivery by api/process_mail_queue.php. */
 function queuePortalEmail(PDO $pdo, string $recipient, string $subject, string $message, ?string $htmlMessage = null, ?string &$error = null): bool
 {
@@ -68,6 +101,7 @@ function queuePortalEmail(PDO $pdo, string $recipient, string $subject, string $
     try {
         $stmt = $pdo->prepare("INSERT INTO portal_email_queue (recipient, subject, text_body, html_body, status, attempts, available_at) VALUES (?, ?, ?, ?, 'queued', 0, UTC_TIMESTAMP())");
         $stmt->execute([$recipient, $subject, $message, $htmlMessage]);
+        startPortalEmailQueueWorker();
         return true;
     } catch (Throwable $e) {
         $error = $e->getMessage();

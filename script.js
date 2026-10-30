@@ -1538,6 +1538,18 @@ function residentEmailDeliveryNotice(result) {
     return { text: ' The update was saved, but no resident email could be sent. Check SMTP settings and the resident account email.', type: 'error' };
 }
 
+function dispatchQueuedEmailInBackground(permission) {
+    if (!['requests.manage', 'payments.manage'].includes(permission)) return;
+    try {
+        void fetch('api/process_mail_queue.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ permission }),
+            keepalive: true
+        }).catch(() => {});
+    } catch { /* The queued job remains available to the scheduled CLI worker. */ }
+}
+
 const portalSearchDocuments = [
     { title: 'Barangay Clearance', requestName: 'Barangay Clearance' },
     { title: 'Certificate of Residency', requestName: 'Certificate of Residency' },
@@ -6721,6 +6733,7 @@ async function updateAdminRequestPayment(requestId, paymentStatus, button, refer
         const result = await response.json();
         if (!response.ok || !result.success) throw new Error(result.message || 'Could not update payment status.');
         const notice = residentEmailDeliveryNotice(result);
+        if (result.emailDelivery === 'queued') dispatchQueuedEmailInBackground('payments.manage');
         showToast((paymentStatus === 'Paid' ? 'In-person payment recorded.' : 'Cash payment reversed.') + notice.text, notice.type);
         if (currentUser?.staffRole === 'cashier') await loadAdminCollections();
         else await openAdminRequestDetail(requestId);
@@ -6741,6 +6754,7 @@ async function saveAdminPaymentReview(requestId, action, reason = '') {
         const result = await response.json();
         if (!response.ok || !result.success) throw new Error(result.message || 'Payment review could not be saved.');
         const notice = residentEmailDeliveryNotice(result);
+        if (result.emailDelivery === 'queued') dispatchQueuedEmailInBackground('payments.manage');
         showToast((action === 'verify' ? 'Payment verified.' : 'Payment proof rejected.') + notice.text, notice.type);
         invalidateAdminPanelCache('activity');
         if (currentUser?.staffRole === 'cashier') await loadAdminCollections();
@@ -7068,6 +7082,7 @@ async function sendProcessRequest(id, action, details) {
         if (res.ok && result.success) {
             const messages = { Approve: 'Request approved.', Reject: 'Request rejected.', Ready: 'Request marked ready for pickup.', Pickup: 'Request marked as picked up.' };
             const notice = residentEmailDeliveryNotice(result);
+            if (result.emailDelivery === 'queued') dispatchQueuedEmailInBackground('requests.manage');
             showToast((messages[action] || 'Request updated.') + notice.text, notice.type);
             invalidateAdminPanelCache('overview', 'activity');
             loadAdminData();
@@ -7465,6 +7480,7 @@ async function assessCollectionFee(requestId, button = null) {
         let result = {};
         try { result = responseText ? JSON.parse(responseText) : {}; } catch { /* handled as an invalid server response below */ }
         if (!response.ok || !result.success) throw new Error(result.message || 'Fee could not be saved.');
+        if (result.emailDelivery === 'queued') dispatchQueuedEmailInBackground('payments.manage');
         invalidateAdminPanelCache('collections');
         try {
             await loadAdminCollections();

@@ -1,21 +1,38 @@
 <?php
 declare(strict_types=1);
 
-if (PHP_SAPI !== 'cli') {
-    http_response_code(404);
-    exit;
-}
-
-// Local runs can pass --local; production cron omits it and uses DB_* settings.
-if (in_array('--local', $argv ?? [], true)) {
-    $_SERVER['HTTP_HOST'] = 'localhost';
-    $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
+$isWebDispatch = PHP_SAPI !== 'cli';
+if ($isWebDispatch) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, private');
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+        http_response_code(405);
+        echo json_encode(['success' => false, 'message' => 'POST request required.']);
+        exit;
+    }
+} else {
+    // Local runs can pass --local; production cron omits it and uses DB_* settings.
+    if (in_array('--local', $argv ?? [], true)) {
+        $_SERVER['HTTP_HOST'] = 'localhost';
+        $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
+    }
 }
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/email.php';
 
-$maxJobs = 20;
+if ($isWebDispatch) {
+    $dispatch = jsonBody(1024);
+    $permission = is_string($dispatch['permission'] ?? null) ? $dispatch['permission'] : '';
+    if (!in_array($permission, ['requests.manage', 'payments.manage'], true)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid mail queue dispatch.']);
+        exit;
+    }
+    requireAdminAccess($permission);
+}
+
+$maxJobs = $isWebDispatch ? 1 : 20;
 $processed = 0;
 $retryDelays = [60, 300, 900, 3600];
 $pdo->exec("UPDATE portal_email_queue SET status = 'failed', text_body = NULL, html_body = NULL, locked_at = NULL, last_error = COALESCE(last_error, 'Worker stopped before delivery') WHERE status = 'processing' AND locked_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE) AND attempts >= 5");
@@ -58,9 +75,18 @@ while ($processed < $maxJobs) {
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         error_log('Mail queue worker stopped after a processing error.');
-        fwrite(STDERR, "Mail queue worker stopped with an error. See the PHP error log.\n");
+        if ($isWebDispatch) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'The queued email could not be processed.']);
+        } else {
+            fwrite(STDERR, "Mail queue worker stopped with an error. See the PHP error log.\n");
+        }
         exit(1);
     }
 }
 
-fwrite(STDOUT, "Processed $processed queued email(s).\n");
+if ($isWebDispatch) {
+    echo json_encode(['success' => true, 'processed' => $processed]);
+} else {
+    fwrite(STDOUT, "Processed $processed queued email(s).\n");
+}
