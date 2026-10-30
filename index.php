@@ -211,7 +211,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <link rel="stylesheet" href="css/public.css?v=20261016-sticky-menu-stable">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin-tables.css?v=20261028-mobile-collections-staff-directory-v1">
     <link rel="stylesheet" href="css/shared-responsive.css?v=20261028-mobile-proof-row-v1">
-    <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261030-request-actions-wrap-v1">
+    <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261030-request-mobile-refinements-v3">
     <link data-portal-route-css="unavailable" data-portal-css-href="css/unavailable.css?v=20261023-mobile-404-wrap-v2">
     <link rel="stylesheet" href="css/portal-public.css?v=20261030-payment-instructions-email-v1">
     <link rel="stylesheet" href="css/record-spa.css?v=20261028-record-spa-sk-maroon-v2">
@@ -1350,7 +1350,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <?php require __DIR__ . '/includes/shared/site-footer.php'; ?>
 
     <?php require __DIR__ . '/includes/shared/dialogs.php'; ?>    <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true">Message</div>
-    <script src="script.js?v=20261028-announcements-layout-v3-payment-receipt-staff-directory-v1-requests-mobile-ux-v2-record-spa-v1" defer></script>
+    <script src="script.js?v=20261030-request-fee-tba-v1" defer></script>
 </body>
 </html>
 

@@ -2766,7 +2766,7 @@ async function openProofPreview(path, request) {
     if (isPdf) {
         media = el('object', {
             className: 'proof-preview-media proof-preview-pdf',
-            attrs: { data: path, type: 'application/pdf', 'aria-label': title }
+            attrs: { data: window.matchMedia('(max-width: 767px)').matches ? `${path}#view=FitH` : path, type: 'application/pdf', 'aria-label': title }
         }, [
             el('p', { className: 'proof-preview-fallback' }, [
                 'Preview unavailable. ',
@@ -2824,17 +2824,18 @@ async function openProofPreview(path, request) {
 
     let zoom = 1;
     const zoomLabel = el('span', { className: 'proof-preview-zoom-label', text: '100%' });
+    const setProofZoom = value => {
+        zoom = Math.min(3, Math.max(0.5, Math.round(value * 100) / 100));
+        if (isImage) media.style.transform = `scale(${zoom})`;
+        zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
+    };
     const viewerControls = el('div', { className: 'proof-preview-controls' }, [
         el('button', { className: 'proof-preview-control', text: '−', attrs: { type: 'button', 'aria-label': 'Zoom out' }, on: { click: () => {
-            zoom = Math.max(0.5, Math.round((zoom - 0.25) * 100) / 100);
-            if (isImage) media.style.transform = `scale(${zoom})`;
-            zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
+            setProofZoom(zoom - 0.25);
         } } }),
         zoomLabel,
         el('button', { className: 'proof-preview-control', text: '+', attrs: { type: 'button', 'aria-label': 'Zoom in' }, on: { click: () => {
-            zoom = Math.min(3, Math.round((zoom + 0.25) * 100) / 100);
-            if (isImage) media.style.transform = `scale(${zoom})`;
-            zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
+            setProofZoom(zoom + 0.25);
         } } }),
         el('a', { className: 'proof-preview-open-link', attrs: { href: path, target: '_blank', rel: 'noopener noreferrer' } }, [
             el('i', { className: 'fas fa-arrow-up-right-from-square', attrs: { 'aria-hidden': 'true' } }), ' Open in new tab'
@@ -2842,9 +2843,53 @@ async function openProofPreview(path, request) {
     ]);
     if (!isImage) viewerControls.querySelectorAll('button').forEach(button => { button.disabled = true; });
 
+    const imageWrap = el('div', { className: `proof-preview-image-wrap${isImage ? ' is-image' : ''}${isPdf ? ' is-pdf' : ''}` }, [media]);
+    if (isImage && window.matchMedia('(max-width: 767px)').matches) {
+        const activePointers = new Map();
+        let pinchStartDistance = 0;
+        let pinchStartZoom = 1;
+        let panStart = null;
+        const distanceBetween = points => Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+        imageWrap.addEventListener('pointerdown', event => {
+            if (event.pointerType !== 'touch') return;
+            activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+            imageWrap.setPointerCapture?.(event.pointerId);
+            if (activePointers.size === 2) {
+                pinchStartDistance = distanceBetween([...activePointers.values()]);
+                pinchStartZoom = zoom;
+                panStart = null;
+            } else {
+                panStart = { x: event.clientX, y: event.clientY, left: imageWrap.scrollLeft, top: imageWrap.scrollTop };
+            }
+        });
+        imageWrap.addEventListener('pointermove', event => {
+            if (!activePointers.has(event.pointerId)) return;
+            activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+            if (activePointers.size >= 2) {
+                const distance = distanceBetween([...activePointers.values()].slice(0, 2));
+                if (pinchStartDistance > 0) setProofZoom(pinchStartZoom * distance / pinchStartDistance);
+            } else if (panStart) {
+                imageWrap.scrollLeft = panStart.left - (event.clientX - panStart.x);
+                imageWrap.scrollTop = panStart.top - (event.clientY - panStart.y);
+            }
+        });
+        const finishPointer = event => {
+            activePointers.delete(event.pointerId);
+            if (activePointers.size === 1) {
+                const [point] = activePointers.values();
+                panStart = { x: point.x, y: point.y, left: imageWrap.scrollLeft, top: imageWrap.scrollTop };
+            } else {
+                panStart = null;
+            }
+            if (activePointers.size < 2) pinchStartDistance = 0;
+        };
+        imageWrap.addEventListener('pointerup', finishPointer);
+        imageWrap.addEventListener('pointercancel', finishPointer);
+    }
+
     const viewer = el('section', { className: 'proof-preview-viewer', attrs: { 'aria-label': proofTitle } }, [
         viewerControls,
-        el('div', { className: 'proof-preview-image-wrap' }, [media])
+        imageWrap
     ]);
 
     const dialog = el('div', {
@@ -5539,7 +5584,7 @@ function renderResidentRequestList(requests = residentRequestItems) {
             fee === 0
                 ? el('span', { className: 'payment-status-chip payment-free', text: 'No payment required' })
                 : fee === null
-                    ? el('span', { className: 'payment-status-chip payment-unpaid', text: 'Fee to be confirmed' })
+                    ? el('span', { className: 'payment-status-chip payment-unpaid', text: 'TBA' })
                     : el('span', { className: `payment-status-chip ${paymentStatusClass(paymentStatus)}`, text: paymentStatus })
         ]);
         item.appendChild(paymentRow);
@@ -6564,8 +6609,16 @@ function renderAdminRequests() {
                 el('strong', { className: 'admin-request-mobile-tracking', text: tracking }),
                 el('button', { className: 'request-tracking-copy', attrs: { type: 'button', 'aria-label': `Copy tracking number ${tracking}`, title: 'Copy tracking number' }, on: { click: () => copyRequestTracking(tracking) } }, [el('i', { className: 'fas fa-copy', attrs: { 'aria-hidden': 'true' } })])
             ]);
+            const mobileResident = el('div', { className: 'admin-request-mobile-resident' }, [
+                el('span', { text: r.residentName || 'Resident' }),
+                r.request_source === 'walk_in' ? el('small', { className: 'request-source-label', text: 'Walk-in / face-to-face' }) : null
+            ]);
+            const mobileMeta = el('div', { className: 'admin-request-mobile-meta' }, [
+                mobileTracking,
+                el('div', { className: 'admin-request-mobile-date', text: `Requested ${formatDate(r.created_at)}` })
+            ]);
             mobileList.appendChild(el('article', {
-                className: 'admin-request-mobile-card',
+                className: `admin-request-mobile-card${r.current_status === 'Pending' ? ' is-pending' : ''}`,
                 attrs: { tabindex: '0', role: 'group', 'aria-label': `Open request ${tracking} for ${r.residentName}` },
                 on: {
                     click: event => { if (!event.target.closest('button, a')) openRequest(); },
@@ -6578,16 +6631,12 @@ function renderAdminRequests() {
                 }
             }, [
                 el('div', { className: 'admin-request-mobile-top' }, [
-                    mobileTracking
-                ]),
-                el('div', { className: 'admin-request-mobile-resident' }, [
-                    el('span', { text: r.residentName || 'Resident' }),
-                    r.request_source === 'walk_in' ? el('small', { className: 'request-source-label', text: 'Walk-in / face-to-face' }) : null
+                    mobileResident,
+                    el('span', { className: statusClass(r.current_status), text: r.current_status, attrs: { 'aria-label': `Request status: ${r.current_status}` } })
                 ]),
                 el('div', { className: 'admin-request-mobile-document', text: r.documentType || 'Document' }),
-                el('div', { className: 'admin-request-mobile-date', text: `Requested ${formatDate(r.created_at)}` }),
+                mobileMeta,
                 el('div', { className: 'admin-request-mobile-statuses', attrs: { 'aria-label': 'Request and payment status' } }, [
-                    el('span', { className: statusClass(r.current_status), text: r.current_status, attrs: { 'aria-label': `Request status: ${r.current_status}` } }),
                     el('span', { className: paymentPillClass, text: `Payment: ${fee === 0 ? 'Not required' : paymentStatus}` })
                 ]),
                 mobileProofActions
@@ -6802,7 +6851,7 @@ async function openAdminRequestDetail(requestId) {
             actionGroup.appendChild(el('span', {
                 className: 'request-detail-disabled-action',
                 attrs: { tabindex: '0', 'data-tooltip': paymentBlockReason, 'aria-label': paymentBlockReason }
-            }, [button]));
+            }, [button, mobileRequestDetail ? el('small', { className: 'request-detail-disabled-reason', text: paymentBlockReason }) : null]));
         };
         if (staffHasPermission('requests.manage')) {
             if (request.current_status === 'Pending') {

@@ -3106,6 +3106,113 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
     }
 }
 
+/* Keep the Requests queue proof and action controls inside dedicated columns. */
+@media (min-width: 768px) {
+    #admin-dashboard #admin-requests-panel .request-admin-table-wrap {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        overscroll-behavior-x: contain;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table {
+        width: 100% !important;
+        min-width: 1600px !important;
+        table-layout: fixed !important;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(1),
+    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(1) { width: 15% !important; }
+    #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(2),
+    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(2) { width: 17% !important; }
+    #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(3),
+    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(3) { width: 12% !important; }
+    #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(4),
+    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(4) { width: 7% !important; }
+    #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(5),
+    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(5) { width: 9% !important; }
+    #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(6),
+    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(6) { width: 10% !important; }
+    #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(7),
+    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(7) {
+        width: 8% !important;
+        padding-right: 14px !important;
+        padding-left: 14px !important;
+        text-align: left !important;
+        white-space: nowrap !important;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(8),
+    #admin-dashboard #admin-requests-panel .request-admin-table td:nth-child(8) {
+        width: 22% !important;
+        padding-right: 16px !important;
+        padding-left: 12px !important;
+        text-align: right !important;
+        white-space: nowrap !important;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table tbody tr:not(.table-empty-row),
+    #admin-dashboard #admin-requests-panel .request-admin-table tbody tr:not(.table-empty-row) > td {
+        height: 64px !important;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table tbody tr:not(.table-empty-row) > td[data-label="Resident"],
+    #admin-dashboard #admin-requests-panel .request-admin-table tbody tr:not(.table-empty-row) > td[data-label="Document"] {
+        overflow: hidden !important;
+        overflow-wrap: anywhere !important;
+        text-overflow: clip !important;
+        white-space: normal !important;
+        line-height: 1.35;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table tbody tr:not(.table-empty-row) > td[data-label="Resident"] > span {
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow-wrap: anywhere;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table .request-proof-view {
+        box-sizing: border-box;
+        display: inline-flex;
+        height: 30px;
+        min-height: 30px;
+        align-items: center;
+        justify-content: center;
+        padding: 0 7px;
+        border-radius: 5px;
+        white-space: nowrap;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(7) { text-align: left !important; }
+    #admin-dashboard #admin-requests-panel .request-admin-table th:nth-child(8) { text-align: right !important; }
+    #admin-dashboard #admin-requests-panel .request-admin-table td[data-label="Actions"] > .table-action-group {
+        box-sizing: border-box;
+        display: flex;
+        width: 100%;
+        align-items: center;
+        justify-content: flex-end;
+        flex-wrap: nowrap !important;
+        gap: 7px;
+        overflow: visible;
+        white-space: nowrap !important;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table .table-action-group > .action-btn,
+    #admin-dashboard #admin-requests-panel .request-admin-table .table-action-group > .request-disabled-action-tooltip > .action-btn,
+    #admin-dashboard #admin-requests-panel .request-admin-table .request-row-view {
+        box-sizing: border-box;
+        height: 30px;
+        min-height: 30px !important;
+        padding-right: 7px !important;
+        padding-left: 7px !important;
+        border-radius: 5px !important;
+        font-size: 10px !important;
+        line-height: 1;
+        white-space: nowrap;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table .request-row-view {
+        min-width: 0 !important;
+        border: 1px solid #cbd4cb !important;
+        background: #fff !important;
+        color: #285b3a !important;
+    }
+    #admin-dashboard #admin-requests-panel .request-admin-table .table-action-group > .btn-reject { margin-left: 4px; }
+}
+
 /* Keep request filters and mobile card actions fully visible and clearly named. */
 #admin-dashboard #admin-requests-panel .request-filter-count {
     display: inline-flex;
@@ -3266,4 +3373,351 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
         cursor: not-allowed;
         opacity: 1;
     }
+}
+
+/* Focused mobile refinements for the admin request queue, detail, and proof viewer. */
+@media (max-width: 767px) {
+    #admin-dashboard #admin-requests-panel .request-table-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 14px;
+    }
+    #admin-dashboard #admin-requests-panel .request-table-controls > .request-search-field { order: 1; width: 100%; max-width: none; }
+    #admin-dashboard #admin-requests-panel .request-search-field > input,
+    #admin-dashboard #admin-requests-panel .request-payment-filter select {
+        box-sizing: border-box;
+        height: 44px;
+        min-height: 44px;
+    }
+    #admin-dashboard #admin-requests-panel .request-status-tabs {
+        order: 2;
+        display: flex;
+        width: auto;
+        flex: 0 0 auto;
+        flex-wrap: nowrap;
+        gap: 8px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        margin-right: -16px;
+        padding: 0 16px 2px 0;
+        scrollbar-width: none;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+    #admin-dashboard #admin-requests-panel .request-status-tabs::-webkit-scrollbar { display: none; }
+    #admin-dashboard #admin-requests-panel .request-status-tabs > .request-filter {
+        display: inline-flex;
+        width: auto;
+        min-width: max-content;
+        height: 44px;
+        min-height: 44px;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 0 13px;
+        border: 1px solid #66736a !important;
+        border-radius: 999px !important;
+        background: #fff !important;
+        color: #26332b !important;
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    #admin-dashboard #admin-requests-panel .request-status-tabs > .request-filter.active,
+    #admin-dashboard #admin-requests-panel .request-status-tabs > .request-filter.active:hover {
+        border-color: #0c5700 !important;
+        background: #0c5700 !important;
+        color: #fff !important;
+    }
+    #admin-dashboard #admin-requests-panel .request-filter-count {
+        min-width: 20px;
+        height: 20px;
+        margin: 0;
+        padding: 0 5px;
+        border-radius: 999px;
+        background: #edf2ed;
+        color: #314138;
+        font-size: 11px;
+        line-height: 20px;
+    }
+    #admin-dashboard #admin-requests-panel .request-filter.active .request-filter-count { background: rgb(255 255 255 / 20%); color: #fff; }
+    #admin-dashboard #admin-requests-panel .request-payment-filter {
+        order: 3;
+        width: 100%;
+        max-width: none;
+        gap: 3px;
+        color: #58645d;
+        font-size: 11px;
+        line-height: 1.2;
+    }
+
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-list { gap: 12px; }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-card {
+        gap: 0;
+        padding: 16px;
+        border-color: #d9e0d9;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-card.is-pending {
+        border-left: 3px solid #d29a2e;
+        padding-left: 14px;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-top {
+        align-items: center;
+        gap: 10px;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-resident {
+        display: flex;
+        min-width: 0;
+        flex: 1 1 auto;
+        flex-direction: column;
+        gap: 3px;
+        margin: 0;
+        color: #202a23;
+        font-size: 16px;
+        font-weight: 650;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-resident .request-source-label { font-size: 11px; font-weight: 500; }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-top > .status-badge {
+        min-height: 26px;
+        flex: 0 0 auto;
+        margin: 0;
+        padding: 5px 9px;
+        font-size: 11px;
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-document {
+        margin-top: 5px;
+        color: #414d45;
+        font-size: 14px;
+        line-height: 1.4;
+        overflow-wrap: anywhere;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-meta {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        margin-top: 7px;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-tracking-wrap {
+        min-width: 0;
+        flex: 0 1 auto;
+        align-items: center;
+        gap: 5px;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-tracking {
+        color: #39453e;
+        font-size: 12px;
+        font-weight: 650;
+        line-height: 1.3;
+        overflow-wrap: anywhere;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-tracking-wrap > .request-tracking-copy {
+        width: 30px;
+        height: 30px;
+        min-height: 30px;
+        flex: 0 0 30px;
+        font-size: 12px;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-date {
+        flex: 1 1 145px;
+        margin: 0;
+        color: #58645d;
+        font-size: 13px;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-statuses {
+        display: flex;
+        margin-top: 9px;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-statuses .payment-status-chip {
+        min-height: 25px;
+        padding: 4px 9px;
+        font-size: 11px;
+        line-height: 1.3;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-actions {
+        display: flex;
+        width: 100%;
+        flex-wrap: nowrap;
+        gap: 8px;
+        margin-top: 13px;
+        padding-top: 12px;
+        border-top: 1px solid #e1e6e1;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-actions > button {
+        box-sizing: border-box;
+        width: 0;
+        min-width: 0;
+        height: 44px;
+        min-height: 44px;
+        flex: 1 1 0;
+        padding: 0 8px;
+        font-size: 13px;
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-actions > .admin-request-mobile-proof {
+        border-color: #176b2c;
+        color: #145b25;
+    }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-actions > .admin-request-mobile-view { border-color: #075a12; }
+    #admin-dashboard #admin-requests-panel .admin-request-mobile-actions > button:only-child { flex-basis: 100%; }
+
+    #admin-request-detail-panel .request-detail-header-controls { width: 100%; }
+    #admin-request-detail-panel .request-detail-actions {
+        display: flex;
+        width: 100%;
+        align-items: stretch;
+        flex-direction: column;
+        gap: 10px;
+        margin: 0;
+    }
+    #admin-request-detail-panel .request-detail-actions > .action-btn,
+    #admin-request-detail-panel .request-detail-actions > .request-detail-disabled-action,
+    #admin-request-detail-panel .request-detail-actions > .request-detail-disabled-action > .action-btn {
+        box-sizing: border-box;
+        width: 100%;
+        min-width: 0;
+        min-height: 46px;
+        height: 46px;
+        justify-content: center;
+        text-align: center;
+    }
+    #admin-request-detail-panel .request-detail-actions > .request-detail-disabled-action {
+        height: auto;
+        flex: 0 0 auto;
+        flex-direction: column;
+        align-items: stretch;
+        border-radius: 0;
+    }
+    #admin-request-detail-panel .request-detail-disabled-action::after { display: none; }
+    #admin-request-detail-panel .request-detail-disabled-reason {
+        display: block;
+        margin: 7px 0 0;
+        color: #657069;
+        font-size: 12px;
+        font-weight: 400;
+        line-height: 1.4;
+        text-align: left;
+    }
+    #admin-request-detail-panel .request-tracking-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    #admin-request-detail-panel .request-detail-copy {
+        width: 36px;
+        min-width: 36px;
+        height: 36px;
+        min-height: 36px;
+        border: 1px solid #176b2c;
+        border-radius: 7px;
+        background: #fff;
+    }
+    #admin-request-detail-panel .request-detail-copy-tooltip {
+        top: 50%;
+        left: calc(100% + 7px);
+        transform: translate(-3px, -50%);
+        white-space: nowrap;
+    }
+    #admin-request-detail-panel .request-detail-copy.is-copied .request-detail-copy-tooltip,
+    #admin-request-detail-panel .request-detail-copy.is-copy-failed .request-detail-copy-tooltip { transform: translate(0, -50%); }
+    #admin-request-detail-panel .request-detail-dl > div { grid-template-columns: 138px minmax(0, 1fr); gap: 12px; }
+    #admin-request-detail-panel .request-detail-dl dt { color: #4b5750; font-size: 13px; font-weight: 600; white-space: nowrap; }
+    #admin-request-detail-panel .request-detail-dl dd { color: #252b27; font-size: 14px; line-height: 1.5; }
+    #admin-request-detail-panel .request-detail-proof-row { margin-top: 20px; }
+    #admin-request-detail-panel .request-detail-proof-row .request-proof-view {
+        display: flex;
+        width: 100%;
+        min-height: 46px;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 12px;
+    }
+
+    .proof-preview-box { overflow: hidden; }
+    .proof-preview-head {
+        position: sticky;
+        z-index: 2;
+        top: 0;
+        min-height: 52px;
+        padding: 6px 12px;
+        background: var(--color-surface);
+    }
+    .proof-preview-close {
+        width: 44px;
+        height: 44px;
+        min-height: 44px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        font-size: 24px;
+    }
+    .proof-preview-close:hover { border: 0; background: #f1f4f1; color: var(--color-ink); }
+    .proof-preview-body { gap: 12px; padding: 10px; }
+    .proof-preview-resident {
+        flex: 0 1 auto;
+        max-height: min(36dvh, 260px);
+        padding: 13px;
+    }
+    .proof-preview-resident h3 { margin-bottom: 12px; font-size: 15px; font-weight: 650; }
+    .proof-preview-info-row {
+        grid-template-columns: 84px minmax(0, 1fr);
+        align-items: start;
+        column-gap: 10px;
+        margin-top: 9px;
+    }
+    .proof-preview-info-row > span { color: #56625b; font-size: 13px; font-weight: 600; }
+    .proof-preview-info-row > strong { color: #272e29; font-size: 13px; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; }
+    .proof-preview-viewer { flex: 0 1 auto; gap: 9px; }
+    .proof-preview-controls { width: 100%; min-height: 40px; gap: 7px; }
+    .proof-preview-control { width: 40px; height: 40px; min-height: 40px; flex: 0 0 40px; }
+    .proof-preview-zoom-label { min-width: 34px; text-align: center; }
+    .proof-preview-open-link {
+        display: inline-flex;
+        min-width: 0;
+        height: 40px;
+        min-height: 40px;
+        flex: 0 1 auto;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        margin-left: auto;
+        padding: 0 9px;
+        white-space: nowrap;
+    }
+    .proof-preview-image-wrap {
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 0;
+        border-color: #d8dfd9;
+        background: #f0f2f1;
+    }
+    .proof-preview-image-wrap.is-image {
+        display: flex;
+        flex: 0 1 auto;
+        align-items: flex-start;
+        justify-content: center;
+        max-height: max(140px, calc(100dvh - 360px));
+        overflow: auto;
+        padding: 12px;
+        touch-action: none;
+        overscroll-behavior: contain;
+    }
+    .proof-preview-image-wrap.is-image .proof-preview-media {
+        width: 100%;
+        height: auto;
+        max-width: 100%;
+        max-height: none;
+        flex: 0 0 auto;
+        margin: 0;
+        transform-origin: left top;
+        transition: transform .1s ease-out;
+    }
+    .proof-preview-image-wrap.is-pdf { flex: 1 1 auto; overflow: hidden; padding: 0; }
+    .proof-preview-image-wrap.is-pdf .proof-preview-pdf { width: 100%; height: 100%; min-height: 300px; }
 }
