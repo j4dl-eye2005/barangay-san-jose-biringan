@@ -18,6 +18,17 @@ if ($isWebDispatch) {
     }
 }
 
+$workerQueueIds = [];
+if (!$isWebDispatch) {
+    foreach ($argv ?? [] as $argument) {
+        if (!str_starts_with($argument, '--queue-ids=')) continue;
+        foreach (explode(',', substr($argument, strlen('--queue-ids='))) as $value) {
+            if (preg_match('/^[1-9][0-9]*$/', $value)) $workerQueueIds[] = (int) $value;
+        }
+    }
+    $workerQueueIds = array_values(array_unique($workerQueueIds));
+}
+
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/email.php';
 
@@ -53,7 +64,7 @@ if ($isWebDispatch) {
     if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
 }
 
-$maxJobs = $isWebDispatch ? 1 : 20;
+$maxJobs = $isWebDispatch ? 1 : ($workerQueueIds ? count($workerQueueIds) : 20);
 $processed = 0;
 $sentCount = 0;
 $retryCount = 0;
@@ -65,15 +76,23 @@ $pdo->exec("DELETE FROM portal_email_queue WHERE status = 'sent' AND sent_at < D
 while ($processed < $maxJobs) {
     try {
         $pdo->beginTransaction();
+        $queueFilter = '';
+        $selectParams = [];
+        if ($isWebDispatch) {
+            $queueFilter = 'AND queue_id = ? ';
+            $selectParams[] = $workerQueueId;
+        } elseif ($workerQueueIds) {
+            $queueFilter = 'AND queue_id IN (' . implode(',', array_fill(0, count($workerQueueIds), '?')) . ') ';
+            $selectParams = $workerQueueIds;
+        }
         $query = "SELECT queue_id, recipient, subject, text_body, html_body, attempts
             FROM portal_email_queue
             WHERE ((status = 'queued' AND available_at <= UTC_TIMESTAMP() AND attempts < 5)
                 OR (status = 'processing' AND locked_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE) AND attempts < 5))
-            " . ($isWebDispatch ? 'AND queue_id = ? ' : '')
+            $queueFilter"
             . ($isWebDispatch && $workerRecipient !== null ? 'AND recipient = ? ' : '') . "
             ORDER BY queue_id ASC LIMIT 1 FOR UPDATE";
         $select = $pdo->prepare($query);
-        $selectParams = $isWebDispatch ? [$workerQueueId] : [];
         if ($isWebDispatch && $workerRecipient !== null) $selectParams[] = $workerRecipient;
         $select->execute($selectParams);
         $job = $select->fetch();

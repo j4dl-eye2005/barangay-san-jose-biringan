@@ -57,12 +57,11 @@ function logPortalMailFailure(string $reason): void
     }
 }
 
-/** Start the CLI worker without holding up the page request; cron remains the fallback. */
-function startPortalEmailQueueWorker(): void
+/** Start a CLI worker for only the messages created by this request. */
+function startPortalEmailQueueWorker(array $queueIds): void
 {
-    static $started = false;
-    if ($started || PHP_SAPI === 'cli') return;
-    $started = true;
+    $queueIds = array_values(array_unique(array_filter(array_map('intval', $queueIds), static fn(int $id): bool => $id > 0)));
+    if (!$queueIds || PHP_SAPI === 'cli') return;
 
     $disabled = array_filter(array_map('trim', explode(',', (string) ini_get('disable_functions'))));
     $worker = __DIR__ . DIRECTORY_SEPARATOR . 'process_mail_queue.php';
@@ -85,18 +84,19 @@ function startPortalEmailQueueWorker(): void
     $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
     $host = preg_replace('/:\\d+$/', '', $host) ?? $host;
     $localArg = in_array($host, ['localhost', '127.0.0.1', '::1', '[::1]'], true) ? ' --local' : '';
+    $queueArg = ' --queue-ids=' . escapeshellarg(implode(',', $queueIds));
 
     try {
         if (PHP_OS_FAMILY === 'Windows') {
             if (!function_exists('popen') || in_array('popen', $disabled, true)) return;
-            $command = 'start "" /B ' . escapeshellarg($php) . ' ' . escapeshellarg($worker) . $localArg . ' > NUL 2>&1';
+            $command = 'start "" /B ' . escapeshellarg($php) . ' ' . escapeshellarg($worker) . $queueArg . $localArg . ' > NUL 2>&1';
             $process = @popen($command, 'r');
             if (is_resource($process)) @pclose($process);
             return;
         }
 
         if (!function_exists('exec') || in_array('exec', $disabled, true)) return;
-        $command = escapeshellarg($php) . ' ' . escapeshellarg($worker) . $localArg . ' </dev/null >/dev/null 2>&1 &';
+        $command = escapeshellarg($php) . ' ' . escapeshellarg($worker) . $queueArg . $localArg . ' </dev/null >/dev/null 2>&1 &';
         @exec($command);
     } catch (Throwable $error) {
         error_log('Portal mail queue worker could not be started; scheduled worker remains available.');
@@ -158,18 +158,26 @@ function deliverPortalQueueItem(PDO $pdo, int $queueId): void
     }
 }
 
-/** Deliver after the HTTP response only when the server can flush it first. */
+/** Schedule this request's queued messages after the response has been emitted. */
 function schedulePortalEmailQueueDelivery(PDO $pdo, int $queueId): void
 {
-    // Never fall through to synchronous SMTP during a web request. On servers
-    // without FastCGI, the detached CLI worker or scheduled worker handles mail.
-    if (!function_exists('fastcgi_finish_request')) return;
+    static $queueIds = [];
+    static $shutdownRegistered = false;
+    $queueIds[] = $queueId;
+    if ($shutdownRegistered) return;
+    $shutdownRegistered = true;
 
-    register_shutdown_function(static function () use ($pdo, $queueId): void {
-        @fastcgi_finish_request();
-        if (session_status() === PHP_SESSION_ACTIVE) @session_write_close();
-        @ignore_user_abort(true);
-        deliverPortalQueueItem($pdo, $queueId);
+    register_shutdown_function(static function () use ($pdo, &$queueIds): void {
+        $requestQueueIds = array_values(array_unique(array_map('intval', $queueIds)));
+        if (!$requestQueueIds) return;
+        if (function_exists('fastcgi_finish_request')) {
+            @fastcgi_finish_request();
+            if (session_status() === PHP_SESSION_ACTIVE) @session_write_close();
+            @ignore_user_abort(true);
+            foreach ($requestQueueIds as $id) deliverPortalQueueItem($pdo, $id);
+            return;
+        }
+        startPortalEmailQueueWorker($requestQueueIds);
     });
 }
 
@@ -186,14 +194,9 @@ function queuePortalEmail(PDO $pdo, string $recipient, string $subject, string $
         $stmt = $pdo->prepare("INSERT INTO portal_email_queue (recipient, subject, text_body, html_body, status, attempts, available_at) VALUES (?, ?, ?, ?, 'queued', 0, UTC_TIMESTAMP())");
         $stmt->execute([$recipient, $subject, $message, $htmlMessage]);
         $queueId = (int) $pdo->lastInsertId();
-        // Use exactly one delivery path per queued message. FastCGI can flush
-        // the API response and then send; other web SAPIs use a detached CLI
-        // worker (with cron as the final fallback).
-        if (function_exists('fastcgi_finish_request')) {
-            schedulePortalEmailQueueDelivery($pdo, $queueId);
-        } else {
-            startPortalEmailQueueWorker();
-        }
+        // Queueing never sends SMTP. At shutdown, only the IDs queued during
+        // this request are handed to the after-response/CLI worker.
+        schedulePortalEmailQueueDelivery($pdo, $queueId);
         return true;
     } catch (Throwable $e) {
         $error = $e->getMessage();
@@ -223,7 +226,8 @@ function notifyAdminsOfNewRequest(PDO $pdo, string $trackingCode, string $reques
             "Request: $requestSummary\nTracking number: $trackingCode",
             'Open the administrator workspace to review and process this request.'
         ], 'Review request', $reviewUrl);
-        foreach ($admins as $email) { $mailError = null; queuePortalEmail($pdo, (string)$email, 'New resident document request', $message, $html, $mailError); }
+        $subject = 'New resident document request — ' . $trackingCode;
+        foreach ($admins as $email) { $mailError = null; queuePortalEmail($pdo, (string)$email, $subject, $message, $html, $mailError); }
     } catch (Throwable $e) { error_log('Administrator new-request notification could not be queued.'); }
 }
 
@@ -243,7 +247,7 @@ function notifyAdminsOfPaymentSubmission(PDO $pdo, string $trackingCode, string 
         ], 'Review payment proof', $reviewUrl);
         foreach ($admins as $email) {
             $mailError = null;
-            queuePortalEmail($pdo, (string) $email, 'Payment proof needs review', $message, $html, $mailError);
+            queuePortalEmail($pdo, (string) $email, 'Payment proof needs review — ' . $trackingCode, $message, $html, $mailError);
         }
     } catch (Throwable $e) {
         error_log('Administrator payment-review notification could not be queued.');

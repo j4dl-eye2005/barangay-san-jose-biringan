@@ -136,6 +136,7 @@ $emailSubject = $isBusinessApproval
     'Pickup'  => "Your document request is complete — {$requestInfo['document_name']}",
     default   => "Barangay request update — {$requestInfo['document_name']}",
 };
+$emailSubject .= ' — ' . (string) $requestInfo['tracking_code'];
 
 $plainBody = "Hello $firstName,\n\n"
     . "Your request for {$requestInfo['document_name']} has been updated.\n"

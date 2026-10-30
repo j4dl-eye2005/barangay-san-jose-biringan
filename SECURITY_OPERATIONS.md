@@ -21,7 +21,7 @@ Keep this file in the project repository. The root `.htaccess` blocks direct web
 
 ## Queued email delivery
 
-- Web requests save email jobs to `portal_email_queue` and return without waiting for SMTP. Each job uses one delivery path: FastCGI sends after flushing the response, or non-FastCGI servers start a detached PHP CLI worker.
+- Web requests save email jobs to `portal_email_queue` and return without waiting for SMTP. Each request sends only its own queued IDs through one delivery path: FastCGI after response flush, or a detached CLI worker. The scheduled worker handles jobs left queued when the host cannot start a worker, plus retries.
 - If the host disables process-launch functions and does not provide FastCGI response finishing, configure a cPanel Cron Job to run `api/process_mail_queue.php` at least once per minute. Use the hosting account's PHP CLI path and the site's absolute filesystem path, for example: `*/1 * * * * /path/to/php /home/account/public_html/api/process_mail_queue.php >/dev/null 2>&1`.
 - Run the worker from the command line, not by exposing a public cron URL. It retries temporary delivery failures and processes up to 20 due messages per run.
 
