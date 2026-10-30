@@ -424,16 +424,26 @@ body,
 }
 .business-header-bar { width:100%; height:.8cqw; margin:1.5cqw 0 0; background:var(--business-gold); }
 .business-year {
+    position: relative;
     margin: 0;
     min-width: 0;
     padding-left: 2cqw;
-    border-left: .38cqw solid var(--business-gold);
     color: var(--business-green);
     font-size: 5.8cqw;
     line-height: .95;
     font-weight: 800;
     letter-spacing: -.04em;
     text-align: center;
+}
+.business-year::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: .38cqw;
+    height: 7.8cqw;
+    background: #e5e9e6;
+    transform: translateY(-50%);
 }
 .business-year small {
     display:block;
