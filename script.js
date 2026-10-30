@@ -7468,9 +7468,19 @@ async function assessCollectionFee(requestId, button = null) {
         invalidateAdminPanelCache('collections');
         try {
             await loadAdminCollections();
-            showToast(`Approved fee set to ${formatPhpAmount(result.fee)}.`, 'success');
+            const emailNote = result.emailDelivery === 'queued'
+                ? ' Resident email queued for background delivery.'
+                : result.emailDelivery === 'failed'
+                    ? ' Fee saved, but the resident email could not be queued.'
+                    : '';
+            showToast(`Approved fee set to ${formatPhpAmount(result.fee)}.${emailNote}`, result.emailDelivery === 'failed' ? 'error' : 'success');
         } catch {
-            showToast(`Fee saved as ${formatPhpAmount(result.fee)}, but the list did not refresh. Reload Collections.`, 'success');
+            const emailNote = result.emailDelivery === 'queued'
+                ? ' Resident email queued for background delivery.'
+                : result.emailDelivery === 'failed'
+                    ? ' Resident email could not be queued.'
+                    : '';
+            showToast(`Fee saved as ${formatPhpAmount(result.fee)}, but the list did not refresh. Reload Collections.${emailNote}`, result.emailDelivery === 'failed' ? 'error' : 'success');
         }
     } catch (error) {
         showToast(error.message || 'Fee could not be saved. Try again.', 'error');

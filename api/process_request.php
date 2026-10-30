@@ -112,6 +112,8 @@ try {
 $appUrl   = portalConfig()['app_url'];
 
 $firstName = trim((string) ($requestInfo['first_name'] ?? '')) ?: 'there';
+$isBusinessClearance = stripos((string) ($requestInfo['document_name'] ?? ''), 'business') !== false;
+$isBusinessApproval = $action === 'Approve' && $isBusinessClearance;
 
 $statusLabels = [
     'Approved'        => 'Approved',
@@ -121,7 +123,9 @@ $statusLabels = [
 ];
 $statusLabel = $statusLabels[$newStatus] ?? $newStatus;
 
-$emailSubject = match ($action) {
+$emailSubject = $isBusinessApproval
+    ? "Business clearance request approved — {$requestInfo['document_name']}"
+    : match ($action) {
     'Approve' => "Your document request has been approved — {$requestInfo['document_name']}",
     'Reject'  => "Update on your document request — {$requestInfo['document_name']}",
     'Ready'   => "Your document is ready for pickup — {$requestInfo['document_name']}",
@@ -133,12 +137,19 @@ $plainBody = "Hello $firstName,\n\n"
     . "Your request for {$requestInfo['document_name']} has been updated.\n"
     . "Tracking code: {$requestInfo['tracking_code']}\n"
     . "Status: $statusLabel\n";
+if ($isBusinessApproval) {
+    $plainBody .= "\nThe business clearance fee will be assessed by barangay staff. We will email you again when the amount is set. Please wait for that notice before paying. After assessment, payment is made in person at the Barangay Hall cashier in Barangay San Jose, Biringan City; confirm the accepted payment method with the cashier.\n";
+}
 if ($details) {
     $plainBody .= "\nNote: {$details}\n";
 }
 $plainBody .= "\nPlease log in to the Barangay Digital Portal for more information.\n\nThank you,\nBarangay San Jose";
 
 $paragraphs = ["Hello $firstName,", "Your request for {$requestInfo['document_name']} (tracking code: {$requestInfo['tracking_code']}) has been updated to: $statusLabel."];
+if ($isBusinessApproval) {
+    $paragraphs[] = 'The business clearance fee will be assessed by barangay staff. We will email you again when the amount is set. Please wait for that notice before paying.';
+    $paragraphs[] = 'After assessment, payment is made in person at the Barangay Hall cashier in Barangay San Jose, Biringan City. Confirm the accepted payment method with the cashier.';
+}
 if ($details) $paragraphs[] = "Note from the administrator: $details";
 $note = match ($action) {
     'Approve' => 'Your request is now being processed. You will be notified again once it is ready for pickup.',
@@ -146,6 +157,9 @@ $note = match ($action) {
     'Pickup'  => 'Thank you for using Barangay San Jose digital services.',
     default   => null,
 };
+if ($isBusinessApproval) {
+    $note = 'This message confirms request approval only. The fee will be set separately; wait for the follow-up email before paying.';
+}
 $htmlBody = portalEmailTemplate(
     'Document request',
     "Request $statusLabel",
