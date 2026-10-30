@@ -1,6 +1,7 @@
 <?php
 require_once 'db.php';
 require_once __DIR__ . '/email.php';
+require_once __DIR__ . '/payment_receipt_number.php';
 header('Content-Type: application/json; charset=utf-8');
 requireAdminAccess('payments.manage');
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
@@ -22,6 +23,7 @@ if (!$requestId || !in_array($status, ['Paid', 'Unpaid'], true) || strlen($refer
 
 try {
     $pdo->beginTransaction();
+    $receiptNumber = null;
     $lookup = $pdo->prepare("SELECT dr.payment_status, dr.current_status, dr.tracking_code, dt.name AS document_name,
                                     COALESCE((SELECT r.first_name FROM resident r WHERE r.resident_id = dr.resident_id), dr.walk_in_name) AS resident_name,
                                     (SELECT r.email FROM resident r WHERE r.resident_id = dr.resident_id) AS email,
@@ -66,6 +68,7 @@ try {
         }
         $record = $pdo->prepare("INSERT INTO request_payment_transaction (request_id, amount, method, reference, recorded_by_user_id, recorded_at) VALUES (?, ?, 'cash', ?, ?, UTC_TIMESTAMP())");
         $record->execute([$requestId, $request['fee_amount'], $reference !== '' ? $reference : null, (int) $_SESSION['user_id']]);
+        $receiptNumber = portalPaymentReceiptNumber((int) $pdo->lastInsertId());
         $update = $pdo->prepare('UPDATE document_request SET payment_status = \'Paid\', payment_reference = ?, payment_reviewed_at = UTC_TIMESTAMP(), payment_reviewed_by_user_id = ?, payment_rejection_reason = NULL WHERE request_id = ?');
         $update->execute([$reference !== '' ? $reference : null, (int) $_SESSION['user_id'], $requestId]);
         $actionText = 'cash payment recorded';
@@ -94,15 +97,15 @@ try {
         if ($status === 'Paid') {
             $recordedAt = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('F j, Y g:i A') . ' (Philippine time)';
             $referenceLine = $reference !== '' ? $reference : 'Not recorded';
-            $message = "Hello $residentName,\n\nThe Barangay Hall cashier received your in-person cash payment, and staff recorded it as paid.\nRequest: {$request['tracking_code']}\nDocument: {$request['document_name']}\nAmount: $amount\nPayment reference: $referenceLine\nRecorded: $recordedAt\n\nKeep the official receipt issued by the Barangay Hall cashier. This email confirms the portal payment status; it is not an official receipt.\n";
+            $message = "Hello $residentName,\n\nThe Barangay Hall cashier received your in-person cash payment, and staff recorded it as paid.\nRequest: {$request['tracking_code']}\nDocument: {$request['document_name']}\nAmount: $amount\nCashier receipt reference: $referenceLine\nPortal receipt no.: $receiptNumber\nRecorded: $recordedAt\n\nKeep the official receipt issued by the Barangay Hall cashier. The portal receipt number is a status reference, not an official receipt.\n";
             $paragraphs = [
                 "Hello $residentName,",
                 "The Barangay Hall cashier received your in-person cash payment, and staff recorded it as paid for {$request['document_name']}.",
-                "Request: {$request['tracking_code']}\nAmount: $amount\nPayment reference: $referenceLine\nRecorded: $recordedAt",
+                "Request: {$request['tracking_code']}\nAmount: $amount\nCashier receipt reference: $referenceLine\nPortal receipt no.: $receiptNumber\nRecorded: $recordedAt",
                 'Keep the official receipt issued by the Barangay Hall cashier.'
             ];
             $emailTitle = 'Cash payment received';
-            $emailNote = 'This email confirms the portal payment record. The cashier-issued official receipt is your payment receipt.';
+            $emailNote = 'This email confirms the portal payment record. The cashier-issued official receipt is your payment receipt; the portal number is for status reference.';
         } else {
             $message = "Hello $residentName,\n\nThe in-person payment of $amount for {$request['document_name']} (tracking code: {$request['tracking_code']}) was reversed. Please contact the barangay office if you have questions.";
             $paragraphs = ["Hello $residentName,", "The in-person payment of $amount for {$request['document_name']} (tracking code: {$request['tracking_code']}) was reversed.", 'Please contact the barangay office if you have questions.'];
@@ -115,7 +118,7 @@ try {
         $emailDelivery = queuePortalNotification($pdo, (string) $request['email'], $emailTitle . ' for request ' . $request['tracking_code'], $message, $html, $mailError, $emailQueueId);
         if ($emailDelivery === 'failed') error_log("admin_request_payment.php email failed for request $requestId: " . ($mailError ?? 'unknown error'));
     }
-    echo json_encode(['success' => true, 'payment_status' => $status, 'emailDelivery' => $emailDelivery, 'emailQueueId' => $emailQueueId]);
+    echo json_encode(['success' => true, 'payment_status' => $status, 'receipt_number' => $receiptNumber, 'emailDelivery' => $emailDelivery, 'emailQueueId' => $emailQueueId]);
 } catch (Throwable $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('Manual request payment update failed.');

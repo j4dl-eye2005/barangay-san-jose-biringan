@@ -1,6 +1,7 @@
 <?php
 require_once 'db.php';
 require_once __DIR__ . '/email.php';
+require_once __DIR__ . '/payment_receipt_number.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, private');
 requireAdminAccess('payments.manage');
@@ -62,9 +63,11 @@ try {
 
     $newStatus = $action === 'verify' ? 'Paid' : 'Rejected';
     $reviewReason = $action === 'reject' ? $reason : null;
+    $receiptNumber = null;
     if ($action === 'verify') {
         $record = $pdo->prepare("INSERT INTO request_payment_transaction (request_id, amount, method, reference, recorded_by_user_id, recorded_at) VALUES (?, ?, 'online_proof', ?, ?, UTC_TIMESTAMP())");
         $record->execute([$requestId, $request['fee_amount'], $request['payment_reference'], (int) $_SESSION['user_id']]);
+        $receiptNumber = portalPaymentReceiptNumber((int) $pdo->lastInsertId());
     }
     $update = $pdo->prepare('UPDATE document_request SET payment_status = ?, payment_reviewed_at = UTC_TIMESTAMP(), payment_reviewed_by_user_id = ?, payment_rejection_reason = ? WHERE request_id = ? AND payment_status = \'Pending Verification\'');
     $update->execute([$newStatus, (int) $_SESSION['user_id'], $reviewReason, $requestId]);
@@ -85,15 +88,15 @@ try {
         $reviewedAt = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('F j, Y g:i A') . ' (Philippine time)';
         if ($action === 'verify') {
             $referenceLine = trim((string) ($request['payment_reference'] ?? ''));
-            $message = "Hello $residentName,\n\nYour payment proof has been verified by staff.\nRequest: {$request['tracking_code']}\nDocument: {$request['document_name']}\nAmount: $amount\nPayment reference: " . ($referenceLine !== '' ? $referenceLine : 'Not recorded') . "\nVerified: $reviewedAt\n\nKeep the official receipt from the cashier or payment provider. This email is a payment-status confirmation, not an official receipt.\n";
+            $message = "Hello $residentName,\n\nYour payment proof has been verified by staff.\nRequest: {$request['tracking_code']}\nDocument: {$request['document_name']}\nAmount: $amount\nYour payment reference: " . ($referenceLine !== '' ? $referenceLine : 'Not recorded') . "\nPortal receipt no.: $receiptNumber\nVerified: $reviewedAt\n\nKeep the official receipt from the cashier or payment provider. The portal receipt number is a status reference, not an official receipt.\n";
             $paragraphs = [
                 "Hello $residentName,",
                 "Your payment proof has been verified by staff for {$request['document_name']}.",
-                "Request: {$request['tracking_code']}\nAmount: $amount\nPayment reference: " . ($referenceLine !== '' ? $referenceLine : 'Not recorded') . "\nVerified: $reviewedAt",
+                "Request: {$request['tracking_code']}\nAmount: $amount\nYour payment reference: " . ($referenceLine !== '' ? $referenceLine : 'Not recorded') . "\nPortal receipt no.: $receiptNumber\nVerified: $reviewedAt",
                 'Keep the official receipt from the cashier or payment provider.'
             ];
             $emailTitle = 'Payment verified';
-            $emailNote = 'This message confirms the portal status after staff reviewed your proof. It is not an official receipt.';
+            $emailNote = 'This message confirms the portal status after staff reviewed your proof. The portal receipt number is not an official receipt.';
         } else {
             $message = "Hello $residentName,\n\nYour payment proof for request {$request['tracking_code']} ($amount) could not be verified.\nReason: $reason\nPlease submit a corrected receipt or contact the barangay office.\n";
             $paragraphs = ["Hello $residentName,", "Your payment proof for request {$request['tracking_code']} ($amount) could not be verified.", "Reason: $reason", 'Submit a corrected receipt or contact the barangay office.'];
@@ -106,7 +109,7 @@ try {
         $emailDelivery = queuePortalNotification($pdo, (string) $request['email'], $emailTitle . ' for request ' . $request['tracking_code'], $message, $html, $mailError, $emailQueueId);
         if ($emailDelivery === 'failed') error_log("review_request_payment.php email failed for request $requestId: " . ($mailError ?? 'unknown error'));
     }
-    echo json_encode(['success' => true, 'payment_status' => $newStatus, 'emailDelivery' => $emailDelivery, 'emailQueueId' => $emailQueueId]);
+    echo json_encode(['success' => true, 'payment_status' => $newStatus, 'receipt_number' => $receiptNumber, 'emailDelivery' => $emailDelivery, 'emailQueueId' => $emailQueueId]);
 } catch (Throwable $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('Request payment review failed.');

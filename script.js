@@ -6768,7 +6768,8 @@ async function updateAdminRequestPayment(requestId, paymentStatus, button, refer
             ? await dispatchQueuedEmailInBackground('payments.manage', result.emailQueueId)
             : null;
         const notice = residentEmailDeliveryNotice(result, emailDispatch);
-        showToast((paymentStatus === 'Paid' ? 'In-person payment recorded.' : 'Cash payment reversed.') + notice.text, notice.type);
+        const receiptNote = paymentStatus === 'Paid' && result.receipt_number ? ` Portal receipt no. ${result.receipt_number}.` : '';
+        showToast((paymentStatus === 'Paid' ? 'In-person payment recorded.' : 'Cash payment reversed.') + receiptNote + notice.text, notice.type);
         if (currentUser?.staffRole === 'cashier') await loadAdminCollections();
         else await openAdminRequestDetail(requestId);
     } catch (error) {
@@ -6791,7 +6792,8 @@ async function saveAdminPaymentReview(requestId, action, reason = '') {
             ? await dispatchQueuedEmailInBackground('payments.manage', result.emailQueueId)
             : null;
         const notice = residentEmailDeliveryNotice(result, emailDispatch);
-        showToast((action === 'verify' ? 'Payment verified.' : 'Payment proof rejected.') + notice.text, notice.type);
+        const receiptNote = action === 'verify' && result.receipt_number ? ` Portal receipt no. ${result.receipt_number}.` : '';
+        showToast((action === 'verify' ? 'Payment verified.' : 'Payment proof rejected.') + receiptNote + notice.text, notice.type);
         invalidateAdminPanelCache('activity');
         if (currentUser?.staffRole === 'cashier') await loadAdminCollections();
         else await openAdminRequestDetail(requestId);

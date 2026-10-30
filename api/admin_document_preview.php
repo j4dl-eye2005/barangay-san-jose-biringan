@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/payment_receipt_number.php';
 requireAdminAccess('documents.preview');
 header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: no-store, private');
@@ -11,6 +12,8 @@ if (!$requestId) { http_response_code(400); exit('A valid request ID is required
 $stmt = $pdo->prepare("SELECT dr.request_id, dr.tracking_code, dr.purpose, dr.current_status, dr.payment_status,
         dr.request_source, dr.walk_in_name, dr.walk_in_address, dr.business_name, dr.business_category,
         dr.business_address, dr.business_activity, dr.payment_reference, dr.payment_reviewed_at,
+        (SELECT rpt.payment_id FROM request_payment_transaction rpt WHERE rpt.request_id = dr.request_id AND rpt.status = 'confirmed' ORDER BY rpt.recorded_at DESC, rpt.payment_id DESC LIMIT 1) AS confirmed_payment_id,
+        (SELECT rpt.recorded_at FROM request_payment_transaction rpt WHERE rpt.request_id = dr.request_id AND rpt.status = 'confirmed' ORDER BY rpt.recorded_at DESC, rpt.payment_id DESC LIMIT 1) AS confirmed_payment_recorded_at,
         COALESCE(dr.assessed_fee, dt.fee_amount) AS fee_amount,
         dt.name AS document_type, r.first_name, r.middle_name, r.last_name, r.suffix, r.address,
         r.date_of_birth, r.civil_status, r.gender,
@@ -106,6 +109,9 @@ $trackingSuffix = strtoupper(substr((string) preg_replace('/[^A-Za-z0-9]/', '', 
 $accountNumber = $issueDate->format('y') . '-' . $trackingSuffix;
 $permitNumber = $issueDate->format('y-m') . '-' . $trackingSuffix;
 $validUntil = 'December 31, ' . $issueDate->format('Y');
+$portalReceiptNumber = !empty($request['confirmed_payment_id'])
+    ? portalPaymentReceiptNumber((int) $request['confirmed_payment_id'], (string) ($request['confirmed_payment_recorded_at'] ?? ''))
+    : 'Not recorded';
 $paidDate = $formatManilaDate($request['payment_reviewed_at'] ?? null, 'Y-m-d');
 $businessClassification = trim($businessActivity);
 if ($businessCategory !== 'Not recorded') {
@@ -120,7 +126,7 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $escape($title) ?> · Sample preview</title>
-    <link rel="stylesheet" href="../document-preview.css?v=20261030-business-clearance-layout-v2">
+    <link rel="stylesheet" href="../document-preview.css?v=20261030-business-clearance-receipt-v3">
 </head>
 <body>
     <div class="preview-toolbar" role="region" aria-label="Document preview actions">
@@ -155,7 +161,7 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
 
         <section class="business-bottom" aria-label="Issue and payment details">
             <div class="business-receipt" aria-label="Payment information">
-                <p><span>Payment reference</span><strong><?= $escape($request['payment_reference'] ?: 'Not recorded') ?></strong></p>
+                <p><span>Portal receipt no.</span><strong><?= $escape($portalReceiptNumber) ?></strong></p>
                 <p><span>Date paid</span><strong><?= $escape($paidDate ?: 'Not recorded') ?></strong></p>
                 <p><span>Amount paid</span><strong><?= $paid ? '₱ ' . $escape(number_format((float) $request['fee_amount'], 2)) : 'Not recorded' ?></strong></p>
                 <p><span>Printed date</span><strong><?= $escape($manila->format('F d, Y')) ?></strong></p>
