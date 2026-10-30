@@ -1540,18 +1540,6 @@ function residentEmailDeliveryNotice(result) {
     return { text: ' The resident email is queued for background delivery.', type: 'success' };
 }
 
-function dispatchQueuedEmailInBackground(permission, queueId) {
-    if (!['requests.manage', 'payments.manage', 'resident.payment'].includes(permission) || !Number.isInteger(Number(queueId)) || Number(queueId) < 1) return null;
-    // This is a best-effort accelerator. The database-backed CLI/cron worker
-    // remains responsible for eventual delivery if this page closes or fails.
-    void fetch('api/process_mail_queue.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ permission, queue_id: Number(queueId) }),
-        keepalive: true
-    }).catch(() => {});
-}
-
 const portalSearchDocuments = [
     { title: 'Barangay Clearance', requestName: 'Barangay Clearance' },
     { title: 'Certificate of Residency', requestName: 'Certificate of Residency' },
@@ -5785,7 +5773,6 @@ function submitResidentPaymentProof(event, request, form, submitButton, feedback
             const result = await response.json();
             if (!response.ok || !result.success) throw new Error(result.message || 'Payment proof could not be submitted.');
             const emailAddress = String(currentUser?.email || 'your account email');
-            if (result.emailDelivery === 'queued') dispatchQueuedEmailInBackground('resident.payment', result.emailQueueId);
             const emailNote = result.emailDelivery === 'queued'
                 ? ` Your payment is pending verification. A confirmation email is queued for ${emailAddress}.`
                 : ' Your payment is pending verification. The receipt was submitted, but an email could not be queued; you can still check the request status here.';
@@ -6734,7 +6721,6 @@ async function updateAdminRequestPayment(requestId, paymentStatus, button, refer
         });
         const result = await response.json();
         if (!response.ok || !result.success) throw new Error(result.message || 'Could not update payment status.');
-        if (result.emailDelivery === 'queued') dispatchQueuedEmailInBackground('payments.manage', result.emailQueueId);
         const notice = residentEmailDeliveryNotice(result);
         const receiptNote = paymentStatus === 'Paid' && result.receipt_number ? ` Portal receipt no. ${result.receipt_number}.` : '';
         showToast((paymentStatus === 'Paid' ? 'In-person payment recorded.' : 'Cash payment reversed.') + receiptNote + notice.text, notice.type);
@@ -6756,7 +6742,6 @@ async function saveAdminPaymentReview(requestId, action, reason = '') {
         });
         const result = await response.json();
         if (!response.ok || !result.success) throw new Error(result.message || 'Payment review could not be saved.');
-        if (result.emailDelivery === 'queued') dispatchQueuedEmailInBackground('payments.manage', result.emailQueueId);
         const notice = residentEmailDeliveryNotice(result);
         const receiptNote = action === 'verify' && result.receipt_number ? ` Portal receipt no. ${result.receipt_number}.` : '';
         showToast((action === 'verify' ? 'Payment verified.' : 'Payment proof rejected.') + receiptNote + notice.text, notice.type);
@@ -7085,7 +7070,6 @@ async function sendProcessRequest(id, action, details) {
         const result = await res.json();
         if (res.ok && result.success) {
             const messages = { Approve: 'Request approved.', Reject: 'Request rejected.', Ready: 'Request marked ready for pickup.', Pickup: 'Request marked as picked up.' };
-            if (result.emailDelivery === 'queued') dispatchQueuedEmailInBackground('requests.manage', result.emailQueueId);
             const notice = residentEmailDeliveryNotice(result);
             showToast((messages[action] || 'Request updated.') + notice.text, notice.type);
             invalidateAdminPanelCache('overview', 'activity');
@@ -7484,7 +7468,6 @@ async function assessCollectionFee(requestId, button = null) {
         let result = {};
         try { result = responseText ? JSON.parse(responseText) : {}; } catch { /* handled as an invalid server response below */ }
         if (!response.ok || !result.success) throw new Error(result.message || 'Fee could not be saved.');
-        if (result.emailDelivery === 'queued') dispatchQueuedEmailInBackground('payments.manage', result.emailQueueId);
         invalidateAdminPanelCache('collections');
         try {
             await loadAdminCollections();

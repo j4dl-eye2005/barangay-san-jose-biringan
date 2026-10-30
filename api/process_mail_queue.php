@@ -82,15 +82,28 @@ while ($processed < $maxJobs) {
             break;
         }
         $attempt = (int) $job['attempts'] + 1;
-        $claim = $pdo->prepare("UPDATE portal_email_queue SET status = 'processing', attempts = ?, locked_at = UTC_TIMESTAMP() WHERE queue_id = ?");
-        $claim->execute([$attempt, $job['queue_id']]);
+        // Claim with a conditional write as well as the row lock. This makes
+        // the job single-owner even if a host uses a nontransactional table.
+        $claim = $pdo->prepare("UPDATE portal_email_queue
+            SET status = 'processing', attempts = ?, locked_at = UTC_TIMESTAMP()
+            WHERE queue_id = ? AND attempts = ? AND attempts < 5
+                AND ((status = 'queued' AND available_at <= UTC_TIMESTAMP())
+                    OR (status = 'processing' AND locked_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE)))");
+        $claim->execute([$attempt, $job['queue_id'], (int) $job['attempts']]);
+        if ($claim->rowCount() !== 1) {
+            $pdo->commit();
+            continue;
+        }
+        $job['attempts'] = $attempt;
         $pdo->commit();
 
         $mailError = null;
         $sent = sendPortalEmail((string) $job['recipient'], (string) $job['subject'], (string) $job['text_body'], $mailError, $job['html_body'] !== null ? (string) $job['html_body'] : null);
         if ($sent) {
-            $done = $pdo->prepare("UPDATE portal_email_queue SET status = 'sent', text_body = NULL, html_body = NULL, sent_at = UTC_TIMESTAMP(), locked_at = NULL, last_error = NULL WHERE queue_id = ?");
-            $done->execute([$job['queue_id']]);
+            $done = $pdo->prepare("UPDATE portal_email_queue
+                SET status = 'sent', text_body = NULL, html_body = NULL, sent_at = UTC_TIMESTAMP(), locked_at = NULL, last_error = NULL
+                WHERE queue_id = ? AND status = 'processing' AND attempts = ?");
+            $done->execute([$job['queue_id'], $attempt]);
             $sentCount++;
         } else {
             $safeError = (string) ($mailError ?? 'SMTP delivery failed');
@@ -100,8 +113,8 @@ while ($processed < $maxJobs) {
             $safeError = substr($safeError, 0, 500);
             $status = $attempt >= 5 ? 'failed' : 'queued';
             $delay = $retryDelays[min($attempt - 1, count($retryDelays) - 1)];
-            $retry = $pdo->prepare('UPDATE portal_email_queue SET status = ?, text_body = IF(? = \'failed\', NULL, text_body), html_body = IF(? = \'failed\', NULL, html_body), available_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND), locked_at = NULL, last_error = ? WHERE queue_id = ?');
-            $retry->execute([$status, $status, $status, $delay, $safeError, $job['queue_id']]);
+            $retry = $pdo->prepare('UPDATE portal_email_queue SET status = ?, text_body = IF(? = \'failed\', NULL, text_body), html_body = IF(? = \'failed\', NULL, html_body), available_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND), locked_at = NULL, last_error = ? WHERE queue_id = ? AND status = \'processing\' AND attempts = ?');
+            $retry->execute([$status, $status, $status, $delay, $safeError, $job['queue_id'], $attempt]);
             if ($status === 'failed') $failedCount++; else $retryCount++;
         }
         $processed++;

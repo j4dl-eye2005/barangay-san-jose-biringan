@@ -120,14 +120,26 @@ function deliverPortalQueueItem(PDO $pdo, int $queueId): void
             return;
         }
         $attempt = (int) $job['attempts'] + 1;
-        $mark = $pdo->prepare("UPDATE portal_email_queue SET status = 'processing', attempts = ?, locked_at = UTC_TIMESTAMP() WHERE queue_id = ?");
-        $mark->execute([$attempt, $queueId]);
+        // The conditional UPDATE is the actual claim. Its affected-row check
+        // also prevents two workers from sending the same job on tables where
+        // SELECT ... FOR UPDATE is not enforced.
+        $mark = $pdo->prepare("UPDATE portal_email_queue
+            SET status = 'processing', attempts = ?, locked_at = UTC_TIMESTAMP()
+            WHERE queue_id = ? AND status = 'queued' AND attempts = ? AND attempts < 5
+                AND available_at <= UTC_TIMESTAMP()");
+        $mark->execute([$attempt, $queueId, (int) $job['attempts']]);
+        if ($mark->rowCount() !== 1) {
+            $pdo->commit();
+            return;
+        }
         $pdo->commit();
 
         $mailError = null;
         if (sendPortalEmail((string) $job['recipient'], (string) $job['subject'], (string) $job['text_body'], $mailError, $job['html_body'] !== null ? (string) $job['html_body'] : null)) {
-            $sent = $pdo->prepare("UPDATE portal_email_queue SET status = 'sent', text_body = NULL, html_body = NULL, sent_at = UTC_TIMESTAMP(), locked_at = NULL, last_error = NULL WHERE queue_id = ?");
-            $sent->execute([$queueId]);
+            $sent = $pdo->prepare("UPDATE portal_email_queue
+                SET status = 'sent', text_body = NULL, html_body = NULL, sent_at = UTC_TIMESTAMP(), locked_at = NULL, last_error = NULL
+                WHERE queue_id = ? AND status = 'processing' AND attempts = ?");
+            $sent->execute([$queueId, $attempt]);
             return;
         }
 
@@ -138,8 +150,8 @@ function deliverPortalQueueItem(PDO $pdo, int $queueId): void
         $status = $attempt >= 5 ? 'failed' : 'queued';
         $retryDelays = [60, 300, 900, 3600];
         $delay = $retryDelays[min($attempt - 1, count($retryDelays) - 1)];
-        $retry = $pdo->prepare('UPDATE portal_email_queue SET status = ?, text_body = IF(? = \'failed\', NULL, text_body), html_body = IF(? = \'failed\', NULL, html_body), available_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND), locked_at = NULL, last_error = ? WHERE queue_id = ?');
-        $retry->execute([$status, $status, $status, $delay, $safeError, $queueId]);
+        $retry = $pdo->prepare('UPDATE portal_email_queue SET status = ?, text_body = IF(? = \'failed\', NULL, text_body), html_body = IF(? = \'failed\', NULL, html_body), available_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND), locked_at = NULL, last_error = ? WHERE queue_id = ? AND status = \'processing\' AND attempts = ?');
+        $retry->execute([$status, $status, $status, $delay, $safeError, $queueId, $attempt]);
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         error_log('Queued email background delivery stopped before completion.');
@@ -174,8 +186,14 @@ function queuePortalEmail(PDO $pdo, string $recipient, string $subject, string $
         $stmt = $pdo->prepare("INSERT INTO portal_email_queue (recipient, subject, text_body, html_body, status, attempts, available_at) VALUES (?, ?, ?, ?, 'queued', 0, UTC_TIMESTAMP())");
         $stmt->execute([$recipient, $subject, $message, $htmlMessage]);
         $queueId = (int) $pdo->lastInsertId();
-        schedulePortalEmailQueueDelivery($pdo, $queueId);
-        startPortalEmailQueueWorker();
+        // Use exactly one delivery path per queued message. FastCGI can flush
+        // the API response and then send; other web SAPIs use a detached CLI
+        // worker (with cron as the final fallback).
+        if (function_exists('fastcgi_finish_request')) {
+            schedulePortalEmailQueueDelivery($pdo, $queueId);
+        } else {
+            startPortalEmailQueueWorker();
+        }
         return true;
     } catch (Throwable $e) {
         $error = $e->getMessage();
