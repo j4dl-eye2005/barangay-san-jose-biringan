@@ -365,7 +365,8 @@ body,
     gap: 1.8cqw;
     position: relative;
     overflow: hidden;
-    width: min(210mm, calc(100% - 2rem));
+    /* Match the on-screen scale shown by the Indigency preview; print remains full A4. */
+    width: min(176mm, calc(100% - 2rem));
     aspect-ratio: 210 / 297;
     min-height: 0;
     margin: 2rem auto;
@@ -375,6 +376,19 @@ body,
     container-type: inline-size;
     font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
 }
+.business-watermark {
+    position:absolute;
+    top:50%;
+    left:50%;
+    z-index:0;
+    width:115cqw;
+    aspect-ratio:1;
+    opacity:.05;
+    pointer-events:none;
+    transform:translate(-50%, -50%);
+}
+.business-watermark img { display:block; width:100%; height:100%; object-fit:contain; }
+.paper--business > :not(.business-watermark) { position:relative; z-index:1; }
 .business-header {
     min-height: 11%;
     display: grid;

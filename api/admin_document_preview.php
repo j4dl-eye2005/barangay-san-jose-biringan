@@ -126,7 +126,7 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $escape($title) ?> · Sample preview</title>
-    <link rel="stylesheet" href="../document-preview.css?v=20261030-business-clearance-receipt-v3">
+    <link rel="stylesheet" href="../document-preview.css?v=20261030-business-clearance-watermark-v4">
 </head>
 <body>
     <div class="preview-toolbar" role="region" aria-label="Document preview actions">
@@ -139,6 +139,7 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
     </div>
     <?php if ($isBusiness): ?>
     <main class="paper paper--business" aria-label="Barangay business clearance">
+        <div class="business-watermark" aria-hidden="true"><img src="../assets/barangay-seal.svg" alt=""></div>
         <header class="business-header">
             <img src="../assets/barangay-seal.svg" alt="Barangay San Jose seal" class="business-seal">
             <div class="business-heading">
