@@ -450,13 +450,15 @@ body,
 .business-year > #business-year-value,
 .business-year > small {
     display:block;
-    width:100%;
+    width:max-content;
+    max-width:100%;
+    margin-inline:auto;
     text-align:center;
 }
 .business-year small {
     display:block;
     margin-top: 1.2cqw;
-    font-size: 1.4cqw;
+    font-size: 1cqw;
     line-height:1.25;
     font-weight:800;
     letter-spacing:.09em;
