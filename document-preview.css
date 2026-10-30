@@ -400,6 +400,16 @@ body,
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
 }
+.business-header::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    right: -.6cqw;
+    left: -.6cqw;
+    height: 3.78mm;
+    background: #fff;
+    pointer-events: none;
+}
 .business-seal { display:block; width:100%; max-height:100%; aspect-ratio:1; object-fit:contain; }
 .business-heading { min-width:0; text-align:left; }
 .business-title-lockup { width:max-content; max-width:100%; }
@@ -429,11 +439,11 @@ body,
     min-width: 0;
     padding-left: 2cqw;
     color: var(--business-green);
-    font-size: 5.8cqw;
+    font-size: 6.5cqw;
     line-height: .95;
     font-weight: 800;
     letter-spacing: -.04em;
-    text-align: center;
+    text-align: right;
 }
 .business-year::before {
     content: "";
@@ -448,7 +458,7 @@ body,
 .business-year small {
     display:block;
     margin-top: 1.2cqw;
-    font-size: 1.9cqw;
+    font-size: 2.15cqw;
     line-height:1.25;
     font-weight:800;
     letter-spacing:.09em;
