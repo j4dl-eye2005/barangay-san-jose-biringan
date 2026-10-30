@@ -439,13 +439,19 @@ body,
 .business-year {
     margin: 0;
     min-width: 0;
-    padding-left: 2cqw;
+    padding-left: 0;
     color: var(--business-green);
     font-size: 6.5cqw;
     line-height: .95;
     font-weight: 800;
     letter-spacing: -.04em;
-    text-align: right;
+    text-align: center;
+}
+.business-year > #business-year-value,
+.business-year > small {
+    display:block;
+    width:100%;
+    text-align:center;
 }
 .business-year small {
     display:block;
