@@ -441,7 +441,7 @@ body,
     min-width: 0;
     padding-left: 0;
     color: var(--business-green);
-    font-size: 6.5cqw;
+    font-size: 10.5cqw;
     line-height: .95;
     font-weight: 800;
     letter-spacing: -.04em;
@@ -456,14 +456,10 @@ body,
 .business-year small {
     display:block;
     margin-top: 1.2cqw;
-    font-size: 2.15cqw;
+    font-size: 1.4cqw;
     line-height:1.25;
     font-weight:800;
     letter-spacing:.09em;
-    white-space:normal;
-}
-.business-year small span {
-    display:block;
     white-space:nowrap;
 }
 .business-fields {
