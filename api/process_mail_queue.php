@@ -47,6 +47,10 @@ if ($isWebDispatch) {
         echo json_encode(['success' => false, 'message' => 'Invalid mail queue dispatch.']);
         exit;
     }
+
+    // Authorization and recipient checks are complete; do not hold the PHP
+    // session lock while SMTP may take several seconds to respond.
+    if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
 }
 
 $maxJobs = $isWebDispatch ? 1 : 20;

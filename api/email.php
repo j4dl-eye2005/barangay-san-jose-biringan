@@ -66,7 +66,20 @@ function startPortalEmailQueueWorker(): void
 
     $disabled = array_filter(array_map('trim', explode(',', (string) ini_get('disable_functions'))));
     $worker = __DIR__ . DIRECTORY_SEPARATOR . 'process_mail_queue.php';
-    $php = PHP_BINARY;
+    $phpCandidates = [];
+    if (defined('PHP_BINDIR')) {
+        $phpCandidates[] = rtrim(PHP_BINDIR, '\\/') . DIRECTORY_SEPARATOR . (PHP_OS_FAMILY === 'Windows' ? 'php.exe' : 'php');
+    }
+    $phpCandidates[] = PHP_BINARY;
+    $php = '';
+    foreach ($phpCandidates as $candidate) {
+        $binaryName = strtolower(basename(str_replace('\\', '/', $candidate)));
+        if (str_contains($binaryName, 'fpm') || str_contains($binaryName, 'cgi')) continue;
+        if (is_file($candidate) && (PHP_OS_FAMILY === 'Windows' || is_executable($candidate))) {
+            $php = $candidate;
+            break;
+        }
+    }
     if ($php === '' || !is_file($worker)) return;
 
     $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
@@ -133,11 +146,16 @@ function deliverPortalQueueItem(PDO $pdo, int $queueId): void
     }
 }
 
-/** Finish delivery after returning the API response; the CLI worker remains a fallback. */
+/** Deliver after the HTTP response only when the server can flush it first. */
 function schedulePortalEmailQueueDelivery(PDO $pdo, int $queueId): void
 {
+    // Never fall through to synchronous SMTP during a web request. On servers
+    // without FastCGI, the detached CLI worker or scheduled worker handles mail.
+    if (!function_exists('fastcgi_finish_request')) return;
+
     register_shutdown_function(static function () use ($pdo, $queueId): void {
-        if (function_exists('fastcgi_finish_request')) @fastcgi_finish_request();
+        @fastcgi_finish_request();
+        if (session_status() === PHP_SESSION_ACTIVE) @session_write_close();
         @ignore_user_abort(true);
         deliverPortalQueueItem($pdo, $queueId);
     });
@@ -180,8 +198,14 @@ function notifyAdminsOfNewRequest(PDO $pdo, string $trackingCode, string $reques
     try {
         $admins = $pdo->query("SELECT email FROM user WHERE role = 'Admin' AND notification_new_requests = 1")->fetchAll(PDO::FETCH_COLUMN);
         $appUrl = rtrim((string) portalConfig()['app_url'], '/');
-        $message = "A new document request was submitted.\n\nRequest: $requestSummary\nTracking number: $trackingCode\n\nReview it in the admin workspace: $appUrl/admin_requests.php#admin-requests\n";
-        foreach ($admins as $email) { $mailError = null; queuePortalEmail($pdo, (string)$email, 'New resident document request', $message, null, $mailError); }
+        $reviewUrl = $appUrl . '/admin_requests.php#admin-requests';
+        $message = "A new document request was submitted.\n\nRequest: $requestSummary\nTracking number: $trackingCode\n\nReview it in the admin workspace: $reviewUrl\n";
+        $html = portalEmailTemplate('Admin notification', 'New resident document request', [
+            'A new document request was submitted.',
+            "Request: $requestSummary\nTracking number: $trackingCode",
+            'Open the administrator workspace to review and process this request.'
+        ], 'Review request', $reviewUrl);
+        foreach ($admins as $email) { $mailError = null; queuePortalEmail($pdo, (string)$email, 'New resident document request', $message, $html, $mailError); }
     } catch (Throwable $e) { error_log('Administrator new-request notification could not be queued.'); }
 }
 
@@ -192,10 +216,16 @@ function notifyAdminsOfPaymentSubmission(PDO $pdo, string $trackingCode, string 
         $admins = $pdo->query("SELECT DISTINCT email FROM user WHERE role = 'Admin' AND notification_payment_verification = 1")->fetchAll(PDO::FETCH_COLUMN);
         $appUrl = rtrim((string) portalConfig()['app_url'], '/');
         $amount = 'PHP ' . number_format($fee, 2);
-        $message = "A resident submitted payment proof for review.\n\nRequest: $trackingCode\nDocument: $documentName\nFee: $amount\n\nReview it in the admin workspace: $appUrl/admin_requests.php#admin-requests\n";
+        $reviewUrl = $appUrl . '/admin_requests.php#admin-requests';
+        $message = "A resident submitted payment proof for review.\n\nRequest: $trackingCode\nDocument: $documentName\nFee: $amount\n\nReview it in the admin workspace: $reviewUrl\n";
+        $html = portalEmailTemplate('Admin notification', 'Payment proof needs review', [
+            'A resident submitted payment proof for review.',
+            "Request: $trackingCode\nDocument: $documentName\nFee: $amount",
+            'Open the administrator workspace to review the submitted proof.'
+        ], 'Review payment proof', $reviewUrl);
         foreach ($admins as $email) {
             $mailError = null;
-            queuePortalEmail($pdo, (string) $email, 'Payment proof needs review', $message, null, $mailError);
+            queuePortalEmail($pdo, (string) $email, 'Payment proof needs review', $message, $html, $mailError);
         }
     } catch (Throwable $e) {
         error_log('Administrator payment-review notification could not be queued.');

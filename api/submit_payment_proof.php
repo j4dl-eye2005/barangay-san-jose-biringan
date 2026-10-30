@@ -96,13 +96,16 @@ try {
 
     $audit = $pdo->prepare("INSERT INTO audit_log (user_id, action, details) VALUES (NULL, 'resident_payment_submitted', ?)");
     $audit->execute(['Request ID ' . $requestId . '; payment proof submitted for ' . $request['tracking_code']]);
+    $pdo->commit();
+
+    // Queue administrator alerts after the payment state is committed so a
+    // background worker can see and deliver the new jobs immediately.
     notifyAdminsOfPaymentSubmission(
         $pdo,
         (string) $request['tracking_code'],
         (string) $request['document_name'],
         (float) $request['fee_amount']
     );
-    $pdo->commit();
 
     $emailDelivery = 'failed';
     $emailQueueId = null;

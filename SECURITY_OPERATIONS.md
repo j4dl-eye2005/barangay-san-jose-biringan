@@ -19,6 +19,12 @@ Keep this file in the project repository. The root `.htaccess` blocks direct web
 4. Periodically restore the database and files to a local or staging environment and confirm that the restored site can read its records and private uploads.
 5. If the cPanel account provides ImunifyAV or another malware scanner, scan the upload directory on a schedule. Do not rely on file extensions alone; the application already checks file contents and MIME types before accepting uploads.
 
+## Queued email delivery
+
+- Web requests save email jobs to `portal_email_queue` and return without waiting for SMTP. The app attempts to start a detached PHP CLI worker; FastCGI servers can also finish delivery after sending the response.
+- If the host disables process-launch functions and does not provide FastCGI response finishing, configure a cPanel Cron Job to run `api/process_mail_queue.php` at least once per minute. Use the hosting account's PHP CLI path and the site's absolute filesystem path, for example: `*/1 * * * * /path/to/php /home/account/public_html/api/process_mail_queue.php >/dev/null 2>&1`.
+- Run the worker from the command line, not by exposing a public cron URL. It retries temporary delivery failures and processes up to 20 due messages per run.
+
 ## After deployment
 
 - Confirm the new `/admin-access/` form accepts the private key, and that admin sign-in still requires MFA.
