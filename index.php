@@ -1350,7 +1350,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <?php require __DIR__ . '/includes/shared/site-footer.php'; ?>
 
     <?php require __DIR__ . '/includes/shared/dialogs.php'; ?>    <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true">Message</div>
-    <script src="script.js?v=20261030-gcash-payment-flow-v3" defer></script>
+    <script src="script.js?v=20261030-unified-mail-worker-v5" defer></script>
 </body>
 </html>
 

@@ -90,10 +90,64 @@ function startPortalEmailQueueWorker(): void
     }
 }
 
+/** Claim and send one specific queued message after the API has returned. */
+function deliverPortalQueueItem(PDO $pdo, int $queueId): void
+{
+    $job = null;
+    try {
+        $pdo->beginTransaction();
+        $claim = $pdo->prepare("SELECT queue_id, recipient, subject, text_body, html_body, attempts
+            FROM portal_email_queue
+            WHERE queue_id = ? AND status = 'queued' AND available_at <= UTC_TIMESTAMP() AND attempts < 5
+            FOR UPDATE");
+        $claim->execute([$queueId]);
+        $job = $claim->fetch();
+        if (!$job) {
+            $pdo->commit();
+            return;
+        }
+        $attempt = (int) $job['attempts'] + 1;
+        $mark = $pdo->prepare("UPDATE portal_email_queue SET status = 'processing', attempts = ?, locked_at = UTC_TIMESTAMP() WHERE queue_id = ?");
+        $mark->execute([$attempt, $queueId]);
+        $pdo->commit();
+
+        $mailError = null;
+        if (sendPortalEmail((string) $job['recipient'], (string) $job['subject'], (string) $job['text_body'], $mailError, $job['html_body'] !== null ? (string) $job['html_body'] : null)) {
+            $sent = $pdo->prepare("UPDATE portal_email_queue SET status = 'sent', text_body = NULL, html_body = NULL, sent_at = UTC_TIMESTAMP(), locked_at = NULL, last_error = NULL WHERE queue_id = ?");
+            $sent->execute([$queueId]);
+            return;
+        }
+
+        $safeError = (string) ($mailError ?? 'SMTP delivery failed');
+        $safeError = preg_replace('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/i', '[email]', $safeError) ?? 'SMTP delivery failed';
+        $safeError = preg_replace('/(?i)\\b(?:password|token)\\b\\s*[:=]\\s*\\S+/', '[credential redacted]', $safeError) ?? 'SMTP delivery failed';
+        $safeError = substr(trim(preg_replace('/[\\r\\n\\t]+/', ' ', $safeError) ?? 'SMTP delivery failed'), 0, 500);
+        $status = $attempt >= 5 ? 'failed' : 'queued';
+        $retryDelays = [60, 300, 900, 3600];
+        $delay = $retryDelays[min($attempt - 1, count($retryDelays) - 1)];
+        $retry = $pdo->prepare('UPDATE portal_email_queue SET status = ?, text_body = IF(? = \'failed\', NULL, text_body), html_body = IF(? = \'failed\', NULL, html_body), available_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND), locked_at = NULL, last_error = ? WHERE queue_id = ?');
+        $retry->execute([$status, $status, $status, $delay, $safeError, $queueId]);
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('Queued email background delivery stopped before completion.');
+    }
+}
+
+/** Finish delivery after returning the API response; the CLI worker remains a fallback. */
+function schedulePortalEmailQueueDelivery(PDO $pdo, int $queueId): void
+{
+    register_shutdown_function(static function () use ($pdo, $queueId): void {
+        if (function_exists('fastcgi_finish_request')) @fastcgi_finish_request();
+        @ignore_user_abort(true);
+        deliverPortalQueueItem($pdo, $queueId);
+    });
+}
+
 /** Persist an email for asynchronous delivery by api/process_mail_queue.php. */
-function queuePortalEmail(PDO $pdo, string $recipient, string $subject, string $message, ?string $htmlMessage = null, ?string &$error = null): bool
+function queuePortalEmail(PDO $pdo, string $recipient, string $subject, string $message, ?string $htmlMessage = null, ?string &$error = null, ?int &$queueId = null): bool
 {
     $error = null;
+    $queueId = null;
     if (!filter_var($recipient, FILTER_VALIDATE_EMAIL) || strlen($subject) > 255) {
         $error = 'Invalid email recipient or subject.';
         return false;
@@ -101,6 +155,8 @@ function queuePortalEmail(PDO $pdo, string $recipient, string $subject, string $
     try {
         $stmt = $pdo->prepare("INSERT INTO portal_email_queue (recipient, subject, text_body, html_body, status, attempts, available_at) VALUES (?, ?, ?, ?, 'queued', 0, UTC_TIMESTAMP())");
         $stmt->execute([$recipient, $subject, $message, $htmlMessage]);
+        $queueId = (int) $pdo->lastInsertId();
+        schedulePortalEmailQueueDelivery($pdo, $queueId);
         startPortalEmailQueueWorker();
         return true;
     } catch (Throwable $e) {
@@ -111,10 +167,11 @@ function queuePortalEmail(PDO $pdo, string $recipient, string $subject, string $
 }
 
 /** Queue action notices for asynchronous delivery by the mail worker. */
-function queuePortalNotification(PDO $pdo, string $recipient, string $subject, string $message, ?string $htmlMessage = null, ?string &$error = null): string
+function queuePortalNotification(PDO $pdo, string $recipient, string $subject, string $message, ?string $htmlMessage = null, ?string &$error = null, ?int &$queueId = null): string
 {
     $error = null;
-    return queuePortalEmail($pdo, $recipient, $subject, $message, $htmlMessage, $error) ? 'queued' : 'failed';
+    $queueId = null;
+    return queuePortalEmail($pdo, $recipient, $subject, $message, $htmlMessage, $error, $queueId) ? 'queued' : 'failed';
 }
 
 /** Queue a new-request alert only for administrators who opted in. */

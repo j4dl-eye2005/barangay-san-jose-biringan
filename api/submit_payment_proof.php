@@ -105,6 +105,7 @@ try {
     $pdo->commit();
 
     $emailDelivery = 'failed';
+    $emailQueueId = null;
     if (is_string($request['email']) && filter_var($request['email'], FILTER_VALIDATE_EMAIL)) {
         try {
             $residentName = trim((string) ($_SESSION['fullName'] ?? '')) ?: 'Resident';
@@ -119,7 +120,7 @@ try {
             $config = portalConfig();
             $html = portalEmailTemplate('Payment update', 'Your payment is pending verification', $paragraphs, 'View your request', rtrim((string) $config['app_url'], '/') . '/#dashboard', 'This email confirms receipt of your proof, not payment verification or an official receipt.');
             $mailError = null;
-            $emailDelivery = queuePortalNotification($pdo, (string) $request['email'], 'Your payment is pending verification for request ' . $request['tracking_code'], $message, $html, $mailError);
+            $emailDelivery = queuePortalNotification($pdo, (string) $request['email'], 'Your payment is pending verification for request ' . $request['tracking_code'], $message, $html, $mailError, $emailQueueId);
             if ($emailDelivery === 'failed') error_log("submit_payment_proof.php acknowledgment email failed for request $requestId: " . ($mailError ?? 'unknown queue error'));
         } catch (Throwable $mailException) {
             error_log("submit_payment_proof.php acknowledgment email could not be queued for request $requestId.");
@@ -130,7 +131,7 @@ try {
         $oldPath = $proofDirectory . DIRECTORY_SEPARATOR . basename($oldStoredPath);
         if (is_file($oldPath)) @unlink($oldPath);
     }
-    echo json_encode(['success' => true, 'paymentStatus' => 'Pending Verification', 'emailDelivery' => $emailDelivery]);
+    echo json_encode(['success' => true, 'paymentStatus' => 'Pending Verification', 'emailDelivery' => $emailDelivery, 'emailQueueId' => $emailQueueId]);
 } catch (Throwable $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     if ($storedPath) {

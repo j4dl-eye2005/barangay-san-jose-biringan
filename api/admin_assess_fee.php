@@ -72,6 +72,7 @@ try {
     $pdo->commit();
 
     $emailDelivery = $feeChanged ? 'failed' : 'not_needed';
+    $emailQueueId = null;
     if ($feeChanged && !empty($request['email'])) {
         $firstName = trim((string) ($request['first_name'] ?? '')) ?: 'there';
         $trackingCode = (string) $request['tracking_code'];
@@ -114,13 +115,14 @@ try {
             'Fee assessed for request ' . $trackingCode,
             $plainBody,
             $html,
-            $mailError
+            $mailError,
+            $emailQueueId
         );
         if ($emailDelivery === 'failed') {
             error_log("admin_assess_fee.php email failed for request $requestId: " . ($mailError ?? 'unknown error'));
         }
     }
-    echo json_encode(['success' => true, 'fee' => $amount, 'payment_status' => $paymentStatus, 'emailDelivery' => $emailDelivery]);
+    echo json_encode(['success' => true, 'fee' => $amount, 'payment_status' => $paymentStatus, 'emailDelivery' => $emailDelivery, 'emailQueueId' => $emailQueueId]);
 } catch (Throwable $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     $sqlState = $error instanceof PDOException ? (string) $error->getCode() : 'n/a';

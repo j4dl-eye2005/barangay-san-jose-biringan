@@ -1533,21 +1533,47 @@ function showToast(msg, type='info') {
     }, 3760);
 }
 
-function residentEmailDeliveryNotice(result) {
-    if (result?.emailDelivery === 'queued') return { text: ' Resident email queued for background delivery.', type: 'success' };
-    return { text: ' The update was saved, but no resident email could be sent. Check SMTP settings and the resident account email.', type: 'error' };
+function residentEmailDeliveryNotice(result, dispatchResult = null) {
+    if (result?.emailDelivery !== 'queued') {
+        return { text: ' The update was saved, but no resident email could be queued. Check the resident account email and mail queue setup.', type: 'error' };
+    }
+    if (dispatchResult?.delivery === 'sent') {
+        return { text: ' SMTP accepted the resident email for delivery. Ask them to check Inbox and Spam.', type: 'success' };
+    }
+    if (dispatchResult?.delivery === 'retrying') {
+        return { text: ' SMTP did not accept the email yet; it is queued for another attempt.', type: 'error' };
+    }
+    if (dispatchResult?.delivery === 'failed') {
+        return { text: ' The resident email failed after retries. Check the protected mail failure log.', type: 'error' };
+    }
+    if (dispatchResult?.delivery === 'processing') {
+        return { text: ' The mail worker is still processing the resident email.', type: 'success' };
+    }
+    if (dispatchResult?.delivery === 'missing') {
+        return { text: ' The payment update was saved, but its queued email could not be found.', type: 'error' };
+    }
+    return { text: ' The resident email is queued, but the mail worker has not confirmed delivery yet.', type: 'error' };
 }
 
-function dispatchQueuedEmailInBackground(permission) {
-    if (!['requests.manage', 'payments.manage', 'resident.payment'].includes(permission)) return;
-    try {
-        void fetch('api/process_mail_queue.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ permission }),
-            keepalive: true
-        }).catch(() => {});
-    } catch { /* The queued job remains available to the scheduled CLI worker. */ }
+async function dispatchQueuedEmailInBackground(permission, queueId) {
+    if (!['requests.manage', 'payments.manage', 'resident.payment'].includes(permission) || !Number.isInteger(Number(queueId)) || Number(queueId) < 1) return null;
+    let latest = null;
+    for (let attempt = 0; attempt < 30; attempt++) {
+        try {
+            const response = await fetch('api/process_mail_queue.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ permission, queue_id: Number(queueId) }),
+                keepalive: true
+            });
+            const result = await response.json().catch(() => null);
+            if (!response.ok || !result?.success) return latest;
+            latest = result;
+            if (result.delivery !== 'processing') return result;
+        } catch { return latest; }
+        await new Promise(resolve => window.setTimeout(resolve, 500));
+    }
+    return latest;
 }
 
 const portalSearchDocuments = [
@@ -5785,9 +5811,13 @@ function submitResidentPaymentProof(event, request, form, submitButton, feedback
             const result = await response.json();
             if (!response.ok || !result.success) throw new Error(result.message || 'Payment proof could not be submitted.');
             const emailAddress = String(currentUser?.email || 'your account email');
-            if (result.emailDelivery === 'queued') dispatchQueuedEmailInBackground('resident.payment');
+            const emailDispatch = result.emailDelivery === 'queued'
+                ? await dispatchQueuedEmailInBackground('resident.payment', result.emailQueueId)
+                : null;
             const emailNote = result.emailDelivery === 'queued'
-                ? ` Your payment is pending verification. A confirmation is being sent to ${emailAddress}; the review decision will be emailed after staff checks the receipt.`
+                ? (emailDispatch?.delivery === 'sent'
+                    ? ` Your payment is pending verification. SMTP accepted the confirmation for ${emailAddress}; staff will email the review decision after checking the receipt.`
+                    : ` Your payment is pending verification, but the confirmation has not been accepted by SMTP yet. Check the request status here.`)
                 : ' Your payment is pending verification. The receipt was submitted, but an email could not be queued; you can still check the request status here.';
             showToast(`Payment proof submitted. Your payment is pending review.${emailNote}`, result.emailDelivery === 'queued' ? 'success' : 'error');
             selectResidentRequestTab('list');
@@ -6734,8 +6764,10 @@ async function updateAdminRequestPayment(requestId, paymentStatus, button, refer
         });
         const result = await response.json();
         if (!response.ok || !result.success) throw new Error(result.message || 'Could not update payment status.');
-        const notice = residentEmailDeliveryNotice(result);
-        if (result.emailDelivery === 'queued') dispatchQueuedEmailInBackground('payments.manage');
+        const emailDispatch = result.emailDelivery === 'queued'
+            ? await dispatchQueuedEmailInBackground('payments.manage', result.emailQueueId)
+            : null;
+        const notice = residentEmailDeliveryNotice(result, emailDispatch);
         showToast((paymentStatus === 'Paid' ? 'In-person payment recorded.' : 'Cash payment reversed.') + notice.text, notice.type);
         if (currentUser?.staffRole === 'cashier') await loadAdminCollections();
         else await openAdminRequestDetail(requestId);
@@ -6755,8 +6787,10 @@ async function saveAdminPaymentReview(requestId, action, reason = '') {
         });
         const result = await response.json();
         if (!response.ok || !result.success) throw new Error(result.message || 'Payment review could not be saved.');
-        const notice = residentEmailDeliveryNotice(result);
-        if (result.emailDelivery === 'queued') dispatchQueuedEmailInBackground('payments.manage');
+        const emailDispatch = result.emailDelivery === 'queued'
+            ? await dispatchQueuedEmailInBackground('payments.manage', result.emailQueueId)
+            : null;
+        const notice = residentEmailDeliveryNotice(result, emailDispatch);
         showToast((action === 'verify' ? 'Payment verified.' : 'Payment proof rejected.') + notice.text, notice.type);
         invalidateAdminPanelCache('activity');
         if (currentUser?.staffRole === 'cashier') await loadAdminCollections();
@@ -7083,8 +7117,10 @@ async function sendProcessRequest(id, action, details) {
         const result = await res.json();
         if (res.ok && result.success) {
             const messages = { Approve: 'Request approved.', Reject: 'Request rejected.', Ready: 'Request marked ready for pickup.', Pickup: 'Request marked as picked up.' };
-            const notice = residentEmailDeliveryNotice(result);
-            if (result.emailDelivery === 'queued') dispatchQueuedEmailInBackground('requests.manage');
+            const emailDispatch = result.emailDelivery === 'queued'
+                ? await dispatchQueuedEmailInBackground('requests.manage', result.emailQueueId)
+                : null;
+            const notice = residentEmailDeliveryNotice(result, emailDispatch);
             showToast((messages[action] || 'Request updated.') + notice.text, notice.type);
             invalidateAdminPanelCache('overview', 'activity');
             loadAdminData();
@@ -7482,19 +7518,23 @@ async function assessCollectionFee(requestId, button = null) {
         let result = {};
         try { result = responseText ? JSON.parse(responseText) : {}; } catch { /* handled as an invalid server response below */ }
         if (!response.ok || !result.success) throw new Error(result.message || 'Fee could not be saved.');
-        if (result.emailDelivery === 'queued') dispatchQueuedEmailInBackground('payments.manage');
+        const emailDispatch = result.emailDelivery === 'queued'
+            ? await dispatchQueuedEmailInBackground('payments.manage', result.emailQueueId)
+            : null;
         invalidateAdminPanelCache('collections');
         try {
             await loadAdminCollections();
             const emailNote = result.emailDelivery === 'queued'
-                ? ' Resident email queued for background delivery.'
+                ? (emailDispatch?.delivery === 'sent'
+                    ? ' SMTP accepted the resident fee email for delivery.'
+                    : ' Fee saved, but SMTP has not accepted the resident email yet.')
                 : result.emailDelivery === 'failed'
                     ? ' Fee saved, but the resident email could not be queued.'
                     : '';
-            showToast(`Approved fee set to ${formatPhpAmount(result.fee)}.${emailNote}`, result.emailDelivery === 'failed' ? 'error' : 'success');
+            showToast(`Approved fee set to ${formatPhpAmount(result.fee)}.${emailNote}`, result.emailDelivery === 'failed' || (result.emailDelivery === 'queued' && emailDispatch?.delivery !== 'sent') ? 'error' : 'success');
         } catch {
             const emailNote = result.emailDelivery === 'queued'
-                ? ' Resident email queued for background delivery.'
+                ? (emailDispatch?.delivery === 'sent' ? ' SMTP accepted the resident fee email for delivery.' : ' SMTP has not accepted the resident email yet.')
                 : result.emailDelivery === 'failed'
                     ? ' Resident email could not be queued.'
                     : '';

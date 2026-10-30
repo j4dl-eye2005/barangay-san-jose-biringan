@@ -195,10 +195,11 @@ $htmlBody = portalEmailTemplate(
 
 $emailError = null;
 $emailDelivery = 'failed';
+$emailQueueId = null;
 if (!empty($requestInfo['email'])) {
-    $emailDelivery = queuePortalNotification($pdo, (string) $requestInfo['email'], $emailSubject, $plainBody, $htmlBody, $emailError);
+    $emailDelivery = queuePortalNotification($pdo, (string) $requestInfo['email'], $emailSubject, $plainBody, $htmlBody, $emailError, $emailQueueId);
     if ($emailDelivery === 'failed') error_log("process_request.php email failed for request $requestId: " . ($emailError ?? 'unknown error'));
 }
 
-echo json_encode(['success' => true, 'emailDelivery' => $emailDelivery]);
+echo json_encode(['success' => true, 'emailDelivery' => $emailDelivery, 'emailQueueId' => $emailQueueId]);
 ?>

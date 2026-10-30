@@ -78,6 +78,7 @@ try {
 
     $pdo->commit();
     $emailDelivery = 'failed';
+    $emailQueueId = null;
     if (is_string($request['email']) && filter_var($request['email'], FILTER_VALIDATE_EMAIL)) {
         $residentName = trim((string) ($request['first_name'] ?? '')) ?: 'Resident';
         $amount = 'PHP ' . number_format((float) $request['fee_amount'], 2);
@@ -102,10 +103,10 @@ try {
         $config = portalConfig();
         $html = portalEmailTemplate('Payment update', $emailTitle, $paragraphs, 'View your request', rtrim((string) $config['app_url'], '/') . '/#dashboard', $emailNote);
         $mailError = null;
-        $emailDelivery = queuePortalNotification($pdo, (string) $request['email'], $emailTitle . ' for request ' . $request['tracking_code'], $message, $html, $mailError);
+        $emailDelivery = queuePortalNotification($pdo, (string) $request['email'], $emailTitle . ' for request ' . $request['tracking_code'], $message, $html, $mailError, $emailQueueId);
         if ($emailDelivery === 'failed') error_log("review_request_payment.php email failed for request $requestId: " . ($mailError ?? 'unknown error'));
     }
-    echo json_encode(['success' => true, 'payment_status' => $newStatus, 'emailDelivery' => $emailDelivery]);
+    echo json_encode(['success' => true, 'payment_status' => $newStatus, 'emailDelivery' => $emailDelivery, 'emailQueueId' => $emailQueueId]);
 } catch (Throwable $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('Request payment review failed.');

@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS user (
     position_title VARCHAR(120) DEFAULT NULL,
     contact_number VARCHAR(30) DEFAULT NULL,
     notification_new_requests TINYINT(1) NOT NULL DEFAULT 1,
-    notification_payment_verification TINYINT(1) NOT NULL DEFAULT 0,
+    notification_payment_verification TINYINT(1) NOT NULL DEFAULT 1,
     password_changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FULLTEXT INDEX ft_user_name (first_name, last_name)
