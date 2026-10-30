@@ -126,7 +126,7 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $escape($title) ?> · Sample preview</title>
-    <link rel="stylesheet" href="../document-preview.css?v=20261030-business-clearance-watermark-v4">
+    <link rel="stylesheet" href="../document-preview.css?v=20261030-business-clearance-header-v6">
 </head>
 <body>
     <div class="preview-toolbar" role="region" aria-label="Document preview actions">
@@ -144,8 +144,10 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
             <img src="../assets/barangay-seal.svg" alt="Barangay San Jose seal" class="business-seal">
             <div class="business-heading">
                 <p class="business-jurisdiction">Barangay San Jose</p>
-                <h1 class="business-main-heading">Business Permit</h1>
-                <div class="business-header-bar" aria-hidden="true"></div>
+                <div class="business-title-lockup">
+                    <h1 class="business-main-heading">Business Permit</h1>
+                    <div class="business-header-bar" aria-hidden="true"></div>
+                </div>
             </div>
             <p class="business-year"><span id="business-year-value"><?= $escape($issueYear) ?></span><small>BARANGAY BUSINESS CLEARANCE</small></p>
         </header>

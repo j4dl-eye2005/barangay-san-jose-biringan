@@ -391,18 +391,22 @@ body,
 .business-header {
     min-height: 11%;
     display: grid;
-    grid-template-columns: 17% minmax(0, 1fr) 25%;
-    gap: 2.5%;
+    grid-template-columns: 14% minmax(0, 1fr) 27%;
+    gap: 3%;
     align-items: center;
     border-bottom: .38cqw solid var(--business-green);
-    padding-bottom: 2.6cqw;
+    padding: 1cqw .6cqw 2.2cqw;
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
 }
 .business-seal { display:block; width:100%; max-height:100%; aspect-ratio:1; object-fit:contain; }
-.business-heading { min-width:0; text-align:center; }
+.business-heading { min-width:0; text-align:left; }
+.business-title-lockup { width:max-content; max-width:100%; }
 .business-jurisdiction {
     margin: 0 0 1cqw;
     color: var(--business-green);
-    font-size: 2.05cqw;
+    font-size: 2.35cqw;
     line-height: 1.2;
     font-weight: 800;
     letter-spacing: .12em;
@@ -414,26 +418,30 @@ body,
     font-size: 4.8cqw;
     line-height: 1.02;
     font-weight: 800;
-    letter-spacing: -.045em;
+    letter-spacing: normal;
     text-transform: uppercase;
+    white-space: nowrap;
 }
-.business-header-bar { width: 40%; height: .8cqw; margin: 1.5cqw auto 0; background: var(--business-gold); }
+.business-header-bar { width:100%; height:.8cqw; margin:1.5cqw 0 0; background:var(--business-gold); }
 .business-year {
     margin: 0;
+    padding-left: 3cqw;
+    border-left: .38cqw solid var(--business-gold);
     color: var(--business-green);
     font-size: 5.8cqw;
     line-height: .95;
     font-weight: 800;
     letter-spacing: -.04em;
-    text-align: center;
+    text-align: right;
 }
 .business-year small {
     display:block;
     margin-top: 1.2cqw;
-    font-size: 1.65cqw;
+    font-size: 1.9cqw;
     line-height:1.25;
     font-weight:800;
     letter-spacing:.09em;
+    white-space:nowrap;
 }
 .business-fields {
     display:grid;
@@ -495,9 +503,9 @@ body,
 .business-issued span { display:block; font-weight:600; }
 .business-issued strong { display:block; margin-top:.7cqw; color:#18251c; font-size:2.05cqw; font-weight:800; }
 .business-signatory { min-width:0; color:#18251c; text-align:center; }
-.business-signature-wrap { position:relative; height:12cqw; display:flex; align-items:flex-end; justify-content:center; }
-.business-signature-image { position:absolute; z-index:1; bottom:-.4cqw; left:50%; width:88%; height:11cqw; object-fit:contain; object-position:center bottom; transform:translateX(-50%); }
-.business-signature-line { width:92%; height:2cqw; border-bottom:.22cqw solid #26332b; }
+.business-signature-wrap { position:relative; height:auto; display:block; text-align:center; }
+.business-signature-image { display:block; position:relative; top:5cqw; z-index:1; width:20cqw; max-width:100%; max-height:14cqw; height:auto; margin:0 auto; object-fit:contain; }
+.business-signature-line { position:relative; z-index:2; width:100%; min-height:1.4em; margin-top:-3.5cqw; padding:0 .5cqw .45cqw; border-bottom:.22cqw solid #26332b; }
 .business-signatory-name { margin:.8cqw 0 0; font-size:1.9cqw; line-height:1.25; font-weight:800; text-transform:uppercase; overflow-wrap:anywhere; }
 .business-signatory-role { margin:.45cqw 0 0; font-size:1.8cqw; line-height:1.2; font-weight:500; }
 .business-permit-label { margin:1.6cqw 0 .35cqw; color:var(--business-green); font-size:1.7cqw; font-weight:800; letter-spacing:.07em; }
