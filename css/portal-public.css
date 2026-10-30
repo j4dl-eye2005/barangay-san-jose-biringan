@@ -3966,6 +3966,17 @@ body.resident-workspace-view #resident-dashboard #request-list {
     padding-right: 8px;
     scrollbar-gutter: stable;
 }
+@media (min-width: 768px) {
+    body.resident-workspace-view #resident-dashboard #resident-request-panel-list {
+        display: flex;
+        min-height: 0;
+        flex-direction: column;
+    }
+    body.resident-workspace-view #resident-dashboard #request-list {
+        height: auto;
+        flex: 1 1 auto;
+    }
+}
 body.resident-workspace-view #resident-dashboard .request-item .request-tracking-line {
     margin: 3px 0 0;
     row-gap: 0;
@@ -5451,4 +5462,30 @@ body.public-portal-view:has(#record.active) .site-disclaimer-bar { border-top: 1
         min-height: 260px;
     }
 }
+
+/* Make the resident payment destination and email follow-up visible in each request card. */
+.resident-payment-instructions,
+.resident-payment-confirmed {
+    display: grid;
+    gap: 8px;
+    padding: 12px 14px;
+    border: 1px solid #c8ddc7;
+    border-left: 4px solid #176b3b;
+    border-radius: 8px;
+    background: #f2f8ef;
+}
+.resident-payment-instructions > p,
+.resident-payment-confirmed > p {
+    margin: 0;
+    color: #3f4a43;
+    font-size: 13px;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+.resident-payment-instructions-title {
+    color: #10562f;
+    font-size: 13px;
+    font-weight: 800;
+}
+.resident-payment-confirmed { border-color: #b8d5b3; }
 

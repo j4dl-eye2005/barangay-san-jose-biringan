@@ -5727,7 +5727,11 @@ function submitResidentPaymentProof(event, request, form, submitButton, feedback
         .then(async response => {
             const result = await response.json();
             if (!response.ok || !result.success) throw new Error(result.message || 'Payment proof could not be submitted.');
-            showToast('Payment proof submitted for review.', 'success');
+            const emailAddress = String(currentUser?.email || 'your account email');
+            const emailNote = result.emailDelivery === 'queued'
+                ? ` An acknowledgment is queued for ${emailAddress}; the review decision will be emailed after staff checks the receipt.`
+                : ' The receipt was submitted, but an email could not be queued. You can still check the request status here.';
+            showToast(`Payment proof submitted for review.${emailNote}`, 'success');
             selectResidentRequestTab('list');
             try {
                 await loadResidentData();
@@ -5751,21 +5755,35 @@ function submitResidentPaymentProof(event, request, form, submitButton, feedback
 }
 
 function createResidentPaymentControl(request, fee, paymentStatus) {
-    if (!(fee > 0) || !['Approved', 'Ready for Pickup'].includes(request.current_status)) return null;
-    if (paymentStatus === 'Paid' || paymentStatus === 'Not Required') return null;
+    if (!(fee > 0) || !['Approved', 'Ready for Pickup', 'Completed'].includes(request.current_status)) return null;
     const section = el('section', { className: 'resident-payment-review' });
-    section.appendChild(el('p', {
-        className: 'field-help',
-        text: 'After approval, pay using a method confirmed by the barangay office, then submit your reference and receipt for review.'
-    }));
+    const emailAddress = String(currentUser?.email || 'your registered email');
+    if (paymentStatus === 'Paid') {
+        section.classList.add('resident-payment-confirmed');
+        section.append(
+            el('strong', { className: 'resident-payment-instructions-title', text: 'Payment recorded' }),
+            el('p', { className: 'field-help', text: `The portal queues a payment confirmation for ${emailAddress}. Check your Gmail inbox and Spam folder. If it does not arrive, the request status is still shown here. This email is a portal status notice; keep the official receipt from the cashier or payment provider.` })
+        );
+        return section;
+    }
+    if (paymentStatus === 'Not Required') return null;
     if (paymentStatus === 'Pending Verification') {
         const details = [
             `Payment proof submitted${request.payment_submitted_at ? ` on ${formatDateTime(request.payment_submitted_at)}` : ''}.`,
             request.payment_reference ? `Reference: ${request.payment_reference}` : ''
         ].filter(Boolean).join(' ');
-        section.appendChild(el('p', { className: 'field-help', text: details, attrs: { role: 'status' } }));
+        section.append(
+            el('p', { className: 'field-help', text: details, attrs: { role: 'status' } }),
+            el('p', { className: 'field-help', text: `Staff still needs to verify the payment. The decision will be emailed to ${emailAddress}; this pending status is not a payment confirmation.` })
+        );
         return section;
     }
+    section.appendChild(el('div', { className: 'resident-payment-instructions' }, [
+        el('strong', { className: 'resident-payment-instructions-title', text: 'Where and how to pay' }),
+        el('p', { text: `For an in-person payment, visit the Barangay Hall cashier in Barangay San Jose, Biringan City. Show tracking code ${String(request.tracking_code || '')}, confirm the accepted payment method, and ask the cashier to record the payment against this request.` }),
+        el('p', { text: 'This prototype does not process GCash, card, or bank payments directly. Use another payment channel only if the Barangay office gives you verified instructions. Keep the official receipt.' }),
+        el('p', { text: `If staff asks you to submit proof for an approved payment method, enter its receipt or transaction reference and attach the receipt below. Once staff records or verifies payment, the portal emails an update to ${emailAddress}.` })
+    ]));
     if (paymentStatus === 'Rejected' && request.payment_rejection_reason) {
         section.appendChild(el('p', { className: 'request-payment-rejection', text: `Payment proof needs an update: ${request.payment_rejection_reason}` }));
     }
@@ -5877,7 +5895,7 @@ function createResidentPaymentControl(request, fee, paymentStatus) {
         el('div', { className: 'resident-payment-field' }, [
             el('label', { text: 'Payment reference', attrs: { for: referenceId } }),
             reference,
-            el('small', { className: 'field-help resident-payment-helper', text: 'Enter the transaction or receipt number.' })
+            el('small', { className: 'field-help resident-payment-helper', text: 'Enter the receipt number from the cashier or transaction reference for a payment method confirmed by the Barangay office.' })
         ]),
         el('div', { className: 'resident-payment-field' }, [
             el('label', { text: 'Receipt proof', attrs: { for: proofId } }),

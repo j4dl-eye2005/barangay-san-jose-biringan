@@ -2754,10 +2754,10 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
         max-width: none;
         align-items: center;
         justify-content: flex-start;
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
         gap: 5px;
         overflow: visible;
-        white-space: nowrap;
+        white-space: normal;
     }
     #admin-dashboard #admin-requests-panel .request-admin-table .request-disabled-action-tooltip {
         display: inline-flex;
@@ -2781,7 +2781,7 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
         line-height: 1;
     }
     #admin-dashboard #admin-requests-panel .request-admin-table .table-action-group > .btn-reject {
-        margin-left: 7px;
+        margin-left: 0;
     }
     #admin-dashboard #admin-requests-panel .request-admin-table .request-disabled-action-tooltip > .btn-set-ready {
         border-color: #a8e4d8;

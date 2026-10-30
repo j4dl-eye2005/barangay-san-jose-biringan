@@ -81,16 +81,28 @@ try {
     if (is_string($request['email']) && filter_var($request['email'], FILTER_VALIDATE_EMAIL)) {
         $residentName = trim((string) ($request['first_name'] ?? '')) ?: 'Resident';
         $amount = 'PHP ' . number_format((float) $request['fee_amount'], 2);
-        $message = $action === 'verify'
-            ? "Hello $residentName,\n\nYour payment proof for request {$request['tracking_code']} ($amount) has been verified.\n"
-            : "Hello $residentName,\n\nYour payment proof for request {$request['tracking_code']} ($amount) could not be verified.\nReason: $reason\nPlease submit a new receipt or contact the barangay office.\n";
-        $paragraphs = $action === 'verify'
-            ? ["Hello $residentName,", "Your payment proof for request {$request['tracking_code']} ($amount) has been verified."]
-            : ["Hello $residentName,", "Your payment proof for request {$request['tracking_code']} ($amount) could not be verified.", "Reason: $reason", 'Please submit a new receipt or contact the barangay office.'];
+        $reviewedAt = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('F j, Y g:i A') . ' (Philippine time)';
+        if ($action === 'verify') {
+            $referenceLine = trim((string) ($request['payment_reference'] ?? ''));
+            $message = "Hello $residentName,\n\nYour payment proof has been verified by staff.\nRequest: {$request['tracking_code']}\nDocument: {$request['document_name']}\nAmount: $amount\nPayment reference: " . ($referenceLine !== '' ? $referenceLine : 'Not recorded') . "\nVerified: $reviewedAt\n\nKeep the official receipt from the cashier or payment provider. This email is a payment-status confirmation, not an official receipt.\n";
+            $paragraphs = [
+                "Hello $residentName,",
+                "Your payment proof has been verified by staff for {$request['document_name']}.",
+                "Request: {$request['tracking_code']}\nAmount: $amount\nPayment reference: " . ($referenceLine !== '' ? $referenceLine : 'Not recorded') . "\nVerified: $reviewedAt",
+                'Keep the official receipt from the cashier or payment provider.'
+            ];
+            $emailTitle = 'Payment verified';
+            $emailNote = 'This message confirms the portal status after staff reviewed your proof. It is not an official receipt.';
+        } else {
+            $message = "Hello $residentName,\n\nYour payment proof for request {$request['tracking_code']} ($amount) could not be verified.\nReason: $reason\nPlease submit a corrected receipt or contact the barangay office.\n";
+            $paragraphs = ["Hello $residentName,", "Your payment proof for request {$request['tracking_code']} ($amount) could not be verified.", "Reason: $reason", 'Submit a corrected receipt or contact the barangay office.'];
+            $emailTitle = 'Payment proof needs an update';
+            $emailNote = null;
+        }
         $config = portalConfig();
-        $html = portalEmailTemplate('Payment update', $action === 'verify' ? 'Payment verified' : 'Payment proof needs an update', $paragraphs, 'View your request', rtrim((string) $config['app_url'], '/') . '/#dashboard');
+        $html = portalEmailTemplate('Payment update', $emailTitle, $paragraphs, 'View your request', rtrim((string) $config['app_url'], '/') . '/#dashboard', $emailNote);
         $mailError = null;
-        $emailDelivery = queuePortalNotification($pdo, (string) $request['email'], 'Update on your document payment', $message, $html, $mailError);
+        $emailDelivery = queuePortalNotification($pdo, (string) $request['email'], $emailTitle . ' for request ' . $request['tracking_code'], $message, $html, $mailError);
         if ($emailDelivery === 'failed') error_log("review_request_payment.php email failed for request $requestId: " . ($mailError ?? 'unknown error'));
     }
     echo json_encode(['success' => true, 'payment_status' => $newStatus, 'emailDelivery' => $emailDelivery]);

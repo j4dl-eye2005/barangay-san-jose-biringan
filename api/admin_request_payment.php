@@ -90,16 +90,28 @@ try {
     if (is_string($request['email']) && filter_var($request['email'], FILTER_VALIDATE_EMAIL)) {
         $residentName = trim((string) ($request['resident_name'] ?? '')) ?: 'Resident';
         $amount = 'PHP ' . number_format((float) $request['fee_amount'], 2);
-        $message = $status === 'Paid'
-            ? "Hello $residentName,\n\nYour in-person payment of $amount for {$request['document_name']} (tracking code: {$request['tracking_code']}) has been recorded."
-            : "Hello $residentName,\n\nThe in-person payment of $amount for {$request['document_name']} (tracking code: {$request['tracking_code']}) was reversed. Please contact the barangay office if you have questions.";
-        $paragraphs = $status === 'Paid'
-            ? ["Hello $residentName,", "Your in-person payment of $amount for {$request['document_name']} (tracking code: {$request['tracking_code']}) has been recorded."]
-            : ["Hello $residentName,", "The in-person payment of $amount for {$request['document_name']} (tracking code: {$request['tracking_code']}) was reversed.", 'Please contact the barangay office if you have questions.'];
+        if ($status === 'Paid') {
+            $recordedAt = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('F j, Y g:i A') . ' (Philippine time)';
+            $referenceLine = $reference !== '' ? $reference : 'Not recorded';
+            $message = "Hello $residentName,\n\nYour in-person payment has been recorded by staff.\nRequest: {$request['tracking_code']}\nDocument: {$request['document_name']}\nAmount: $amount\nPayment reference: $referenceLine\nRecorded: $recordedAt\n\nKeep the official receipt issued by the Barangay Hall cashier. This email is a payment-status confirmation, not an official receipt.\n";
+            $paragraphs = [
+                "Hello $residentName,",
+                "Your in-person payment has been recorded by staff for {$request['document_name']}.",
+                "Request: {$request['tracking_code']}\nAmount: $amount\nPayment reference: $referenceLine\nRecorded: $recordedAt",
+                'Keep the official receipt issued by the Barangay Hall cashier.'
+            ];
+            $emailTitle = 'Payment recorded';
+            $emailNote = 'This email confirms the portal payment record. The cashier-issued official receipt is your payment receipt.';
+        } else {
+            $message = "Hello $residentName,\n\nThe in-person payment of $amount for {$request['document_name']} (tracking code: {$request['tracking_code']}) was reversed. Please contact the barangay office if you have questions.";
+            $paragraphs = ["Hello $residentName,", "The in-person payment of $amount for {$request['document_name']} (tracking code: {$request['tracking_code']}) was reversed.", 'Please contact the barangay office if you have questions.'];
+            $emailTitle = 'Payment reversed';
+            $emailNote = null;
+        }
         $config = portalConfig();
-        $html = portalEmailTemplate('Payment update', $status === 'Paid' ? 'Payment recorded' : 'Payment reversed', $paragraphs, 'View your request', rtrim((string) $config['app_url'], '/') . '/#dashboard');
+        $html = portalEmailTemplate('Payment update', $emailTitle, $paragraphs, 'View your request', rtrim((string) $config['app_url'], '/') . '/#dashboard', $emailNote);
         $mailError = null;
-        $emailDelivery = queuePortalNotification($pdo, (string) $request['email'], 'Update on your document payment', $message, $html, $mailError);
+        $emailDelivery = queuePortalNotification($pdo, (string) $request['email'], $emailTitle . ' for request ' . $request['tracking_code'], $message, $html, $mailError);
         if ($emailDelivery === 'failed') error_log("admin_request_payment.php email failed for request $requestId: " . ($mailError ?? 'unknown error'));
     }
     echo json_encode(['success' => true, 'payment_status' => $status, 'emailDelivery' => $emailDelivery]);

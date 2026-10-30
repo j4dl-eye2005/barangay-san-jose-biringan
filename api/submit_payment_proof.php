@@ -104,11 +104,33 @@ try {
     );
     $pdo->commit();
 
+    $emailDelivery = 'failed';
+    if (is_string($request['email']) && filter_var($request['email'], FILTER_VALIDATE_EMAIL)) {
+        try {
+            $residentName = trim((string) ($_SESSION['fullName'] ?? '')) ?: 'Resident';
+            $amount = 'PHP ' . number_format((float) $request['fee_amount'], 2);
+            $message = "Hello $residentName,\n\nWe received the payment proof for {$request['document_name']} (request {$request['tracking_code']}, $amount). It is waiting for staff review; this email does not mean the payment has been verified. We will email you again after the review.\n\nKeep the original receipt from the cashier or payment provider.\n";
+            $paragraphs = [
+                "Hello $residentName,",
+                "We received the payment proof for {$request['document_name']} (request {$request['tracking_code']}, $amount).",
+                'It is waiting for staff review; this email does not mean the payment has been verified. We will email you again after the review.',
+                'Keep the original receipt from the cashier or payment provider.'
+            ];
+            $config = portalConfig();
+            $html = portalEmailTemplate('Payment update', 'Payment proof received', $paragraphs, 'View your request', rtrim((string) $config['app_url'], '/') . '/#dashboard', 'This email is an acknowledgment, not an official receipt or proof that payment has cleared.');
+            $mailError = null;
+            $emailDelivery = queuePortalNotification($pdo, (string) $request['email'], 'Payment proof received for request ' . $request['tracking_code'], $message, $html, $mailError);
+            if ($emailDelivery === 'failed') error_log("submit_payment_proof.php acknowledgment email failed for request $requestId: " . ($mailError ?? 'unknown queue error'));
+        } catch (Throwable $mailException) {
+            error_log("submit_payment_proof.php acknowledgment email could not be queued for request $requestId.");
+        }
+    }
+
     if ($oldStoredPath && preg_match('#^proofs/[a-f0-9]{32}\.(?:pdf|jpg|jpeg|png)$#', $oldStoredPath)) {
         $oldPath = $proofDirectory . DIRECTORY_SEPARATOR . basename($oldStoredPath);
         if (is_file($oldPath)) @unlink($oldPath);
     }
-    echo json_encode(['success' => true, 'paymentStatus' => 'Pending Verification']);
+    echo json_encode(['success' => true, 'paymentStatus' => 'Pending Verification', 'emailDelivery' => $emailDelivery]);
 } catch (Throwable $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     if ($storedPath) {
