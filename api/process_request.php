@@ -2,6 +2,7 @@
 require_once 'db.php';
 require_once 'email.php';
 require_once 'config.php';
+require_once __DIR__ . '/request_workflow.php';
 header('Content-Type: application/json');
 
 requireAdminAccess('requests.manage');
@@ -12,29 +13,31 @@ $requestId = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => 
 $action = is_string($data['action'] ?? null) ? $data['action'] : '';
 $details = is_string($data['details'] ?? null) ? trim($data['details']) : '';
 if (!$requestId || strlen($details) > 2000 || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', $details)) { http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Invalid request details.']); exit; }
-
-$allowedTransitions = [
-    'Pending' => [
-        'Approve' => 'Approved',
-        'Reject' => 'Rejected',
-    ],
-    'Approved' => [
-        'Ready' => 'Ready for Pickup',
-    ],
-    'Ready for Pickup' => [
-        'Pickup' => 'Completed',
-    ],
-];
-
-if (!in_array($action, ['Approve', 'Reject', 'Ready', 'Pickup'], true)) {
+$allowedActions = ['Approve', 'Reject', 'Ready', 'Pickup', 'RescheduleApprove', 'RescheduleReject'];
+if (!in_array($action, $allowedActions, true)) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Invalid request action']);
     exit;
 }
+$pickupDate = is_string($data['pickupDate'] ?? null) ? trim($data['pickupDate']) : '';
+$pickupTime = is_string($data['pickupTime'] ?? null) ? trim($data['pickupTime']) : '';
+$rescheduleId = filter_var($data['rescheduleId'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+$ownerIdChecked = ($data['ownerIdChecked'] ?? false) === true;
+if ($action === 'Ready') {
+    $scheduledDate = DateTimeImmutable::createFromFormat('!Y-m-d', $pickupDate, new DateTimeZone('Asia/Manila'));
+    $today = new DateTimeImmutable('today', new DateTimeZone('Asia/Manila'));
+    if (!$scheduledDate || $scheduledDate->format('Y-m-d') !== $pickupDate || $scheduledDate < $today
+        || (int) $scheduledDate->format('N') > 5 || !preg_match('/^(?:(?:08|09|1[0-6]):(?:00|30)|17:00)$/', $pickupTime)) {
+        http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Choose a valid future weekday and pickup time between 8:00 AM and 5:00 PM.']); exit;
+    }
+}
+if ($action === 'Reject' && $details === '') { http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Enter a reason for rejecting this request.']); exit; }
+if ($action === 'RescheduleReject' && $details === '') { http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Enter a reason for declining the reschedule.']); exit; }
 
 $pdo->beginTransaction();
 try {
-    $lock = $pdo->prepare('SELECT dr.current_status, dr.payment_status, COALESCE(dr.assessed_fee, dt.fee_amount) AS fee_amount
+    $lock = $pdo->prepare('SELECT dr.current_status, dr.payment_status, dr.request_for_other, dr.pickup_date, dr.pickup_time,
+                                  COALESCE(dr.assessed_fee, dt.fee_amount) AS fee_amount
                            FROM document_request dr
                            JOIN document_type dt ON dt.document_type_id = dr.document_type_id
                            WHERE dr.request_id = ? FOR UPDATE');
@@ -64,25 +67,56 @@ try {
         }
     }
 
-    $newStatus = $allowedTransitions[(string) $currentStatus][$action] ?? null;
+    if ($action === 'Pickup' && !empty($currentRequest['request_for_other']) && !$ownerIdChecked) {
+        $pdo->rollBack(); http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Confirm that you checked the document owner’s valid ID before marking pickup complete.']); exit;
+    }
+
+    $changes = [];
+    if ($action === 'Ready') {
+        $changes = ['pickup_date' => $pickupDate, 'pickup_time' => $pickupTime, 'pickup_deadline_days' => (int) requestWorkflowConfig()['pickup_deadline_days']];
+    } elseif ($action === 'Pickup' && !empty($currentRequest['request_for_other'])) {
+        $changes = ['owner_id_checked_at' => gmdate('Y-m-d H:i:s'), 'owner_id_checked_by_user_id' => (int) $_SESSION['user_id']];
+    }
+
+    $pendingReschedule = null;
+    if (in_array($action, ['RescheduleApprove', 'RescheduleReject'], true)) {
+        $rescheduleQuery = 'SELECT reschedule_id, original_pickup_date, requested_pickup_date, reason FROM pickup_reschedule_request WHERE request_id = ? AND status = \'Pending\'';
+        $rescheduleParams = [(int) $requestId];
+        if ($rescheduleId) { $rescheduleQuery .= ' AND reschedule_id = ?'; $rescheduleParams[] = (int) $rescheduleId; }
+        $rescheduleQuery .= ' ORDER BY created_at DESC, reschedule_id DESC LIMIT 1 FOR UPDATE';
+        $rescheduleLock = $pdo->prepare($rescheduleQuery);
+        $rescheduleLock->execute($rescheduleParams);
+        $pendingReschedule = $rescheduleLock->fetch(PDO::FETCH_ASSOC);
+        if (!$pendingReschedule) {
+            $pdo->rollBack(); http_response_code(409); echo json_encode(['success'=>false, 'message'=>'There is no pending reschedule request to review.']); exit;
+        }
+        if ($action === 'RescheduleApprove') {
+            $date = DateTimeImmutable::createFromFormat('!Y-m-d', (string) $pendingReschedule['requested_pickup_date'], new DateTimeZone('Asia/Manila'));
+            $original = DateTimeImmutable::createFromFormat('!Y-m-d', (string) $pendingReschedule['original_pickup_date'], new DateTimeZone('Asia/Manila'));
+            $today = new DateTimeImmutable('today', new DateTimeZone('Asia/Manila'));
+            if (!$date || !$original || $date <= $today || $date <= $original || (int) $date->format('N') > 5 || $date->diff($original)->days > 7) {
+                $pdo->rollBack(); http_response_code(409); echo json_encode(['success'=>false, 'message'=>'The requested pickup date has passed or is no longer valid. Decline it and ask the resident to submit a new request.']); exit;
+            }
+            $changes = ['pickup_date' => $date->format('Y-m-d'), 'pickup_deadline_days' => (int) requestWorkflowConfig()['pickup_deadline_days']];
+            $details = 'Pickup reschedule approved for ' . $date->format('Y-m-d') . '.';
+        } else {
+            $details = 'Pickup reschedule declined: ' . $details;
+        }
+        $updateReschedule = $pdo->prepare('UPDATE pickup_reschedule_request SET status = ?, reviewed_at = UTC_TIMESTAMP(), reviewed_by_user_id = ?, review_notes = ? WHERE reschedule_id = ? AND status = \'Pending\'');
+        $updateReschedule->execute([$action === 'RescheduleApprove' ? 'Approved' : 'Rejected', (int) $_SESSION['user_id'], $details, (int) $pendingReschedule['reschedule_id']]);
+        if ($updateReschedule->rowCount() !== 1) throw new RuntimeException('The reschedule request has already been reviewed.');
+    }
+
+    $newStatus = applyRequestTransition($pdo, (int) $requestId, $currentStatus, $action, (int) $_SESSION['user_id'], $details, $changes);
     if ($newStatus === null) {
         $pdo->rollBack();
         http_response_code(409);
         echo json_encode(['success' => false, 'message' => 'This request has already changed or cannot take that action. Refresh the requests list and try again.']);
         exit;
     }
-
-    $stmt = $pdo->prepare('UPDATE document_request SET current_status = ?, rejection_reason = ? WHERE request_id = ? AND current_status = ?');
-    $stmt->execute([$newStatus, $action === 'Reject' ? $details : null, $requestId, $currentStatus]);
-    if ($stmt->rowCount() !== 1) {
-        $pdo->rollBack();
-        http_response_code(409);
-        echo json_encode(['success' => false, 'message' => 'This request has already changed. Refresh the requests list and try again.']);
-        exit;
+    if ($action === 'Reject') {
+        $pdo->prepare('UPDATE document_request SET rejection_reason = ? WHERE request_id = ?')->execute([$details, (int) $requestId]);
     }
-
-    $log = $pdo->prepare('INSERT INTO request_status_log (request_id, updated_by_user_id, status, notes) VALUES (?, ?, ?, ?)');
-    $log->execute([$requestId, $_SESSION['user_id'], $newStatus, $details]);
 
     $audit = $pdo->prepare('INSERT INTO audit_log (user_id, action, details) VALUES (?, ?, ?)');
     $auditAction = match ($action) {
@@ -90,12 +124,15 @@ try {
         'Reject' => 'request_rejected',
         'Ready' => 'request_ready_for_pickup',
         'Pickup' => 'request_completed',
+        'RescheduleApprove' => 'pickup_reschedule_approved',
+        'RescheduleReject' => 'pickup_reschedule_rejected',
     };
     $audit->execute([$_SESSION['user_id'], $auditAction, "Request ID $requestId; new status $newStatus"]);
 
     $request = $pdo->prepare("SELECT dr.tracking_code, r.email, COALESCE(r.first_name, dr.walk_in_name) AS first_name,
                                      r.middle_name, r.last_name, dr.request_source, dt.name AS document_name,
-                                     COALESCE(dr.assessed_fee, dt.fee_amount) AS fee_amount
+                                     COALESCE(dr.assessed_fee, dt.fee_amount) AS fee_amount, dr.request_for_other,
+                                     dr.owner_first_name, dr.pickup_date, dr.pickup_time
                               FROM document_request dr
                               JOIN document_type dt ON dt.document_type_id = dr.document_type_id
                               LEFT JOIN resident r ON r.resident_id = dr.resident_id
@@ -111,6 +148,9 @@ try {
     exit;
 }
 
+$emailDelivery = 'failed';
+$emailQueueId = null;
+try {
 $appUrl   = portalConfig()['app_url'];
 
 $firstName = trim((string) ($requestInfo['first_name'] ?? '')) ?: 'there';
@@ -125,7 +165,11 @@ $statusLabels = [
     'Ready for Pickup' => 'Ready for Pickup',
     'Completed'       => 'Completed',
 ];
-$statusLabel = $statusLabels[$newStatus] ?? $newStatus;
+$statusLabel = match ($action) {
+    'RescheduleApprove' => 'Pickup reschedule approved',
+    'RescheduleReject' => 'Pickup reschedule declined',
+    default => $statusLabels[$newStatus] ?? $newStatus,
+};
 
 $emailSubject = $isBusinessApproval
     ? "Business clearance request approved — {$requestInfo['document_name']}"
@@ -134,6 +178,8 @@ $emailSubject = $isBusinessApproval
     'Reject'  => "Update on your document request — {$requestInfo['document_name']}",
     'Ready'   => "Your document is ready for pickup — {$requestInfo['document_name']}",
     'Pickup'  => "Your document request is complete — {$requestInfo['document_name']}",
+    'RescheduleApprove' => "Pickup reschedule approved — {$requestInfo['document_name']}",
+    'RescheduleReject' => "Pickup reschedule declined — {$requestInfo['document_name']}",
     default   => "Barangay request update — {$requestInfo['document_name']}",
 };
 $emailSubject .= ' — ' . (string) $requestInfo['tracking_code'];
@@ -173,6 +219,8 @@ $note = match ($action) {
     'Approve' => 'Your request is now being processed. You will be notified again once it is ready for pickup.',
     'Ready'   => 'Please visit the barangay office to claim your document. Bring a valid ID.',
     'Pickup'  => 'Thank you for using Barangay San Jose digital services.',
+    'RescheduleApprove' => 'The updated pickup date is now shown in your request history.',
+    'RescheduleReject' => 'Your original pickup date remains scheduled. Contact the barangay office if you need help.',
     default   => null,
 };
 if ($isBusinessApproval) {
@@ -195,11 +243,12 @@ $htmlBody = portalEmailTemplate(
 );
 
 $emailError = null;
-$emailDelivery = 'failed';
-$emailQueueId = null;
 if (!empty($requestInfo['email'])) {
     $emailDelivery = queuePortalNotification($pdo, (string) $requestInfo['email'], $emailSubject, $plainBody, $htmlBody, $emailError, $emailQueueId);
     if ($emailDelivery === 'failed') error_log("process_request.php email failed for request $requestId: " . ($emailError ?? 'unknown error'));
+}
+} catch (Throwable $error) {
+    error_log("Request $requestId was saved but its email notification could not be prepared.");
 }
 
 echo json_encode(['success' => true, 'emailDelivery' => $emailDelivery, 'emailQueueId' => $emailQueueId]);

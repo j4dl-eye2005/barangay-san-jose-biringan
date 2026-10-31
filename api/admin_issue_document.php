@@ -20,8 +20,14 @@ try {
     $pdo->beginTransaction();
     $stmt = $pdo->prepare("SELECT dr.request_id, dr.tracking_code, dr.current_status, dr.payment_status,
             COALESCE(dr.assessed_fee, dt.fee_amount) AS fee_amount, dt.name AS document_type,
-            COALESCE(r.first_name, dr.walk_in_name) AS first_name, r.middle_name, r.last_name, r.suffix,
-            r.address, r.date_of_birth, r.civil_status, r.gender, dr.business_name, dr.business_category,
+            CASE WHEN dr.request_for_other = 1 THEN dr.owner_first_name ELSE COALESCE(r.first_name, dr.walk_in_name) END AS first_name,
+            CASE WHEN dr.request_for_other = 1 THEN dr.owner_middle_name ELSE r.middle_name END AS middle_name,
+            CASE WHEN dr.request_for_other = 1 THEN dr.owner_last_name ELSE r.last_name END AS last_name,
+            CASE WHEN dr.request_for_other = 1 THEN dr.owner_suffix ELSE r.suffix END AS suffix,
+            CASE WHEN dr.request_for_other = 1 THEN dr.owner_address ELSE r.address END AS address,
+            CASE WHEN dr.request_for_other = 1 THEN dr.owner_date_of_birth ELSE r.date_of_birth END AS date_of_birth,
+            CASE WHEN dr.request_for_other = 1 THEN NULL ELSE r.civil_status END AS civil_status,
+            r.gender, dr.business_name, dr.business_category,
             dr.business_address, dr.business_activity, dr.purpose
         FROM document_request dr JOIN document_type dt ON dt.document_type_id = dr.document_type_id
         LEFT JOIN resident r ON r.resident_id = dr.resident_id WHERE dr.request_id = ? FOR UPDATE");

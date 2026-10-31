@@ -15,8 +15,15 @@ $stmt = $pdo->prepare("SELECT dr.request_id, dr.tracking_code, dr.purpose, dr.cu
         (SELECT rpt.payment_id FROM request_payment_transaction rpt WHERE rpt.request_id = dr.request_id AND rpt.status = 'confirmed' ORDER BY rpt.recorded_at DESC, rpt.payment_id DESC LIMIT 1) AS confirmed_payment_id,
         (SELECT rpt.recorded_at FROM request_payment_transaction rpt WHERE rpt.request_id = dr.request_id AND rpt.status = 'confirmed' ORDER BY rpt.recorded_at DESC, rpt.payment_id DESC LIMIT 1) AS confirmed_payment_recorded_at,
         COALESCE(dr.assessed_fee, dt.fee_amount) AS fee_amount,
-        dt.name AS document_type, r.first_name, r.middle_name, r.last_name, r.suffix, r.address,
-        r.date_of_birth, r.civil_status, r.gender,
+        dt.name AS document_type,
+        CASE WHEN dr.request_for_other = 1 THEN dr.owner_first_name ELSE r.first_name END AS first_name,
+        CASE WHEN dr.request_for_other = 1 THEN dr.owner_middle_name ELSE r.middle_name END AS middle_name,
+        CASE WHEN dr.request_for_other = 1 THEN dr.owner_last_name ELSE r.last_name END AS last_name,
+        CASE WHEN dr.request_for_other = 1 THEN dr.owner_suffix ELSE r.suffix END AS suffix,
+        CASE WHEN dr.request_for_other = 1 THEN dr.owner_address ELSE r.address END AS address,
+        CASE WHEN dr.request_for_other = 1 THEN dr.owner_date_of_birth ELSE r.date_of_birth END AS date_of_birth,
+        CASE WHEN dr.request_for_other = 1 THEN NULL ELSE r.civil_status END AS civil_status,
+        CASE WHEN dr.request_for_other = 1 THEN NULL ELSE r.gender END AS gender,
         (SELECT rsl.notes FROM request_status_log rsl WHERE rsl.request_id = dr.request_id AND rsl.status = 'Ready for Pickup' ORDER BY rsl.created_at DESC, rsl.log_id DESC LIMIT 1) AS pickup_notes
     FROM document_request dr
     JOIN document_type dt ON dt.document_type_id = dr.document_type_id

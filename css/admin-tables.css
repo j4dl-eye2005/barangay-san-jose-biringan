@@ -38,6 +38,9 @@
 #admin-requests-panel .status-readyforpickup { border-color: #a8e4d8; background: #e6f7f5; color: #0f766e; }
 #admin-requests-panel .status-completed { border-color: #b9e4c4; background: #eaf7ed; color: #166534; }
 #admin-requests-panel .status-rejected { border-color: #f5c2c2; background: #feecec; color: #991b1b; }
+#admin-requests-panel .status-cancelled,
+#admin-requests-panel .status-expired { border-color: #ddd6ce; background: #f5f1eb; color: #57534e; }
+#admin-requests-panel .status-reschedulerequested { border-color: #f2d49c; background: #fff7e5; color: #80531a; }
 #admin-requests-panel .payment-status-chip { min-height: 20px; padding: 2px 7px; font-size: 10px; font-weight: 700; line-height: 1.1; }
 #admin-requests-panel .request-admin-table th:nth-child(6), #admin-requests-panel .request-admin-table td:nth-child(6) { min-width: 200px; }
 #admin-requests-panel .request-admin-table th:nth-child(7), #admin-requests-panel .request-admin-table td:nth-child(7) { min-width: 90px; }
@@ -99,6 +102,11 @@
 .request-filter { min-height: 34px; padding: 6px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-pill); background: var(--color-surface); color: var(--color-text); font-size: var(--text-11); font-weight: 700; white-space: nowrap; cursor: pointer; }
 .request-filter:hover { border-color: var(--color-accent-border); color: var(--color-accent-hover); }
 .request-filter.active { border-color: var(--color-selected-border); background: var(--color-selected-soft); color: var(--color-accent-hover); }
+.request-detail-owner,
+.request-cooldown-admin,
+.request-reschedule-review { grid-column: 1 / -1; }
+.request-detail-owner .request-owner-id-warning { margin-top: 12px; }
+.request-cooldown-admin p { margin: 0 0 12px; color: var(--color-muted); font-size: var(--text-12); }
 
 /* Admin overview, request detail, and audit log */
 .overview-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); margin-bottom: var(--space-5-5); }

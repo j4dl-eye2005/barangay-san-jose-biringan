@@ -83,6 +83,7 @@
 .reg-field input:focus, .reg-field select:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px rgba(12,87,0,.12); }
 .reg-field .password-field input { height: 48px; padding-right: 48px; }
 .reg-field-error { color: #b42318; font-size: .875rem; line-height: 1.4; margin-top: 5px; }
+.reg-field-error.reg-field-valid { color: #167c3b; }
 .input-group > .reg-field-error { display: block; }
 .reg-field-error:empty { display: none; }
 .reg-field input[aria-invalid="true"] { border-color: #b42318; }
@@ -101,6 +102,7 @@
 .reg-section { margin-top: 28px; }
 .reg-section:first-child { margin-top: 0; }
 .reg-address-section { margin-top: 14px; }
+.reg-address-section #register-address-hint { margin-top: -8px; }
 
 /* Document chips */
 .reg-proof-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 14px; }
@@ -271,6 +273,9 @@ body[data-route-start="register"] #register .reg-right-panel {
 .status-readyforpickup { border-color: var(--color-info-border); background: var(--color-info-soft); color: var(--color-info); }
 
 .status-completed { border-color: #d6d3d1; background: #f5f5f4; color: #57534e; }
+.status-cancelled,
+.status-expired { border-color: #d6d3d1; background: #f5f5f4; color: #57534e; }
+.status-reschedulerequested { border-color: var(--color-warning-border); background: var(--color-warning-soft); color: var(--color-warning); }
 .resident-request-form .input-group label { text-transform: none; letter-spacing: normal; font-size: var(--text-12); }
 .req-star { color: var(--color-danger); }
 .document-type-info { margin: var(--space-2) 0 0; color: var(--color-muted); font-size: var(--text-11); line-height: 1.5; }

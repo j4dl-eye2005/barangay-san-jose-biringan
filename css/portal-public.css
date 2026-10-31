@@ -5498,3 +5498,30 @@ body.public-portal-view:has(#record.active) .site-disclaimer-bar { border-top: 1
 }
 .resident-payment-confirmed { border-color: #b8d5b3; }
 
+/* Resident request safeguards and cancellation/reschedule controls. */
+.request-owner-fields { display: grid; gap: 14px; padding: 16px; border: 1px solid #cbd9c9; border-radius: 12px; background: #f7faf5; }
+.request-owner-fields[hidden],
+.resident-request-action .request-cancel-form[hidden],
+.resident-request-action .request-reschedule-form[hidden] { display: none !important; }
+.request-owner-fields > legend { padding: 0 6px; color: #164e24; font-weight: 800; }
+.request-owner-fields .form-hint,
+.request-owner-id-warning { margin: 0; padding: 10px 12px; border-left: 3px solid #d08b22; border-radius: 6px; background: #fff8e9; color: #68450d; font-size: 13px; line-height: 1.5; }
+.request-owner-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.request-owner-consent { display: flex; align-items: flex-start; gap: 9px; color: #27342b; font-size: 14px; line-height: 1.5; }
+.request-owner-consent input { flex: 0 0 auto; margin-top: 3px; }
+.request-cooldown-note { margin: 10px 0 0; padding: 10px 12px; border: 1px solid #e5c781; border-radius: 8px; background: #fff8e9; color: #68450d; font-size: 13px; line-height: 1.5; }
+.request-owner-label { display: block; margin-top: 4px; color: #5b665e; font-size: 12px; line-height: 1.4; }
+.resident-request-action { display: grid; gap: 10px; margin-top: 14px; padding-top: 13px; border-top: 1px solid #e5e9e5; }
+.resident-request-action .request-cancel-form,
+.resident-request-action .request-reschedule-form { display: grid; gap: 9px; padding: 13px; border: 1px solid #dce4db; border-radius: 10px; background: #fafcf9; }
+.request-cancel-warning { margin: 0; color: #674b17; font-size: 12px; line-height: 1.5; }
+.request-reschedule-pending { margin: 12px 0 0; color: #68450d; font-size: 13px; line-height: 1.5; }
+.request-note-cancelled,
+.request-note-expired { padding: 11px 13px; border-radius: 9px; background: #f8f4ef; color: #51463b; font-size: 13px; line-height: 1.5; }
+.request-note-cancelled p,
+.request-note-expired p { margin: 0; }
+
+@media (max-width: 640px) {
+    .request-owner-grid { grid-template-columns: 1fr; }
+}
+

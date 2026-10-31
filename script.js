@@ -75,6 +75,9 @@ let residentEmailAvailabilitySequence = 0;
 let residentRequestItems = [];
 let residentRequestStatusFilter = 'active';
 let residentRequestPlaceholderResizeTimer = null;
+let residentRequestState = { cooldownUntil: null, serverNow: null, pendingRequests: 0, pendingRequestLimit: 3, demoMode: false };
+let residentRequestStateTimer = null;
+let residentRequestServerClockOffset = 0;
 let requestProofObjectUrl = null;
 let requestSubmitting = false;
 let editingDisclosureId = null;
@@ -177,6 +180,7 @@ const delegatedActionNames = new Set([
     'setActivityPreset', 'setAdminRequestFilter', 'setBulletinFilter', 'showSection', 'updateAdminMfaCode', 'updateAdminMfaDigits',
     'sortActivity', 'submitModal', 'saveAdminNotificationPreferences', 'generateAdminProfileMfaRecoveryCodes', 'setPortalLanguage', 'switchAdminTab', 'toggleActivityExtraFilters',
     'toggleMobileMenu', 'toggleUserMenu', 'togglePassword', 'togglePickupCalendar', 'updatePickupReadback', 'updateLandingDocumentFinder',
+    'toggleRequestOwnerFields',
     'loadAdminCollections', 'loadAdminStaff', 'openNewStaffDirectoryEntry', 'resetStaffDirectoryForm', 'saveStaffDirectoryEntry', 'toggleStaffDirectoryNotice',
     'openResidentProfileEdit', 'cancelResidentProfileEdit', 'saveResidentProfileDetails', 'updateResidentProfileSaveState',
     'openFilePicker', 'openProfilePhotoPicker', 'saveProfilePhoto', 'cancelProfilePhotoPreview',
@@ -830,6 +834,9 @@ function setPhoneValidation(field) {
 document.addEventListener('input', event => {
     const field = event.target;
     if (!(field instanceof HTMLInputElement)) return;
+    if (['register-first-name', 'register-middle-name', 'register-last-name'].includes(field.id)) {
+        setRegistrationNameValidation(field);
+    }
     if (['doc-purpose-other'].includes(field.id)) {
         setRequestFieldError(field.id, 'request-purpose-other-error', '');
         const submitError = document.getElementById('request-submit-error');
@@ -931,6 +938,9 @@ async function checkResidentEmailAvailability(field, email, sequence) {
 
 document.addEventListener('blur', event => {
     const field = event.target;
+    if (field instanceof HTMLInputElement && ['register-first-name', 'register-middle-name', 'register-last-name'].includes(field.id)) {
+        setRegistrationNameValidation(field);
+    }
     if (field instanceof HTMLInputElement && field.type === 'email' && field.id === 'register-email'
         && setEmailValidation(field) && field.validity.valid) checkRegistrationEmail(field);
     if (field instanceof HTMLInputElement && field.id === 'resident-new-email') {
@@ -2658,7 +2668,7 @@ async function submitPickupModal() {
     confirmButton.classList.add('is-loading');
     confirmButton.setAttribute('aria-busy', 'true');
     confirmButton.textContent = 'Saving…';
-    const succeeded = await sendProcessRequest(activePickupRequest.request_id, 'Ready', details);
+    const succeeded = await sendProcessRequest(activePickupRequest.request_id, 'Ready', details, false, { pickupDate: pickupSelectedDate, pickupTime: time });
     confirmButton.classList.remove('is-loading');
     confirmButton.removeAttribute('aria-busy');
     if (succeeded) {
@@ -3904,6 +3914,50 @@ function passwordMeetsClientPolicy(password) {
     return password.length >= 8 && password.length <= 256 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password);
 }
 
+function validPersonNameClient(value, minLength = 2) {
+    const name = String(value || '').trim().replace(/\s+/gu, ' ');
+    const length = [...name].length;
+    if (length < minLength || length > 100 || !/^[\p{L}\p{M} .'-]+$/u.test(name)) return false;
+    const letters = name.replace(/[^\p{L}\p{M}]/gu, '').toLocaleLowerCase();
+    if ([...letters].length < minLength) return false;
+    return [...letters].length < 2 || !/^(.)\1+$/su.test(letters);
+}
+
+function setRegistrationNameValidation(field, { showRequired = false } = {}) {
+    if (!field) return true;
+    const rules = {
+        'register-first-name': { label: 'first name', minLength: 2, required: true, errorId: 'register-first-name-error' },
+        'register-middle-name': { label: 'middle name', minLength: 1, required: false, errorId: 'register-middle-name-error' },
+        'register-last-name': { label: 'last name', minLength: 2, required: true, errorId: 'register-last-name-error' }
+    };
+    const rule = rules[field.id];
+    if (!rule) return true;
+    const value = field.value.trim();
+    let message = '';
+    const valid = value !== '' && validPersonNameClient(value, rule.minLength);
+    if (!value && showRequired && rule.required) {
+        message = `Enter your ${rule.label}.`;
+    } else if (value && !valid) {
+        message = rule.minLength === 2
+            ? "Use 2+ letters; spaces and . ' - are allowed. No repeated-letter names."
+            : 'Use letters, spaces, hyphens, apostrophes, and periods.';
+    }
+    const error = document.getElementById(rule.errorId);
+    if (error) {
+        error.textContent = message || (valid ? 'Looks good.' : '');
+        error.classList.toggle('reg-field-valid', !message && valid);
+    }
+    field.setAttribute('aria-invalid', message ? 'true' : 'false');
+    field.setCustomValidity(message);
+    return !message;
+}
+
+function toggleRequestOwnerFields() {
+    const useOther = document.getElementById('request-for-other')?.value === '1';
+    const fields = document.getElementById('request-owner-fields');
+    if (fields) { fields.hidden = !useOther; fields.disabled = !useOther; }
+}
+
 function bindPasswordChecklist(passwordField, confirmField, prefix = 'register') {
     if (passwordField && !passwordField._pwChecklistBound) {
         passwordField.addEventListener('input', () => updatePasswordChecklist(prefix));
@@ -3989,6 +4043,17 @@ async function handleRegister(e) {
     }
     const phoneField = document.getElementById('register-phone');
     if (phoneField && !setPhoneValidation(phoneField)) { phoneField.reportValidity(); return; }
+    const firstNameField = document.getElementById('register-first-name');
+    const lastNameField = document.getElementById('register-last-name');
+    const middleNameField = document.getElementById('register-middle-name');
+    for (const field of [firstNameField, middleNameField, lastNameField]) {
+        if (field && !setRegistrationNameValidation(field, { showRequired: true })) { field.focus(); return; }
+    }
+    const addressFields = ['register-house-lot', 'register-street', 'register-purok'];
+    const addressValid = addressFields.every(id => document.getElementById(id)?.value.trim());
+    const addressError = document.getElementById('register-address-error');
+    if (addressError) addressError.textContent = addressValid ? '' : 'Enter a house or lot number and choose a street and Purok.';
+    if (!addressValid) { document.getElementById('register-house-lot')?.focus(); return; }
     if (form && !form.reportValidity()) return;
     if (emailField && emailField.value.trim()) {
         if (emailField.validity.customError) {
@@ -4487,6 +4552,31 @@ async function handleRequest(e) {
         setRequestFieldError('doc-purpose-other', 'request-purpose-other-error', purpose.value === 'Other' && !otherPurpose?.value.trim() ? 'Enter your purpose.' : ''),
         setRequestFieldError('request-proof-type', 'request-proof-type-error', proofType.value ? '' : 'Choose a proof type.')
     ];
+    const ownerFields = document.getElementById('request-owner-fields');
+    if (ownerFields && !ownerFields.disabled) {
+        const ownerFirst = document.getElementById('request-owner-first-name');
+        const ownerLast = document.getElementById('request-owner-last-name');
+        const ownerMiddle = document.getElementById('request-owner-middle-name');
+        const ownerNameMessage = 'Use at least 2 characters with letters, spaces, hyphens, apostrophes, or periods. Names made of one repeated character are not accepted.';
+        for (const [field, errorId, valid] of [
+            [ownerFirst, 'request-owner-first-name-error', validPersonNameClient(ownerFirst?.value)],
+            [ownerLast, 'request-owner-last-name-error', validPersonNameClient(ownerLast?.value)],
+            [ownerMiddle, null, !ownerMiddle?.value.trim() || validPersonNameClient(ownerMiddle.value, 1)]
+        ]) {
+            if (!field) continue;
+            field.setAttribute('aria-invalid', String(!valid));
+            if (errorId) document.getElementById(errorId).textContent = valid ? '' : ownerNameMessage;
+            if (!valid) errors.push(true);
+        }
+        const ownerAddressValid = Boolean(document.getElementById('request-owner-house-lot')?.value.trim()
+            && document.getElementById('request-owner-purok')?.value
+            && document.getElementById('request-owner-street')?.value);
+        const ownerAddressError = document.getElementById('request-owner-address-error');
+        if (ownerAddressError) ownerAddressError.textContent = ownerAddressValid ? '' : 'Enter the house or lot number and choose the owner’s Purok and street.';
+        if (!ownerAddressValid || !document.getElementById('request-owner-birthdate')?.value
+            || !document.getElementById('request-owner-relationship')?.value
+            || !document.getElementById('request-owner-consent')?.checked) errors.push(true);
+    }
     const businessFields = document.getElementById('online-business-fields');
     if (businessFields && !businessFields.hidden) {
         for (const field of businessFields.querySelectorAll('input, select')) {
@@ -4517,6 +4607,12 @@ async function handleRequest(e) {
             !documentType.value && documentType,
             !purpose.value && purpose,
             purpose.value === 'Other' && !otherPurpose?.value.trim() && otherPurpose,
+            ownerFields && !ownerFields.disabled && !validPersonNameClient(document.getElementById('request-owner-first-name')?.value) && document.getElementById('request-owner-first-name'),
+            ownerFields && !ownerFields.disabled && !validPersonNameClient(document.getElementById('request-owner-last-name')?.value) && document.getElementById('request-owner-last-name'),
+            ownerFields && !ownerFields.disabled && !document.getElementById('request-owner-birthdate')?.value && document.getElementById('request-owner-birthdate'),
+            ownerFields && !ownerFields.disabled && !document.getElementById('request-owner-relationship')?.value && document.getElementById('request-owner-relationship'),
+            ownerFields && !ownerFields.disabled && !document.getElementById('request-owner-house-lot')?.value.trim() && document.getElementById('request-owner-house-lot'),
+            ownerFields && !ownerFields.disabled && !document.getElementById('request-owner-consent')?.checked && document.getElementById('request-owner-consent'),
             !proofType.value && proofType,
             !selectedProof && document.getElementById('request-proof-picker'),
             selectedProof && document.getElementById('request-proof-error')?.textContent && document.getElementById('request-proof-picker')
@@ -4533,6 +4629,12 @@ async function handleRequest(e) {
             verificationNote.hidden = false;
             verificationNote.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
+        return;
+    }
+    const cooldownTime = Date.parse(residentRequestState.cooldownUntil || '');
+    if ((Number.isFinite(cooldownTime) && cooldownTime > Date.now() + residentRequestServerClockOffset)
+        || Number(residentRequestState.pendingRequests) >= Number(residentRequestState.pendingRequestLimit || 3)) {
+        updateRequestAvailability();
         return;
     }
 
@@ -4556,6 +4658,7 @@ async function handleRequest(e) {
             on: { click: goToResidentRequestDashboard }
         }));
         form.reset();
+        toggleRequestOwnerFields();
         form.hidden = true;
         form.dataset.submitted = 'true';
         clearRequestProofPreview();
@@ -4575,9 +4678,8 @@ async function handleRequest(e) {
         }
     } finally {
         requestSubmitting = false;
-        button.disabled = false;
+        updateRequestAvailability();
         button.removeAttribute('aria-busy');
-        button.textContent = 'Submit request';
     }
 }
 
@@ -5395,10 +5497,55 @@ async function loadResidentData() {
     const verifyBanner = document.getElementById('email-verification-banner');
     if (verifyBanner) verifyBanner.hidden = currentUser.emailVerified === true;
     renderResidentProfile();
-    const res = await fetch('api/requests.php');
+    const [res, stateResponse] = await Promise.all([fetch('api/requests.php'), fetch('api/request_state.php', { cache: 'no-store' })]);
     const requests = await res.json();
+    const state = await stateResponse.json().catch(() => null);
+    if (stateResponse.ok && state?.success) {
+        residentRequestState = state;
+        const serverTime = Date.parse(state.serverNow || '');
+        residentRequestServerClockOffset = Number.isFinite(serverTime) ? serverTime - Date.now() : 0;
+    }
     residentRequestItems = Array.isArray(requests) ? requests : [];
+    updateRequestAvailability();
     renderResidentRequestList(residentRequestItems);
+}
+
+function updateRequestAvailability() {
+    clearInterval(residentRequestStateTimer);
+    const button = document.getElementById('request-submit');
+    const note = document.getElementById('request-cooldown-note');
+    if (!button || !note) return;
+    const limit = Number(residentRequestState.pendingRequestLimit) || 3;
+    const pending = Number(residentRequestState.pendingRequests) || 0;
+    const cooldownTimestamp = Date.parse(residentRequestState.cooldownUntil || '');
+    const update = () => {
+        const remaining = Number.isFinite(cooldownTimestamp)
+            ? Math.max(0, Math.ceil((cooldownTimestamp - (Date.now() + residentRequestServerClockOffset)) / 1000))
+            : 0;
+        const full = pending >= limit;
+        const unavailable = remaining > 0 || full;
+        button.disabled = requestSubmitting || unavailable;
+        button.textContent = remaining > 0 ? `New requests paused · ${formatShortCountdown(remaining)}` : full ? 'Pending request limit reached' : 'Submit request';
+        note.hidden = !unavailable;
+        note.textContent = remaining > 0
+            ? `Your cancellation cooldown ends in ${formatShortCountdown(remaining)}. The server will accept new requests when it expires.`
+            : full ? `You have ${pending} pending requests, the maximum allowed. Wait for a decision or cancel a pending request.` : '';
+        if (remaining <= 0) clearInterval(residentRequestStateTimer);
+    };
+    update();
+    if (Number.isFinite(cooldownTimestamp) && cooldownTimestamp > Date.now() + residentRequestServerClockOffset) {
+        residentRequestStateTimer = window.setInterval(update, 1000);
+    }
+}
+
+function formatShortCountdown(seconds) {
+    const remaining = Math.max(0, Number(seconds) || 0);
+    const hours = Math.floor(remaining / 3600);
+    const minutes = Math.floor((remaining % 3600) / 60);
+    const secs = remaining % 60;
+    if (hours) return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+    if (minutes) return `${minutes}m ${String(secs).padStart(2, '0')}s`;
+    return `${secs}s`;
 }
 
 function createResidentRequestEmptyState() {
@@ -5509,6 +5656,134 @@ function fillResidentRequestListWithPlaceholders(list, visibleRequestCount) {
     }
 }
 
+function cancellationCooldownLabel(seconds) {
+    if (seconds < 60) return `${seconds} seconds`;
+    if (seconds < 3600) return `${Math.round(seconds / 60)} minutes`;
+    if (seconds < 86400) return `${Math.round(seconds / 3600)} hour${seconds >= 7200 ? 's' : ''}`;
+    return '1 day';
+}
+
+function createResidentCancellationControl(request) {
+    const panel = el('div', { className: 'resident-request-action resident-request-cancellation' });
+    const openButton = el('button', { className: 'btn-outline request-cancel-open', text: 'Cancel pending request', attrs: { type: 'button' } });
+    const form = el('div', { className: 'request-cancel-form', attrs: { hidden: '' } });
+    const reason = el('select', { attrs: { 'aria-label': 'Cancellation reason' } }, [
+        el('option', { text: 'Choose a reason', attrs: { value: '', selected: '', disabled: '' } }),
+        ...['Wrong document type', 'Wrong details', 'No longer needed', 'Other'].map(value => el('option', { text: value, attrs: { value } }))
+    ]);
+    const notes = el('textarea', { attrs: { rows: '3', maxlength: '1000', 'aria-label': 'Explain the cancellation reason' } });
+    const notesGroup = el('div', { className: 'request-cancel-other', attrs: { hidden: '' } }, [
+        el('label', { text: 'Explain (at least 10 characters)' }), notes
+    ]);
+    const warning = el('p', { className: 'request-cancel-warning', text: residentRequestState.demoMode
+        ? 'Presentation mode: cancelling pauses all new document requests for 10 seconds.'
+        : 'Cancelling applies a cooldown to all new document requests: 3 minutes for the first recent cancellation, 10 minutes for the second, 1 hour for the third, and 1 day for the fourth or later within 24 hours.' });
+    const error = el('p', { className: 'reg-field-error', attrs: { role: 'alert', hidden: '' } });
+    const submit = el('button', { className: 'btn-solid request-cancel-submit', text: 'Confirm cancellation', attrs: { type: 'button' } });
+    reason.addEventListener('change', () => { notesGroup.hidden = reason.value !== 'Other'; if (reason.value !== 'Other') notes.value = ''; error.hidden = true; });
+    openButton.addEventListener('click', () => { form.hidden = !form.hidden; openButton.textContent = form.hidden ? 'Cancel pending request' : 'Keep request'; });
+    submit.addEventListener('click', () => {
+        const message = reason.value === 'Other' && [...notes.value.trim()].length < 10
+            ? 'If you choose Other, explain in at least 10 characters.'
+            : !reason.value ? 'Choose a reason for cancellation.' : '';
+        if (message) { error.textContent = message; error.hidden = false; return; }
+        if (!window.confirm('Cancel this pending request? You will be unable to submit any document request until the cooldown ends.')) return;
+        void submitResidentCancellation(request, reason.value, notes.value.trim(), submit, error);
+    });
+    form.append(warning, reason, notesGroup, error, submit);
+    panel.append(openButton, form);
+    return panel;
+}
+
+async function submitResidentCancellation(request, reason, notes, button, errorNode) {
+    button.disabled = true;
+    button.textContent = 'Cancelling…';
+    errorNode.hidden = true;
+    try {
+        const response = await fetch('api/cancel_request.php', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ requestId: Number(request.request_id), reason, notes })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'The request could not be cancelled.');
+        residentRequestState.cooldownUntil = result.cooldownUntil;
+        residentRequestState.serverNow = result.serverNow;
+        residentRequestState.pendingRequests = Math.max(0, (Number(residentRequestState.pendingRequests) || 0) - 1);
+        const serverTime = Date.parse(result.serverNow || '');
+        residentRequestServerClockOffset = Number.isFinite(serverTime) ? serverTime - Date.now() : 0;
+        const emailNote = result.emailDelivery === 'failed' ? ' The cancellation was saved, but its email could not be queued.' : ' A confirmation email is queued.';
+        showToast(`Request cancelled. New requests are paused for ${cancellationCooldownLabel(Number(result.cooldownSeconds) || 0)}.${emailNote}`, result.emailDelivery === 'failed' ? 'error' : 'success');
+        await loadResidentData().catch(() => showToast('The cancellation was saved, but the request list could not be refreshed.', 'error'));
+    } catch (error) {
+        errorNode.textContent = error.message || 'The request could not be cancelled.';
+        errorNode.hidden = false;
+        button.disabled = false;
+        button.textContent = 'Confirm cancellation';
+    }
+}
+
+function createPickupRescheduleControl(request) {
+    const count = Number(request.rescheduleCount) || 0;
+    if (request.latestRescheduleStatus === 'Pending') {
+        return el('p', { className: 'request-reschedule-pending', text: 'Your pickup reschedule request is waiting for secretary review.' });
+    }
+    if (!request.pickup_date || count >= 2) return null;
+    const panel = el('div', { className: 'resident-request-action resident-request-reschedule' });
+    const openButton = el('button', { className: 'btn-outline', text: 'Request a new pickup date', attrs: { type: 'button' } });
+    const form = el('div', { className: 'request-reschedule-form', attrs: { hidden: '' } });
+    const date = el('input', { attrs: { type: 'date', required: '', 'aria-label': 'New pickup date' } });
+    const reason = el('textarea', { attrs: { rows: '3', maxlength: '2000', required: '', 'aria-label': 'Reason for rescheduling' } });
+    const error = el('p', { className: 'reg-field-error', attrs: { role: 'alert', hidden: '' } });
+    const submit = el('button', { className: 'btn-solid', text: 'Send reschedule request', attrs: { type: 'button' } });
+    const today = new Date(); today.setHours(0, 0, 0, 0); today.setDate(today.getDate() + 1);
+    date.min = localDateKey(today);
+    const original = dateFromKey(String(request.pickup_date));
+    original.setDate(original.getDate() + 7);
+    date.max = localDateKey(original);
+    const validateDate = () => {
+        if (!date.value) return 'Choose a new pickup date.';
+        const selected = dateFromKey(date.value);
+        const base = dateFromKey(String(request.pickup_date));
+        const dayDifference = Math.abs(Math.round((selected - base) / 86400000));
+        if (selected.getDay() === 0 || selected.getDay() === 6) return 'Pickup reschedules are available on working days only.';
+        if (date.value === String(request.pickup_date) || dayDifference > 7) return 'Choose a different working day within 7 days of the original pickup date.';
+        if (selected <= new Date(new Date().setHours(0, 0, 0, 0))) return 'Choose a future working day.';
+        return '';
+    };
+    openButton.addEventListener('click', () => { form.hidden = !form.hidden; openButton.textContent = form.hidden ? 'Request a new pickup date' : 'Close reschedule form'; });
+    submit.addEventListener('click', () => {
+        const validation = validateDate() || (!reason.value.trim() ? 'Enter why you need to reschedule.' : '');
+        if (validation) { error.textContent = validation; error.hidden = false; return; }
+        void submitPickupReschedule(request, date.value, reason.value.trim(), submit, error);
+    });
+    form.append(el('label', { text: `New working day (within 7 days of ${formatDate(request.pickup_date)})` }), date,
+        el('label', { text: 'Reason' }), reason, error, submit,
+        el('p', { className: 'field-help', text: `You may request up to 2 reschedules. ${2 - count} remaining.` }));
+    panel.append(openButton, form);
+    return panel;
+}
+
+async function submitPickupReschedule(request, requestedDate, reason, button, errorNode) {
+    button.disabled = true;
+    button.textContent = 'Sending…';
+    errorNode.hidden = true;
+    try {
+        const response = await fetch('api/pickup_reschedule.php', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ requestId: Number(request.request_id), requestedDate, reason })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'The reschedule request could not be sent.');
+        showToast('Pickup reschedule sent to the secretary for review.', 'success');
+        await loadResidentData().catch(() => showToast('The reschedule request was saved, but the request list could not be refreshed.', 'error'));
+    } catch (error) {
+        errorNode.textContent = error.message || 'The reschedule request could not be sent.';
+        errorNode.hidden = false;
+        button.disabled = false;
+        button.textContent = 'Send reschedule request';
+    }
+}
+
 window.addEventListener('resize', () => {
     clearTimeout(residentRequestPlaceholderResizeTimer);
     residentRequestPlaceholderResizeTimer = setTimeout(() => {
@@ -5532,7 +5807,7 @@ function renderResidentRequestList(requests = residentRequestItems) {
         return normalizedB - normalizedA || Number(b.request_id || 0) - Number(a.request_id || 0);
     });
     const visibleRequests = sortedRequests.filter(request => {
-        const terminal = ['Completed', 'Rejected'].includes(String(request.current_status || ''));
+        const terminal = ['Completed', 'Rejected', 'Cancelled', 'Expired'].includes(String(request.current_status || ''));
         return residentRequestStatusFilter === 'completed' ? terminal : !terminal;
     });
 
@@ -5558,7 +5833,7 @@ function renderResidentRequestList(requests = residentRequestItems) {
             ? ['Submitted', 'Approved', 'Pickup', 'Completed']
             : ['Submitted', 'Approved', 'Ready for pickup', 'Completed'];
         const progressIndex = displayStatus === 'Completed' ? 3 : ['Ready for Pickup', 'Ready for pickup'].includes(displayStatus) ? 2 : ['Approved', 'Awaiting payment', 'Payment under review', 'Payment proof needs update'].includes(displayStatus) ? 1 : 0;
-        const progress = el('ol', { className: `request-progress${status === 'Rejected' ? ' is-rejected' : ''}`, attrs: { 'aria-label': `Request progress: ${displayStatus}` } },
+        const progress = el('ol', { className: `request-progress${['Rejected', 'Cancelled', 'Expired'].includes(status) ? ' is-rejected' : ''}`, attrs: { 'aria-label': `Request progress: ${displayStatus}` } },
             statusSteps.map((label, index) => el('li', {
                 className: index < progressIndex || (status === 'Rejected' && index === 0) ? 'is-done' : index === progressIndex && status !== 'Rejected' ? 'is-current' : '',
                 text: label
@@ -5591,10 +5866,23 @@ function renderResidentRequestList(requests = residentRequestItems) {
         const paymentControl = createResidentPaymentControl(r, fee, paymentStatus);
         if (paymentControl) item.appendChild(paymentControl);
 
+        if (Number(r.request_for_other) === 1) {
+            item.appendChild(el('p', { className: 'request-owner-label', text: `Document for: ${r.documentOwnerName || 'another person'}` }));
+        }
+
         if (r.current_status === 'Rejected') {
             item.appendChild(el('div', { className: 'request-note request-note-rejected' }, [
                 el('strong', { text: 'Reason: ' }), r.rejection_reason || 'N/A'
             ]));
+        }
+
+        if (r.current_status === 'Cancelled') {
+            item.appendChild(el('div', { className: 'request-note request-note-cancelled' }, [
+                el('p', { text: `Cancelled by you · Reason: ${r.cancellationReason || 'Not recorded'}${r.cancellationNotes ? ` · ${r.cancellationNotes}` : ''}` }),
+                r.cancellationCooldownUntil ? el('p', { text: `Request cooldown ended at ${formatDateTime(r.cancellationCooldownUntil)}.` }) : null
+            ]));
+        } else if (r.current_status === 'Expired') {
+            item.appendChild(el('div', { className: 'request-note request-note-expired', text: 'This request expired because it was not picked up within 7 days.' }));
         }
 
         if (r.current_status === 'Ready for Pickup') {
@@ -5602,9 +5890,17 @@ function renderResidentRequestList(requests = residentRequestItems) {
             const pickup = details.find(line => /^Pickup:/i.test(line)) || '';
             const residentNote = details.find(line => /^Note to resident:/i.test(line)) || '';
             item.appendChild(el('div', { className: 'request-note request-note-ready' }, [
-                el('p', { text: pickup ? formatPickupDetails(pickup.replace(/^Pickup:\s*/i, '')) : 'Please proceed to Barangay Hall during office hours.' }),
+                el('p', { text: r.pickup_date ? `Scheduled pickup: ${formatDate(r.pickup_date)}${r.pickup_time ? ` at ${formatPickupTime(r.pickup_time)}` : ''}` : pickup ? formatPickupDetails(pickup.replace(/^Pickup:\s*/i, '')) : 'Please proceed to Barangay Hall during office hours.' }),
+                r.pickup_deadline_at ? el('p', { text: `Pickup deadline: ${formatDateTime(r.pickup_deadline_at)}` }) : null,
                 residentNote ? el('p', { text: residentNote.replace(/^Note to resident:\s*/i, '') }) : null
             ]));
+            const rescheduleControl = createPickupRescheduleControl(r);
+            if (rescheduleControl) item.appendChild(rescheduleControl);
+        } else if (r.current_status === 'Reschedule Requested') {
+            item.appendChild(el('p', { className: 'request-reschedule-pending', text: 'Your pickup reschedule request is waiting for secretary review.' }));
+        }
+        if (r.current_status === 'Pending') {
+            item.appendChild(createResidentCancellationControl(r));
         }
 
         list.appendChild(item);
@@ -5627,6 +5923,13 @@ function formatDateTime(value) {
     return Number.isNaN(date.getTime()) ? String(value || '') : date.toLocaleString('en-PH', {
         year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
     });
+}
+
+function formatPickupTime(value) {
+    const match = String(value || '').match(/^(\d{2}):(\d{2})/);
+    if (!match) return String(value || '');
+    const date = new Date(Date.UTC(2000, 0, 1, Number(match[1]), Number(match[2])));
+    return date.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' });
 }
 
 function getResidentPaymentProofError(file) {
@@ -6415,7 +6718,7 @@ async function loadAdminData() {
     adminRequestPages = Number(data.pages) || 0;
     adminRequestTotal = Number(data.total) || 0;
     adminRequestStatusCounts = data.status_counts || {};
-    const pendingCount = (Number(adminRequestStatusCounts.Pending) || 0) + (Number(adminRequestStatusCounts.Approved) || 0);
+    const pendingCount = (Number(adminRequestStatusCounts.Pending) || 0) + (Number(adminRequestStatusCounts.Approved) || 0) + (Number(adminRequestStatusCounts['Reschedule Requested']) || 0);
     const requestBadge = document.getElementById('requests-queue-count');
     if (requestBadge) {
         requestBadge.textContent = String(pendingCount);
@@ -6468,6 +6771,16 @@ function renderAdminRequests() {
     const tbody = document.getElementById('admin-request-list');
     const mobileList = document.getElementById('admin-request-mobile-list');
     if (!tbody) return;
+    const filterTabs = document.querySelector('#admin-requests-panel .request-status-tabs');
+    if (filterTabs) {
+        for (const [status, label] of [['Reschedule Requested', 'Reschedule queue'], ['Cancelled', 'Cancelled'], ['Expired', 'Expired']]) {
+            if (filterTabs.querySelector(`[data-filter-status="${status}"]`)) continue;
+            const button = el('button', { className: `request-filter${adminRequestStatusFilter === status ? ' active' : ''}`, attrs: { type: 'button', 'data-filter-status': status, 'data-filter-label': label, 'aria-pressed': String(adminRequestStatusFilter === status) }, on: { click: event => setAdminRequestFilter(status, event.currentTarget) } }, [
+                el('span', { className: 'request-filter-label', text: label }), el('span', { className: 'request-filter-count', text: '0' })
+            ]);
+            filterTabs.appendChild(button);
+        }
+    }
     clearNode(tbody);
     if (mobileList) clearNode(mobileList);
     document.querySelectorAll('.request-filter').forEach(filterButton => {
@@ -6555,7 +6868,7 @@ function renderAdminRequests() {
                     title: paymentVerified ? '' : 'Payment must be verified first.',
                     'aria-label': `Mark request ${tracking} as picked up${paymentVerified ? '' : ', disabled until payment is verified'}`
                 },
-                on: { click: () => processRequest(requestId, 'Pickup') }
+                on: { click: () => processRequest(requestId, 'Pickup', r) }
             }));
         }
 
@@ -6580,6 +6893,7 @@ function renderAdminRequests() {
             ]),
             el('td', { attrs: { 'data-label': 'Resident' } }, [
                 el('span', { text: r.residentName || 'Resident', attrs: { title: r.residentName || 'Resident' } }),
+                Number(r.request_for_other) === 1 && r.documentOwnerName ? el('small', { className: 'request-owner-label', text: `Document for: ${r.documentOwnerName}` }) : null,
                 r.request_source === 'walk_in' ? el('small', { className: 'request-source-label', text: 'Walk-in / face-to-face' }) : null
             ]),
             el('td', { text: r.documentType, attrs: { 'data-label': 'Document' } }),
@@ -6612,6 +6926,7 @@ function renderAdminRequests() {
             ]);
             const mobileResident = el('div', { className: 'admin-request-mobile-resident' }, [
                 el('span', { text: r.residentName || 'Resident' }),
+                Number(r.request_for_other) === 1 && r.documentOwnerName ? el('small', { className: 'request-owner-label', text: `Document for: ${r.documentOwnerName}` }) : null,
                 r.request_source === 'walk_in' ? el('small', { className: 'request-source-label', text: 'Walk-in / face-to-face' }) : null
             ]);
             const mobileMeta = el('div', { className: 'admin-request-mobile-meta' }, [
@@ -6708,6 +7023,28 @@ async function saveRequestInternalNote(requestId) {
     }
 }
 
+async function liftResidentRequestCooldown(residentId, button) {
+    if (!residentId || !button) return;
+    button.disabled = true;
+    const originalText = button.textContent;
+    button.textContent = 'Lifting…';
+    try {
+        const response = await fetch('api/request_actions.php', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'lift_cooldown', residentId })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'Could not lift the cooldown.');
+        showToast(result.message || 'Cooldown lifted.', 'success');
+        if (currentAdminDetailId) await openAdminRequestDetail(currentAdminDetailId);
+        await loadAdminData();
+    } catch (error) {
+        button.disabled = false;
+        button.textContent = originalText;
+        showToast(error.message || 'Could not lift the cooldown.', 'error');
+    }
+}
+
 async function updateAdminRequestPayment(requestId, paymentStatus, button, reference = '') {
     if (!button) return;
     const originalText = button.textContent;
@@ -6773,7 +7110,7 @@ function reviewAdminPaymentProof(requestId, action) {
 }
 
 async function openAdminRequestDetail(requestId) {
-    switchAdminTab('requests');
+    switchAdminTab('requests', { skipRequestRefresh: true });
     currentAdminDetailId = requestId;
     document.getElementById('admin-requests-panel').hidden = true;
     const panel = document.getElementById('admin-request-detail-panel');
@@ -6793,15 +7130,18 @@ async function openAdminRequestDetail(requestId) {
             tracking_code: request.tracking_code,
             residentName,
             documentType: request.document_type,
-            current_status: request.current_status
+            current_status: request.current_status,
+            request_for_other: Number(request.request_for_other) === 1 ? 1 : 0
         };
         const infoList = (entries) => el('dl', { className: 'request-detail-dl' }, entries.map(([label, value]) =>
             el('div', {}, [el('dt', { text: label }), el('dd', { text: value || '—' })])
         ));
-        const statuses = { Approved: 'Approved', 'Ready for Pickup': 'Ready for pickup', Completed: 'Completed', Rejected: 'Rejected' };
+        const statuses = { Approved: 'Approved', 'Ready for Pickup': 'Ready for pickup', Completed: 'Completed', Rejected: 'Rejected', Cancelled: 'Cancelled', Expired: 'Expired', 'Reschedule Requested': 'Reschedule requested' };
         const history = Array.isArray(data.timeline) ? data.timeline : [];
-        const rejectedStep = history.find(step => step.status === 'Rejected');
-        const timelineStatuses = rejectedStep ? ['Rejected'] : ['Approved', 'Ready for Pickup', 'Completed'];
+        const terminalStep = history.find(step => ['Rejected', 'Cancelled', 'Expired'].includes(step.status));
+        const timelineStatuses = terminalStep ? [terminalStep.status]
+            : request.current_status === 'Reschedule Requested' ? ['Approved', 'Ready for Pickup', 'Reschedule Requested']
+                : ['Approved', 'Ready for Pickup', 'Completed'];
         const currentTimelineStatus = request.current_status === 'Pending' ? 'Submitted' : request.current_status;
         const timelineItem = (status, label, step, detailText = null) => {
             const isCurrent = currentTimelineStatus === status;
@@ -6818,11 +7158,11 @@ async function openAdminRequestDetail(requestId) {
         };
         const timelineItems = [timelineItem('Submitted', 'Submitted', null, `${formatDateTime(request.created_at)} · ${request.request_source === 'walk_in' ? 'Recorded by staff in person' : 'Online resident submission'}`)];
         timelineStatuses.forEach(status => {
-            const step = history.find(item => item.status === status);
+            const step = [...history].reverse().find(item => item.status === status);
             const label = statuses[status] || status;
             timelineItems.push(timelineItem(status, label, step));
         });
-        const readyHistory = history.find(step => step.status === 'Ready for Pickup' && step.notes);
+        const readyHistory = [...history].reverse().find(step => step.status === 'Ready for Pickup' && step.notes);
         const paymentStatus = getRequestPaymentStatus(request.payment_status, request.current_status, readyHistory?.notes);
         const fee = getDocumentFee({ name: request.document_type, fee: request.fee_amount });
         const paymentVerified = !requestPaymentIsRequired(fee, paymentStatus) || paymentStatus === 'Paid';
@@ -6843,7 +7183,7 @@ async function openAdminRequestDetail(requestId) {
                     'aria-label': ariaLabel,
                     ...(paymentVerified ? {} : { disabled: '' })
                 },
-                on: { click: () => action === 'Ready'
+                on: { click: () => ['Ready', 'Pickup'].includes(action)
                     ? processRequest(requestId, action, actionRequest)
                     : processRequest(requestId, action) }
             });
@@ -6864,6 +7204,10 @@ async function openAdminRequestDetail(requestId) {
                 addPaymentGatedAction('Set ready', 'Ready', 'action-btn btn-set-ready request-detail-primary-action', `Set request ready for pickup${paymentVerified ? '' : `, ${paymentBlockReason}`}`);
             } else if (request.current_status === 'Ready for Pickup') {
                 addPaymentGatedAction('Mark as picked up', 'Pickup', 'action-btn btn-ready', `Mark request as picked up${paymentVerified ? '' : `, ${paymentBlockReason}`}`);
+            } else if (request.current_status === 'Reschedule Requested' && data.pending_reschedule) {
+                const reschedule = data.pending_reschedule;
+                actionGroup.appendChild(el('button', { className: 'action-btn btn-approve', text: 'Approve new date', attrs: { type: 'button' }, on: { click: () => processRequest(requestId, 'RescheduleApprove', reschedule) } }));
+                actionGroup.appendChild(el('button', { className: 'action-btn btn-reject', text: 'Decline new date', attrs: { type: 'button' }, on: { click: () => processRequest(requestId, 'RescheduleReject', reschedule) } }));
             }
         }
 
@@ -6977,6 +7321,31 @@ async function openAdminRequestDetail(requestId) {
                 ['Business activity', request.business_activity]
             ])
         ]) : null;
+        const ownerInfoCard = Number(request.request_for_other) === 1 ? el('section', { className: 'card request-detail-card request-detail-owner' }, [
+            el('h3', { text: 'Document owner (requested on their behalf)' }),
+            infoList([
+                ['Name', [request.owner_first_name, request.owner_middle_name, request.owner_last_name, request.owner_suffix].filter(Boolean).join(' ')],
+                ['Date of birth', request.owner_date_of_birth ? formatDate(request.owner_date_of_birth) : '—'],
+                ['Address', request.owner_address],
+                ['Requester relationship', request.owner_relationship],
+                ['Valid ID checked at pickup', request.owner_id_checked_at ? `Yes · ${formatDateTime(request.owner_id_checked_at)}` : 'Not yet checked']
+            ]),
+            request.current_status === 'Ready for Pickup' ? el('p', { className: 'request-owner-id-warning', text: 'Before completing pickup, check the document owner’s valid ID in person.' }) : null
+        ]) : null;
+        const rescheduleReviewCard = data.pending_reschedule && staffHasPermission('requests.manage') ? el('section', { className: 'card request-detail-card request-reschedule-review' }, [
+            el('h3', { text: 'Pickup reschedule request' }),
+            infoList([
+                ['Current pickup date', formatDate(data.pending_reschedule.original_pickup_date)],
+                ['Requested date', formatDate(data.pending_reschedule.requested_pickup_date)],
+                ['Reason', data.pending_reschedule.reason],
+                ['Submitted', formatDateTime(data.pending_reschedule.created_at)]
+            ])
+        ]) : null;
+        const cooldownCard = Number(request.resident_request_cooldown_active) === 1 && staffHasPermission('requests.manage') ? el('section', { className: 'card request-detail-card request-cooldown-admin' }, [
+            el('h3', { text: 'Active request cooldown' }),
+            el('p', { text: `New requests are paused until ${formatDateTime(request.resident_request_cooldown_until)}.` }),
+            el('button', { className: 'btn-outline', text: 'Lift cooldown', attrs: { type: 'button' }, on: { click: event => liftResidentRequestCooldown(Number(request.resident_id), event.currentTarget) } })
+        ]) : null;
         const saveNoteButton = staffHasPermission('requests.manage') ? el('button', { className: 'btn-solid', text: 'Save note', attrs: { id: 'save-request-internal-note', type: 'button', disabled: '' }, on: { click: () => saveRequestInternalNote(requestId) } }) : null;
         const residentInfo = infoList([['Name', residentName], ['Email', request.email], ['Phone', request.phone_number], ['Address', request.address]]);
         residentInfo.appendChild(el('div', { className: 'request-detail-purpose-row' }, [
@@ -7001,6 +7370,9 @@ async function openAdminRequestDetail(requestId) {
                 el('ol', { className: 'request-timeline' }, timelineItems)
             ]),
             businessInfoCard,
+            rescheduleReviewCard,
+            ownerInfoCard,
+            cooldownCard,
             mobileRequestDetail ? mobilePickupCard : desktopPickupCard,
             el('section', { className: 'card request-detail-card request-detail-payment' }, [
                 el('h3', { text: 'Payment' }),
@@ -7053,23 +7425,33 @@ function processRequest(id, action, request = null) {
     } else if (action === 'Ready') {
         if (request) openPickupModal(request);
     } else if (action === 'Pickup') {
-        if (window.confirm('Mark this request as picked up?')) sendProcessRequest(id, action, null);
+        const checkRequired = Number(request?.request_for_other) === 1;
+        const prompt = checkRequired
+            ? 'Confirm that you checked the document owner’s valid ID in person before marking this request as picked up.'
+            : 'Mark this request as picked up?';
+        if (window.confirm(prompt)) sendProcessRequest(id, action, null, checkRequired);
+    } else if (action === 'RescheduleApprove') {
+        if (window.confirm(`Approve the new pickup date ${formatDate(request?.requested_pickup_date)}?`)) {
+            sendProcessRequest(id, action, null, false, { rescheduleId: Number(request?.reschedule_id) });
+        }
+    } else if (action === 'RescheduleReject') {
+        openModal('Decline pickup reschedule', 'The original pickup date will stay in place. Give the resident a reason.', 'Reason', 'Enter why the new date cannot be approved.', reason => sendProcessRequest(id, action, reason, false, { rescheduleId: Number(request?.reschedule_id) }), 'textarea', { maxLength: 1000 });
     } else {
         // Approve — no details needed
         sendProcessRequest(id, action, null);
     }
 }
 
-async function sendProcessRequest(id, action, details) {
+async function sendProcessRequest(id, action, details, ownerIdChecked = false, extra = {}) {
     try {
         const res = await fetch('api/process_request.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, action, details })
+            body: JSON.stringify({ id, action, details, ownerIdChecked, ...extra })
         });
         const result = await res.json();
         if (res.ok && result.success) {
-            const messages = { Approve: 'Request approved.', Reject: 'Request rejected.', Ready: 'Request marked ready for pickup.', Pickup: 'Request marked as picked up.' };
+            const messages = { Approve: 'Request approved.', Reject: 'Request rejected.', Ready: 'Request marked ready for pickup.', Pickup: 'Request marked as picked up.', RescheduleApprove: 'Pickup reschedule approved.', RescheduleReject: 'Pickup reschedule declined.' };
             const notice = residentEmailDeliveryNotice(result);
             showToast((messages[action] || 'Request updated.') + notice.text, notice.type);
             invalidateAdminPanelCache('overview', 'activity');
@@ -7125,7 +7507,8 @@ async function loadResidentAccounts() {
         const tableName = name || '—';
         const tableEmail = r.email || '—';
         const tablePhone = r.phone_number || '—';
-        const tableAddress = r.address || '—';
+        const residentAddress = String(r.address || '').replace(/\s+/g, ' ').trim();
+        const tableAddress = residentAddress || '—';
         const tableBirthdate = r.date_of_birth ? birthdate : '—';
         const tableCivilStatus = String(r.civil_status || '').trim() || '—';
         const tableGender = String(r.gender || '').trim() || '—';
@@ -7139,7 +7522,7 @@ async function loadResidentAccounts() {
         const previewResidentProof = () => openProofPreview(safeProofUrl, {
             name,
             email: r.email,
-            address: r.address,
+            address: residentAddress,
             createdAt: r.created_at,
             proofType: r.proof_type
         });
@@ -7182,7 +7565,7 @@ async function loadResidentAccounts() {
                 el('span', { className: `resident-admin-cell-text resident-admin-email${r.email ? '' : ' resident-admin-empty-value'}`, text: tableEmail, attrs: { title: tableEmail } })
             ])]),
             el('td', { attrs: { 'data-label': 'Phone', title: tablePhone } }, [el('span', { className: `resident-admin-cell-text resident-admin-phone${r.phone_number ? '' : ' resident-admin-empty-value'}`, text: tablePhone, attrs: { title: tablePhone } })]),
-            el('td', { attrs: { 'data-label': 'Address', title: tableAddress } }, [el('span', { className: `resident-admin-cell-text resident-admin-address${r.address ? '' : ' resident-admin-empty-value'}`, text: tableAddress, attrs: { title: tableAddress } })]),
+            el('td', { attrs: { 'data-label': 'Address', title: tableAddress } }, [el('span', { className: `resident-admin-cell-text resident-admin-address${residentAddress ? '' : ' resident-admin-empty-value'}`, text: tableAddress, attrs: { title: tableAddress } })]),
             el('td', { attrs: { 'data-label': 'Birthdate / age', title: tableBirthdate } }, [el('span', { className: `resident-admin-cell-text resident-admin-birthdate${r.date_of_birth ? '' : ' resident-admin-empty-value'}`, text: tableBirthdate, attrs: { title: tableBirthdate } })]),
             el('td', { attrs: { 'data-label': 'Civil status', title: tableCivilStatus } }, [el('span', { className: `resident-admin-cell-text${tableCivilStatus === '—' ? ' resident-admin-empty-value' : ''}`, text: tableCivilStatus, attrs: { title: tableCivilStatus } })]),
             el('td', { attrs: { 'data-label': 'Gender', title: tableGender } }, [el('span', { className: `resident-admin-cell-text${tableGender === '—' ? ' resident-admin-empty-value' : ''}`, text: tableGender, attrs: { title: tableGender } })]),
@@ -7198,7 +7581,7 @@ async function loadResidentAccounts() {
                     el('span', { className: 'resident-mobile-email', text: r.email || 'No email provided', attrs: { title: r.email || '' } })
                 ]),
                 el('p', { className: 'resident-mobile-registered', text: `Phone: ${r.phone_number || 'Not provided'}` }),
-                el('p', { className: 'resident-mobile-registered', text: `Address: ${r.address || 'Not provided'}` }),
+                el('p', { className: 'resident-mobile-registered', text: `Address: ${residentAddress || 'Not provided'}` }),
                 el('p', { className: 'resident-mobile-registered', text: `Birthdate / age: ${birthdate}` }),
                 el('p', { className: 'resident-mobile-registered', text: `Civil status / gender: ${r.civil_status || 'Not provided'} / ${r.gender || 'Not provided'}` }),
                 el('div', { className: 'resident-mobile-proof-row' }, [proofAction()]),
@@ -7220,7 +7603,7 @@ async function loadResidentAccounts() {
                 el('div', { className: 'resident-mobile-contacts' }, [
                     contactRow('fa-envelope', 'Email', r.email || 'No email provided', r.email || ''),
                     contactRow('fa-phone', 'Phone', r.phone_number || 'Not provided'),
-                    contactRow('fa-location-dot', 'Address', r.address || 'Not provided'),
+                    contactRow('fa-location-dot', 'Address', residentAddress || 'Not provided'),
                     contactRow('fa-calendar', 'Birthdate / age', birthdate),
                     contactRow('fa-id-card', 'Civil status / gender', `${r.civil_status || 'Not provided'} / ${r.gender || 'Not provided'}`)
                 ]),
@@ -7831,7 +8214,7 @@ function switchAdminTab(tab, options = {}) {
         if (detailPanel) detailPanel.hidden = true;
         if (tab === 'activity' && adminPanelNeedsRefresh('activity')) loadAdminActivity(1);
         if (tab === 'overview' && adminPanelNeedsRefresh('overview')) loadAdminOverview();
-        if (tab === 'requests' && adminPanelNeedsRefresh('requests')) loadAdminData();
+        if (tab === 'requests' && options.skipRequestRefresh !== true) loadAdminData();
         if (tab === 'residents' && adminPanelNeedsRefresh('residents')) loadResidentAccounts();
         if (tab === 'collections' && adminPanelNeedsRefresh('collections')) loadAdminCollections();
         if (tab === 'staff' && adminPanelNeedsRefresh('staff')) loadAdminStaff();

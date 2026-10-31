@@ -3,6 +3,7 @@ require_once 'db.php';
 require_once 'email.php';
 require_once 'config.php';
 require_once 'recaptcha.php';
+require_once __DIR__ . '/request_workflow.php';
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -15,20 +16,25 @@ try {
     $email = strtolower(trim(is_string($_POST['email'] ?? null) ? $_POST['email'] : ''));
     $website = trim(is_string($_POST['website'] ?? null) ? $_POST['website'] : '');
     $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
-    $firstName = trim(is_string($_POST['firstName'] ?? null) ? $_POST['firstName'] : '');
-    $middleName = trim(is_string($_POST['middleName'] ?? null) ? $_POST['middleName'] : '');
-    $lastName = trim(is_string($_POST['lastName'] ?? null) ? $_POST['lastName'] : '');
+    $firstName = preg_replace('/\s+/u', ' ', trim(is_string($_POST['firstName'] ?? null) ? $_POST['firstName'] : '')) ?? '';
+    $middleName = preg_replace('/\s+/u', ' ', trim(is_string($_POST['middleName'] ?? null) ? $_POST['middleName'] : '')) ?? '';
+    $lastName = preg_replace('/\s+/u', ' ', trim(is_string($_POST['lastName'] ?? null) ? $_POST['lastName'] : '')) ?? '';
     $suffix = trim(is_string($_POST['suffix'] ?? null) ? $_POST['suffix'] : '');
     $phone = trim(is_string($_POST['phone'] ?? null) ? $_POST['phone'] : '');
-    $address = trim(is_string($_POST['address'] ?? null) ? $_POST['address'] : '');
+    $address = validateStructuredAddress($_POST) ?? '';
     $birthDate = trim(is_string($_POST['birthDate'] ?? null) ? $_POST['birthDate'] : '');
     $civilStatus = trim(is_string($_POST['civilStatus'] ?? null) ? $_POST['civilStatus'] : '');
     $gender = trim(is_string($_POST['gender'] ?? null) ? $_POST['gender'] : '');
     $termsAccepted = ($_POST['termsAccepted'] ?? '') === '1';
     $privacyNoticeAcknowledged = ($_POST['privacyNoticeAcknowledged'] ?? '') === '1';
-    if (!$email || !$password || !$firstName || !$lastName || !$address || !$birthDate || !$termsAccepted) {
+    if (!$email || !$password || !$firstName || !$lastName || !$birthDate || !$termsAccepted) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Registration could not be completed. Check your details and try again.']);
+        exit;
+    }
+    if ($address === '') {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Enter a house or lot number and choose a listed street and Purok.']);
         exit;
     }
 
@@ -39,7 +45,16 @@ try {
         echo json_encode(['success' => false, 'message' => 'Please complete the CAPTCHA and try again.']);
         exit;
     }
-    $validName = static fn(string $name): bool => (bool) preg_match('/^[\p{L}\p{M} .\'-]{1,100}$/u', $name);
+    if (!validPersonName($firstName) || !validPersonName($lastName)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'First and last names need at least 2 characters. Use letters, spaces, hyphens, apostrophes, or periods; names made of one repeated character are not accepted.']);
+        exit;
+    }
+    if ($middleName !== '' && !validPersonName($middleName, 100, 1)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Enter a valid middle name using letters, spaces, hyphens, apostrophes, or periods.']);
+        exit;
+    }
     $manilaTimezone = new DateTimeZone('Asia/Manila');
     $todayInManila = new DateTimeImmutable('today', $manilaTimezone);
     $dateOfBirth = DateTimeImmutable::createFromFormat('!Y-m-d', $birthDate, $manilaTimezone);
@@ -52,7 +67,6 @@ try {
     $allowedGenders = ['', 'Female', 'Male', 'Other', 'Prefer not to say'];
     if (strlen($email) > 190 || !isAllowedEmailProvider($email)
         || !passwordMeetsPolicy($password)
-        || !$validName($firstName) || !$validName($lastName) || ($middleName !== '' && !$validName($middleName))
         || !in_array($suffix, $allowedSuffixes, true) || !$birthDateValid
         || !in_array($civilStatus, $allowedCivilStatuses, true) || !in_array($gender, $allowedGenders, true)
         || strlen($address) > 255 || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', $address)

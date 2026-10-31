@@ -1187,6 +1187,9 @@ textarea::placeholder { color: #566059 !important; opacity: 1; }
 .status-readyforpickup { border-color: #ccfbf1 !important; background: #ccfbf1 !important; color: #115e59 !important; }
 .status-completed { border-color: #dcfce7 !important; background: #dcfce7 !important; color: #166534 !important; }
 .status-rejected { border-color: #fee2e2 !important; background: #fee2e2 !important; color: #991b1b !important; }
+.status-cancelled,
+.status-expired { border-color: #e7e5e4 !important; background: #f5f5f4 !important; color: #57534e !important; }
+.status-reschedulerequested { border-color: #fde68a !important; background: #fef3c7 !important; color: #92400e !important; }
 
 /* Payment chips have a smaller outlined treatment and a leading color dot. */
 .payment-status-chip {
@@ -2056,8 +2059,9 @@ body.admin-user-view #bulletin .bulletin-record-delete:hover {
         font-size: 10px;
     }
     #admin-dashboard #admin-residents-panel .resident-admin-address {
-        white-space: normal;
-        overflow-wrap: anywhere;
+        white-space: nowrap !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     #admin-dashboard #admin-residents-panel .resident-admin-empty-value {
         color: #a4aaa5 !important;

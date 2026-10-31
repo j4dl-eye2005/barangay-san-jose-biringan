@@ -50,6 +50,8 @@ For an existing database, run `database/document_type_name_alignment_migration.s
 
 For an existing database, run `database/resident_payment_review_migration.sql` once before deploying resident payment-proof review. Confirm the document fees with the barangay before using these sample fee amounts for real requests.
 
+The request address dropdowns, limits, cooldown tiers, pickup deadline, and reschedule count are configured in `includes/request_workflow_config.php`. Replace the example Purok and street values with the barangay's approved address list before using the portal for real requests. Set `demo_mode` to `true` only in a presentation environment to make every cancellation tier last 10 seconds; keep it `false` in production.
+
 For an older local database that does not have `resident.archived_at`, run `database/resident_archive_migration.sql` once. The current login and account APIs expect this nullable column.
 
 For an existing database, run `database/audit_search_migration.sql` once to add the full-text activity search indexes and the structured resident reference used by the admin activity log.
@@ -67,6 +69,8 @@ For an existing database, run `database/query_performance_migration.sql` once to
 For an existing database, run `database/policy_acceptance_migration.sql` once before deploying the updated registration endpoint. It adds nullable fields to record the Terms version accepted and Privacy Notice version acknowledged at registration. Existing accounts remain blank because the earlier version did not retain this evidence.
 
 For an existing database, apply `database/keep_but_change_migration.sql` once after the earlier account, request, payment-review, and policy-acceptance migrations and before deploying these features. It adds staff roles and the directory, resident birthdate/civil-status/gender fields, business request details and per-request fee snapshots, the payment ledger, and document sample records. It preserves current administrators as super-admins, sets future administrator accounts to the service-clerk role by default, and backfills old paid requests as legacy ledger entries because their original payment channel may not be known. Confirm the barangay’s approved fee schedule before assessing any request.
+
+For an existing database, apply `database/request_enhancements_migration.sql` once after `keep_but_change_migration.sql` and the other request/payment migrations, before deploying the updated PHP and JavaScript files. It adds on-behalf request details, cancellation cooldown records, pickup reschedule requests, and pickup deadlines. New local databases already receive these tables from `database/schema.sql`. Back up the database first and run this one-time migration only once.
 
 Migration repeatability depends on the individual file. Follow each migration's instructions and run files marked “once” only once. The SQL syntax targets the MariaDB 10.4.32 server shown in the supplied database dump.
 
@@ -92,4 +96,14 @@ The schema defines administrator and resident accounts, staff roles and director
 - Use HTTPS at the host/proxy. Apache rules redirect HTTP and set transport/security headers; confirm the host supports `.htaccess` rewrite and header modules.
 - Existing account passwords are not forcibly reset by the migration. Reset any legacy passwords that do not meet the 12-character policy, and rotate any database or SMTP credential that has ever been committed or shared.
 - PHPMailer is pinned in `composer.json` and `composer.lock`; keep the checked-in `lib/PHPMailer` source synchronized with that locked release. Run `composer audit` during releases.
+
+## Request workflow presentation
+
+For a local presentation, run `database/request_workflow_demo_seed.sql` after the schema and request enhancements migration. It creates a non-login placeholder resident and sample requests for Pending, Approved, Ready for Pickup, Completed, Cancelled, Rejected, Reschedule Requested, and Expired. Do not run the demo seed on a production database. Set `demo_mode` to `true` in the local workflow config only if you want 10-second cancellation cooldowns during the presentation.
+
+## Future improvements
+
+- Replace the example Purok and street directory with the barangay's approved address list before real use.
+- Add an official local-holiday calendar so pickup dates can exclude holidays as well as weekends.
+- The portal remains an academic prototype; a formally designated personal information controller and Data Protection Officer, approved retention periods, and production security review are needed before it is used as an official public service.
 

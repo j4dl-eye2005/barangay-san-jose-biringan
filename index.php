@@ -40,7 +40,7 @@ if (isset($_GET['admin_access_form'])) {
     $publicCssUrl = htmlspecialchars($appBasePath . '/css/public.css?v=20261016-sticky-menu-stable', ENT_QUOTES, 'UTF-8');
     $responsiveCssUrl = htmlspecialchars($appBasePath . '/css/shared-responsive.css?v=20261027-proof-preview-styles-v2', ENT_QUOTES, 'UTF-8');
     $cssUrl = htmlspecialchars($appBasePath . '/css/admin-access.css?v=20261021-admin-access-panel-contrast-v3', ENT_QUOTES, 'UTF-8');
-    $portalCssUrl = htmlspecialchars($appBasePath . '/css/portal-public.css?v=20261030-payment-instructions-gcash-v2', ENT_QUOTES, 'UTF-8');
+    $portalCssUrl = htmlspecialchars($appBasePath . '/css/portal-public.css?v=20261031-request-workflow-v1', ENT_QUOTES, 'UTF-8');
     $jsUrl = htmlspecialchars($appBasePath . '/admin-access.js?v=20261021-shared-mobile-shell-v1', ENT_QUOTES, 'UTF-8');
     $adminInitialSection = null;
     ob_start();
@@ -172,6 +172,7 @@ $validAdminSections = ['overview', 'requests', 'residents', 'collections', 'staf
 if (!in_array($adminInitialSection, $validAdminSections, true)) {
     $adminInitialSection = null;
 }
+$requestAddressOptions = require __DIR__ . '/includes/request_workflow_config.php';
 if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || empty($_SESSION['user_id']))) {
     renderUnavailablePage();
 }
@@ -206,14 +207,14 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <link rel="stylesheet" href="css/base.css?v=20261023-universal-custom-scrollbar-v1">
     <link rel="stylesheet" href="css/home.css?v=20261023-static-request-arrows-v1">
     <link rel="stylesheet" href="css/components.css?v=20261027-admin-shared-action-modal-v1">
-    <link data-portal-route-css="auth" data-portal-css-href="css/auth.css?v=20261028-proof-attached-indicator-v1">
+    <link data-portal-route-css="auth" data-portal-css-href="css/auth.css?v=20261031-address-spacing-v1">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin.css?v=20261023-server-disclosure-drafts-v1">
     <link rel="stylesheet" href="css/public.css?v=20261016-sticky-menu-stable">
-    <link data-portal-route-css="admin" data-portal-css-href="css/admin-tables.css?v=20261028-mobile-collections-staff-directory-v1">
+    <link data-portal-route-css="admin" data-portal-css-href="css/admin-tables.css?v=20261031-request-workflow-v1">
     <link rel="stylesheet" href="css/shared-responsive.css?v=20261028-mobile-proof-row-v1">
-    <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261030-request-mobile-refinements-v4">
+    <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261031-address-summary-v1">
     <link data-portal-route-css="unavailable" data-portal-css-href="css/unavailable.css?v=20261023-mobile-404-wrap-v2">
-    <link rel="stylesheet" href="css/portal-public.css?v=20261030-payment-instructions-gcash-v2">
+    <link rel="stylesheet" href="css/portal-public.css?v=20261031-request-workflow-v1">
     <link rel="stylesheet" href="css/record-spa.css?v=20261028-record-spa-sk-maroon-v2">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -676,16 +677,17 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                             <div class="reg-grid">
                                 <div class="reg-field reg-col-3">
                                     <label for="register-first-name">First name <span class="req-star" aria-hidden="true">*</span></label>
-                                    <input type="text" id="register-first-name" name="firstName" autocomplete="given-name" required aria-describedby="register-first-name-error">
+                                    <input type="text" id="register-first-name" name="firstName" maxlength="100" autocomplete="given-name" placeholder="e.g., Maria" required aria-describedby="register-first-name-error">
                                     <span class="reg-field-error" id="register-first-name-error" role="alert"></span>
                                 </div>
                                 <div class="reg-field reg-col-3">
                                     <label for="register-middle-name">Middle name</label>
-                                    <input type="text" id="register-middle-name" name="middleName" autocomplete="additional-name">
+                                    <input type="text" id="register-middle-name" name="middleName" maxlength="100" autocomplete="additional-name" placeholder="e.g., Clara (optional)" aria-describedby="register-middle-name-error">
+                                    <span class="reg-field-error" id="register-middle-name-error" role="alert"></span>
                                 </div>
                                 <div class="reg-field reg-col-3">
                                     <label for="register-last-name">Last name <span class="req-star" aria-hidden="true">*</span></label>
-                                    <input type="text" id="register-last-name" name="lastName" autocomplete="family-name" required aria-describedby="register-last-name-error">
+                                    <input type="text" id="register-last-name" name="lastName" maxlength="100" autocomplete="family-name" placeholder="e.g., Santos" required aria-describedby="register-last-name-error">
                                     <span class="reg-field-error" id="register-last-name-error" role="alert"></span>
                                 </div>
                                 <div class="reg-field reg-col-3">
@@ -733,15 +735,29 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                                 </div>
                             </div>
 
-                            <!-- Address: no eyebrow, full-width -->
+                            <!-- Address: structured directory fields -->
                             <div class="reg-section reg-address-section">
                                 <div class="reg-grid">
-                                    <div class="reg-field reg-col-12">
-                                        <label for="register-address">Home address <span class="req-star" aria-hidden="true">*</span></label>
-                                        <input type="text" id="register-address" name="address" autocomplete="street-address" required placeholder="House no., street, purok" aria-describedby="register-address-hint register-address-error">
-                                        <span class="reg-hint" id="register-address-hint">e.g. 12 Rizal St., Purok 3, Barangay San Jose</span>
-                                        <span class="reg-field-error" id="register-address-error" role="alert"></span>
+                                    <div class="reg-field reg-col-4">
+                                        <label for="register-house-lot">House or lot number <span class="req-star" aria-hidden="true">*</span></label>
+                                        <input type="text" id="register-house-lot" name="houseLotNumber" maxlength="40" autocomplete="address-line1" placeholder="e.g., 12" required aria-describedby="register-address-error">
                                     </div>
+                                    <div class="reg-field reg-col-4">
+                                        <label for="register-street">Street <span class="req-star" aria-hidden="true">*</span></label>
+                                        <select id="register-street" name="street" required>
+                                            <option value="" selected disabled>Select a street</option>
+                                            <?php foreach ($requestAddressOptions['streets'] as $street): ?><option value="<?= htmlspecialchars($street, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($street, ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="reg-field reg-col-4">
+                                        <label for="register-purok">Purok <span class="req-star" aria-hidden="true">*</span></label>
+                                        <select id="register-purok" name="purok" required>
+                                            <option value="" selected disabled>Select a Purok</option>
+                                            <?php foreach ($requestAddressOptions['puroks'] as $purok): ?><option value="<?= htmlspecialchars($purok, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($purok, ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <p class="reg-hint reg-col-12" id="register-address-hint">Choose your street and Purok, then enter your house or lot number.</p>
+                                    <span class="reg-field-error reg-col-12" id="register-address-error" role="alert"></span>
                                 </div>
                             </div>
 
@@ -752,7 +768,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                                     <div class="reg-field reg-col-6">
                                         <label for="register-password">Password <span class="req-star" aria-hidden="true">*</span></label>
                                         <div class="password-field reg-pw-field">
-                                            <input type="password" name="password" id="register-password" minlength="8" maxlength="256" autocomplete="new-password" required aria-describedby="register-pw-checklist register-password-error">
+                                            <input type="password" name="password" id="register-password" minlength="8" maxlength="256" autocomplete="new-password" placeholder="8+ characters, uppercase, lowercase, and a number" required aria-describedby="register-pw-checklist register-password-error">
                                             <button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false" data-action-click="togglePassword('register-password', this)"><i class="fas fa-eye" aria-hidden="true"></i></button>
                                         </div>
                                         <div class="pw-strength-bar" aria-hidden="true">
@@ -772,7 +788,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                                     <div class="reg-field reg-col-6">
                                         <label for="register-confirm-password">Confirm password <span class="req-star" aria-hidden="true">*</span></label>
                                         <div class="password-field reg-pw-field">
-                                            <input type="password" name="confirmPassword" id="register-confirm-password" minlength="8" maxlength="256" autocomplete="new-password" required aria-describedby="pwc-match register-confirm-password-error">
+                                            <input type="password" name="confirmPassword" id="register-confirm-password" minlength="8" maxlength="256" autocomplete="new-password" placeholder="Re-enter your password" required aria-describedby="pwc-match register-confirm-password-error">
                                             <button type="button" class="password-toggle" aria-label="Show confirm password" aria-pressed="false" data-action-click="togglePassword('register-confirm-password', this)"><i class="fas fa-eye" aria-hidden="true"></i></button>
                                         </div>
                                         <p class="pwc-match-line" id="pwc-match" aria-live="polite"><i class="far fa-circle pwc-icon" aria-hidden="true"></i><span>Passwords match</span></p>
@@ -835,6 +851,27 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                                     <span class="reg-field-error" id="request-purpose-other-error" role="alert"></span>
                                 </div>
                             </div>
+                            <div class="input-group">
+                                <label for="request-for-other">Who is this document for?</label>
+                                <select id="request-for-other" name="requestForOther" required data-action-change="toggleRequestOwnerFields()"><option value="0" selected>Myself</option><option value="1">Someone else</option></select>
+                            </div>
+                            <fieldset id="request-owner-fields" class="input-group request-owner-fields" hidden disabled>
+                                <legend>Document owner's details</legend>
+                                <p class="form-hint">You are responsible for the accuracy of these details. The secretary will check the document owner's valid ID at pickup. False claims may lead to account suspension.</p>
+                                <div class="request-owner-grid">
+                                    <div class="input-group"><label for="request-owner-first-name">First name</label><input id="request-owner-first-name" name="ownerFirstName" maxlength="100" autocomplete="off" placeholder="e.g., Maria" aria-describedby="request-owner-first-name-error"><span class="reg-field-error" id="request-owner-first-name-error" role="alert"></span></div>
+                                    <div class="input-group"><label for="request-owner-middle-name">Middle name (optional)</label><input id="request-owner-middle-name" name="ownerMiddleName" maxlength="100" autocomplete="off" placeholder="e.g., Clara (optional)"></div>
+                                    <div class="input-group"><label for="request-owner-last-name">Last name</label><input id="request-owner-last-name" name="ownerLastName" maxlength="100" autocomplete="off" placeholder="e.g., Santos" aria-describedby="request-owner-last-name-error"><span class="reg-field-error" id="request-owner-last-name-error" role="alert"></span></div>
+                                    <div class="input-group"><label for="request-owner-suffix">Suffix (optional)</label><input id="request-owner-suffix" name="ownerSuffix" maxlength="20" autocomplete="off"></div>
+                                    <div class="input-group"><label for="request-owner-birthdate">Date of birth</label><input id="request-owner-birthdate" name="ownerDateOfBirth" type="date" autocomplete="off"></div>
+                                    <div class="input-group"><label for="request-owner-relationship">Your relationship</label><select id="request-owner-relationship" name="ownerRelationship"><option value="">Choose relationship</option><option value="parent">Parent</option><option value="guardian">Guardian</option><option value="child">Child</option><option value="spouse">Spouse</option><option value="other">Other</option></select></div>
+                                    <div class="input-group"><label for="request-owner-house-lot">House or lot number</label><input id="request-owner-house-lot" name="ownerHouseLotNumber" maxlength="40" autocomplete="off" placeholder="e.g., 12"></div>
+                                    <div class="input-group"><label for="request-owner-street">Street</label><select id="request-owner-street" name="ownerStreet"><option value="">Select a street</option><?php foreach ($requestAddressOptions['streets'] as $street): ?><option value="<?= htmlspecialchars($street, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($street, ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
+                                    <div class="input-group"><label for="request-owner-purok">Purok</label><select id="request-owner-purok" name="ownerPurok"><option value="">Select a Purok</option><?php foreach ($requestAddressOptions['puroks'] as $purok): ?><option value="<?= htmlspecialchars($purok, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($purok, ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
+                                </div>
+                                <span class="reg-field-error" id="request-owner-address-error" role="alert"></span>
+                                <label class="request-owner-consent"><input type="checkbox" id="request-owner-consent" name="representationConsent" value="1"><span>I confirm these details are accurate and I am authorized to request this document for this person.</span></label>
+                            </fieldset>
                             <fieldset id="online-business-fields" class="input-group business-request-fields" hidden>
                                 <legend>Business details</legend>
                                 <div class="business-field"><label for="request-business-name">Business name</label><input id="request-business-name" name="businessName" maxlength="180" autocomplete="organization" placeholder="e.g. Maria's Sari-Sari Store" disabled></div>
@@ -858,6 +895,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                                 <p class="request-proof-privacy" id="request-proof-privacy"><i class="fas fa-lock" aria-hidden="true"></i><span class="request-proof-privacy-desktop">This uploaded proof may contain <strong>sensitive information</strong>. It is stored for the sample request workflow and available to project administrators; this prototype is not an official barangay service.</span><span class="request-proof-privacy-mobile">Your ID is only used to verify that you live in the barangay. It is not shown on public records.</span></p>
                             </fieldset>
                             <button id="request-submit" type="submit" class="btn-solid full-width" aria-describedby="request-submit-guidance request-verification-note">Submit request</button>
+                            <p id="request-cooldown-note" class="request-cooldown-note" role="status" aria-live="polite" hidden></p>
                             <p id="request-submit-guidance" class="request-submit-guidance"><span class="request-guidance-desktop">You can track this request under <a href="#resident-dashboard" data-action-click="openResidentProfileQuickLink('track'); return false">Track Request</a>.</span><span class="request-guidance-mobile">You can track this request under <a href="#resident-request-tab-list" data-action-click="selectResidentRequestTab('list'); return false">Track Request</a>.</span><span id="request-processing-guidance"></span></p>
                             <p id="request-verification-note" class="request-verification-note" hidden>Verify your email to submit a request.</p>
                             <p id="request-submit-error" class="reg-field-error request-submit-error" role="alert" hidden></p>
@@ -1226,6 +1264,8 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('mod-removal')">Removal &amp; rejection</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('mod-repeat')">Repeat violations</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('mod-approval')">Decisions and review</button></li>
+                        <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('mod-requests')">Document request rules</button></li>
+                        <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('mod-data')">Email and personal data</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('mod-responsibility')">User responsibility</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('mod-contact')">Contact</button></li>
                     </ol>
@@ -1234,7 +1274,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <header class="policy-header policy-moderation">
                         <p class="eyebrow">Legal</p>
                         <h1 id="moderation-title">Moderation Policy</h1>
-                        <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 21, 2026</span></p></header>
+                        <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 31, 2026</span></p></header>
                     <p class="policy-lead">This academic prototype is not an official barangay service. This policy explains how project administrators handle account, request, and sample disclosure submissions.</p>
 
                     <h2 id="mod-prohibited">Prohibited content</h2>
@@ -1263,8 +1303,16 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <h2 id="mod-approval">Decisions and review</h2>
                     <p>Submitting a registration or sample request does not guarantee review by a particular date or any real-world service. If a submission is rejected or content is removed, contact the project email below with your account email or tracking number to ask for clarification. There is no in-portal appeal feature or guaranteed response time.</p>
 
+                    <h2 id="mod-requests">Document request rules</h2>
+                    <p>A resident may have up to three pending document requests at a time. A request may be cancelled only while it is Pending. Choose a cancellation reason; if you choose Other, provide at least 10 characters of explanation. Within a rolling 24-hour period, each cancellation applies a cooldown to all new document requests: 3 minutes for the first cancellation, 10 minutes for the second, 1 hour for the third, and 1 day for the fourth and later cancellations. The cooldown is calculated from the latest cancellation using server time. Staff may lift a cooldown, and the action is recorded.</p>
+                    <p>After staff marks a request Ready for Pickup, collect it within 7 days. If you cannot attend, request a new date with a reason. The new date must be a working day within 7 days after the scheduled date, and each request allows up to two reschedule attempts. A secretary reviews each request and the resident is notified of the result. Requests not collected by the deadline may be marked Expired. A resident requesting a document for another person must provide accurate details, identify their relationship, confirm they are authorized, and ensure the document owner presents a valid ID at pickup. False or unauthorized claims may lead to restrictions or account suspension after review.</p>
+
+                    <h2 id="mod-data">Email and personal data</h2>
+                    <p>The portal may email residents about account verification and document request events, including submission, cancellation, status changes, and pickup reschedule decisions. Email delivery can be delayed or fail; residents should also check their portal request status. Requester and document-owner details, uploaded proof, reasons, status history, and audit records are used to demonstrate and administer this workflow. Access is limited by staff role, and information should not be included in public disclosures unless publication is authorized and necessary.</p>
+                    <p>Personal information is handled under the Data Privacy Act of 2012 (Republic Act No. 10173) and the portal Privacy Policy. The portal collects only information used for the requested workflow, applies access controls, and retains request and audit records for administration and accountability. Do not submit another person’s information unless you are authorized to do so. This academic prototype is not an official barangay service and does not replace a formally designated personal information controller or Data Protection Officer.</p>
+
                     <h2 id="mod-responsibility">User responsibility</h2>
-                    <p>Check information and files before submitting them, use the portal only for your own authorized account and requests, and respect the privacy and rights of other people. Report suspected account compromise or an incorrect moderation action promptly.</p>
+                    <p>Check information and files before submitting them, use the portal only for your own authorized account and requests, and respect the privacy and rights of other people. When acting for another person, you are responsible for the accuracy of the information and for having authority to submit it. Report suspected account compromise or an incorrect moderation action promptly.</p>
 
                     <h2 id="mod-contact">Contact</h2>
                     <div class="policy-contact-card">
@@ -1350,7 +1398,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <?php require __DIR__ . '/includes/shared/site-footer.php'; ?>
 
     <?php require __DIR__ . '/includes/shared/dialogs.php'; ?>    <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true">Message</div>
-    <script src="script.js?v=20261031-email-verification-session-v1" defer></script>
+    <script src="script.js?v=20261031-address-summary-v1" defer></script>
 </body>
 </html>
 
