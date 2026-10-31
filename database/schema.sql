@@ -300,7 +300,8 @@ CREATE TABLE IF NOT EXISTS portal_maintenance (
     last_run_at DATETIME NOT NULL
 ) ENGINE=InnoDB;
 
--- Single-use email verification tokens for new resident registrations.
+-- Short-lived email verification tokens for new resident registrations. A
+-- verified token remains available until expiry so repeat opens are idempotent.
 CREATE TABLE IF NOT EXISTS email_verification_token (
     token_hash CHAR(64) NOT NULL PRIMARY KEY,
     resident_id INT NOT NULL,

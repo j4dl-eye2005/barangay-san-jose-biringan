@@ -21,11 +21,18 @@ try {
     }
     $update = $pdo->prepare('UPDATE resident SET email_verified_at = UTC_TIMESTAMP() WHERE resident_id = ? AND email_verified_at IS NULL');
     $update->execute([(int) $residentId]);
-    $pdo->prepare('DELETE FROM email_verification_token WHERE resident_id = ?')->execute([(int) $residentId]);
-    $audit = $pdo->prepare("INSERT INTO audit_log (user_id, subject_resident_id, action, details) VALUES (NULL, ?, 'resident_email_verified', ?)");
-    $audit->execute([(int) $residentId, 'Resident ID ' . (int) $residentId]);
+    $newlyVerified = $update->rowCount() === 1;
+    if ($newlyVerified) {
+        $audit = $pdo->prepare("INSERT INTO audit_log (user_id, subject_resident_id, action, details) VALUES (NULL, ?, 'resident_email_verified', ?)");
+        $audit->execute([(int) $residentId, 'Resident ID ' . (int) $residentId]);
+    }
+    // Keep the short-lived token so opening the same link again (for example,
+    // after a mail client pre-check) returns the already-verified state instead
+    // of a misleading 404. Resending or changing the address replaces it.
     $pdo->commit();
-    echo json_encode(['success'=>true, 'message'=>'Email verified. You can now submit document requests.']);
+    echo json_encode(['success'=>true, 'alreadyVerified'=>!$newlyVerified, 'message'=>$newlyVerified
+        ? 'Email verified. You can now submit document requests.'
+        : 'Your email is already verified. You can now submit document requests.']);
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('Email verification failed: ' . $e->getMessage());

@@ -9075,8 +9075,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         passwordResetContext = metaResetContext === 'admin' ? 'admin' : 'resident';
     }
 
-    // Handle email verification link — must run before the session check so an
-    // admin being logged in on the same browser doesn't hijack the navigation.
+    // Handle email verification links before normal route selection, then
+    // restore any session already active in this browser.
     if (emailVerificationToken() && /^[a-f0-9]{64}$/.test(emailVerificationToken())) {
         history.replaceState(history.state, '', `${location.pathname}#login`);
         try {
@@ -9088,12 +9088,38 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (result.pageUnavailable) {
                 showSection('page-unavailable');
             } else {
-                if (response.ok && result.success && currentUser?.role === 'Resident') {
-                    currentUser.emailVerified = true;
-                    updateNavBar();
+                let sessionData = null;
+                if (response.ok && result.success) {
+                    try {
+                        const sessionResponse = await fetch('api/session.php', { cache: 'no-store' });
+                        if (sessionResponse.ok) sessionData = await sessionResponse.json();
+                    } catch {
+                        // Verification is already committed; a session lookup
+                        // failure should not turn a successful link into an error.
+                    }
                 }
-                showSection('login', true);
-                showToast(result.message || 'Email verification could not be completed.', response.ok && result.success ? 'success' : 'error');
+                if (result.success && sessionData?.loggedIn) {
+                    currentUser = {
+                        id: sessionData.id,
+                        name: sessionData.name,
+                        role: sessionData.role,
+                        staffRole: sessionData.staffRole || 'service_clerk',
+                        email: sessionData.email || '',
+                        phoneNumber: sessionData.phoneNumber || '',
+                        emailVerified: sessionData.role === 'Admin' || sessionData.emailVerified === true
+                    };
+                    if (sessionData.role === 'Admin') startAdminSessionExpiry(sessionData.createdAt);
+                    updateNavBar();
+                    const dashboard = sessionData.role === 'Admin' ? 'admin-dashboard' : 'resident-dashboard';
+                    history.replaceState({ section: dashboard }, '', `${location.pathname}#${dashboard}`);
+                    showSection(dashboard, true);
+                } else {
+                    showSection('login', true);
+                }
+                const message = result.success && !sessionData?.loggedIn
+                    ? `${result.alreadyVerified ? 'Your email is already verified.' : 'Email verified.'} Please sign in to continue.`
+                    : (result.message || 'Email verification could not be completed.');
+                showToast(message, response.ok && result.success ? 'success' : 'error');
             }
         } catch {
             showSection('login', true);
