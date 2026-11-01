@@ -4,6 +4,50 @@ require_once __DIR__ . '/email.php';
 require_once __DIR__ . '/request_workflow.php';
 header('Content-Type: application/json');
 
+function representativeRequestDocumentRequirements(string $relationship, int $ownerAge, bool $businessClearance): array
+{
+    if ($relationship === 'employee_staff') {
+        return $businessClearance ? [
+            'business_authorization_letter' => ['Authorization letter from the business owner', 'letter'],
+            'owner_id' => ["Business owner's valid ID", 'id'],
+            'requester_id' => ['Your valid ID', 'id'],
+        ] : [];
+    }
+    if ($ownerAge < 18 && $relationship === 'parent') {
+        return [
+            'birth_certificate' => ["Birth certificate of the document owner", 'document'],
+            'requester_id' => ['Your valid ID', 'id'],
+        ];
+    }
+    if ($ownerAge < 18 && $relationship === 'guardian') {
+        return [
+            'guardianship_proof' => ['Proof of guardianship', 'document'],
+            'owner_birth_certificate_or_id' => ["Birth certificate or valid ID of the document owner", 'id-or-birth'],
+            'requester_id' => ['Your valid ID', 'id'],
+        ];
+    }
+    $letterLabel = $ownerAge < 18
+        ? "Signed authorization letter from the document owner's parent or guardian"
+        : 'Signed authorization letter from the document owner';
+    return [
+        'authorization_letter' => [$letterLabel, 'letter'],
+        'owner_id' => ["Document owner's valid ID", 'id'],
+        'requester_id' => ['Your valid ID', 'id'],
+    ];
+}
+
+function representativeRequestUpload(array $uploads, string $key): ?array
+{
+    if (!isset($uploads['name'][$key], $uploads['tmp_name'][$key], $uploads['error'][$key], $uploads['size'][$key])) return null;
+    return [
+        'name' => $uploads['name'][$key],
+        'type' => $uploads['type'][$key] ?? '',
+        'tmp_name' => $uploads['tmp_name'][$key],
+        'error' => (int) $uploads['error'][$key],
+        'size' => (int) $uploads['size'][$key],
+    ];
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['Admin', 'Resident'], true)) {
         if (!empty($GLOBALS['adminEntryDeniedThisRequest'])) denyAdminEntryAccess(true);
@@ -141,12 +185,13 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $purpose = trim(is_string($data['purpose'] ?? null) ? $data['purpose'] : '');
     $purposeLength = function_exists('mb_strlen') ? mb_strlen($purpose, 'UTF-8') : strlen($purpose);
     $proofType = is_string($data['proofType'] ?? null) ? $data['proofType'] : '';
+    $requestForOther = ($data['requestForOther'] ?? '0') === '1';
     $proof = $_FILES['proof'] ?? null;
-    $extension = $proof ? validateUpload($proof, ['pdf' => true, 'jpg' => true, 'jpeg' => true, 'png' => true], 5 * 1024 * 1024) : null;
+    $extension = !$requestForOther && $proof ? validateUpload($proof, ['pdf' => true, 'jpg' => true, 'jpeg' => true, 'png' => true], 5 * 1024 * 1024) : null;
     if (!$documentTypeId || $purpose === '' || $purposeLength > 2000 || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', $purpose)) {
         http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Enter a valid document type and purpose.']); exit;
     }
-    if (!in_array($proofType, ['National ID', 'Certificate of Residency'], true) || $extension === null) {
+    if (!$requestForOther && (!in_array($proofType, ['National ID', 'Certificate of Residency'], true) || $extension === null)) {
         http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Attach a valid National ID or Certificate of Residency (PDF, JPG, or PNG, up to 5 MB).']); exit;
     }
     $type = $pdo->prepare('SELECT document_type_id, name, fee_amount FROM document_type WHERE document_type_id = ? AND is_active = 1');
@@ -164,9 +209,9 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
         || $businessActivity === '' || strlen($businessActivity) > 180)) {
         http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Enter the business name, type, address, and activity.']); exit;
     }
-    $requestForOther = ($data['requestForOther'] ?? '0') === '1';
-    $ownerFirstName = $ownerMiddleName = $ownerLastName = $ownerSuffix = $ownerBirthDate = $ownerAddress = $ownerRelationship = null;
+    $ownerFirstName = $ownerMiddleName = $ownerLastName = $ownerSuffix = $ownerBirthDate = $ownerAddress = $ownerRelationship = $ownerRelationshipDescription = $consentAtUtc = null;
     $representationConsent = false;
+    $representativeDocuments = [];
     if ($requestForOther) {
         $ownerFirstName = preg_replace('/\s+/u', ' ', trim(is_string($data['ownerFirstName'] ?? null) ? $data['ownerFirstName'] : '')) ?? '';
         $ownerMiddleName = preg_replace('/\s+/u', ' ', trim(is_string($data['ownerMiddleName'] ?? null) ? $data['ownerMiddleName'] : '')) ?? '';
@@ -175,25 +220,62 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ownerBirthDate = trim(is_string($data['ownerDateOfBirth'] ?? null) ? $data['ownerDateOfBirth'] : '');
         $ownerAddress = validateStructuredAddress($data, 'owner') ?? '';
         $ownerRelationship = is_string($data['ownerRelationship'] ?? null) ? $data['ownerRelationship'] : '';
+        $ownerRelationshipDescription = preg_replace('/\s+/u', ' ', trim(is_string($data['ownerRelationshipDescription'] ?? null) ? $data['ownerRelationshipDescription'] : '')) ?? '';
         $representationConsent = ($data['representationConsent'] ?? '') === '1';
         $ownerDate = DateTimeImmutable::createFromFormat('!Y-m-d', $ownerBirthDate, new DateTimeZone('Asia/Manila'));
         $today = new DateTimeImmutable('today', new DateTimeZone('Asia/Manila'));
         $validOwnerBirthDate = $ownerDate instanceof DateTimeImmutable && $ownerDate->format('Y-m-d') === $ownerBirthDate
             && $ownerDate <= $today && $ownerDate >= $today->modify('-120 years');
+        $allowedRelationships = ['parent', 'guardian', 'spouse', 'child', 'sibling', 'other_relative', 'employee_staff', 'other'];
+        $descriptionLength = function_exists('mb_strlen') ? mb_strlen($ownerRelationshipDescription, 'UTF-8') : strlen($ownerRelationshipDescription);
         if (!validPersonName($ownerFirstName) || !validPersonName($ownerLastName)
             || ($ownerMiddleName !== '' && !validPersonName($ownerMiddleName, 100, 1))
             || !in_array($ownerSuffix, ['', 'Jr.', 'Sr.', 'II', 'III', 'IV'], true)
             || !$validOwnerBirthDate || $ownerAddress === ''
-            || !in_array($ownerRelationship, ['parent', 'guardian', 'child', 'spouse', 'other'], true)
+            || !in_array($ownerRelationship, $allowedRelationships, true)
+            || ($ownerRelationship === 'other' && ($ownerRelationshipDescription === '' || $descriptionLength > 120))
+            || preg_match('/[\x00-\x1f\x7f]/', $ownerRelationshipDescription)
+            || ($ownerRelationship !== 'other' && $ownerRelationshipDescription !== '')
+            || ($ownerRelationship === 'employee_staff' && !$isBusinessClearance)
             || !$representationConsent) {
             http_response_code(400);
-            echo json_encode(['success'=>false, 'message'=>'For a request on someone else’s behalf, enter their valid name, date of birth, address, your relationship, and confirm the accuracy of the information.']);
+            echo json_encode(['success'=>false, 'message'=>'For a request on someone else’s behalf, enter the document owner’s valid name, date of birth and address, choose your relationship, and confirm the information.']);
             exit;
         }
+        $consentTimestamp = is_string($data['representationConsentAt'] ?? null) ? $data['representationConsentAt'] : '';
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/', $consentTimestamp)) {
+            http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Confirm the on-behalf request before submitting.']); exit;
+        }
+        try {
+            $consentDate = new DateTimeImmutable($consentTimestamp, new DateTimeZone('UTC'));
+            $nowUtc = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+            if ($consentDate > $nowUtc->modify('+5 minutes')) throw new RuntimeException('Invalid confirmation time.');
+            $consentAtUtc = $consentDate->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+        } catch (Throwable $error) {
+            http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Confirm the on-behalf request before submitting.']); exit;
+        }
+        $ownerAge = $today->diff($ownerDate)->y;
+        $requiredDocuments = representativeRequestDocumentRequirements($ownerRelationship, $ownerAge, $isBusinessClearance);
+        if (!$requiredDocuments) {
+            http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Choose a valid relationship for this document type.']); exit;
+        }
+        $uploads = $_FILES['representativeDocuments'] ?? [];
+        foreach ($requiredDocuments as $key => [$label]) {
+            $file = representativeRequestUpload(is_array($uploads) ? $uploads : [], $key);
+            $fileExtension = $file ? validateUpload($file, ['pdf' => true, 'jpg' => true, 'jpeg' => true, 'png' => true], 5 * 1024 * 1024) : null;
+            if ($fileExtension === null) {
+                http_response_code(400);
+                echo json_encode(['success'=>false, 'message'=>"Attach a valid PDF, JPG, or PNG file (up to 5 MB) for: {$label}."]);
+                exit;
+            }
+            $representativeDocuments[] = ['key' => $key, 'label' => $label, 'file' => $file, 'extension' => $fileExtension];
+        }
     }
-    $proofDirectory = privateStorageDirectory('proofs');
-    $proofName = bin2hex(random_bytes(16)) . '.' . $extension;
-    $proofPath = 'proofs/' . $proofName;
+    $proofDirectory = $requestForOther ? null : privateStorageDirectory('proofs');
+    $proofName = !$requestForOther ? bin2hex(random_bytes(16)) . '.' . $extension : null;
+    $proofPath = !$requestForOther ? 'proofs/' . $proofName : null;
+    $representativeDirectory = $requestForOther ? privateStorageDirectory('representative-documents') : null;
+    $movedFiles = [];
     $trackingCode = 'REQ-' . strtoupper(bin2hex(random_bytes(8)));
     $residentId = (int) $_SESSION['resident_id'];
     try {
@@ -221,19 +303,35 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['success'=>false, 'message'=>'You can have no more than 3 pending requests at a time. Wait for a decision or cancel a pending request first.']);
             exit;
         }
-        if (!move_uploaded_file((string) $proof['tmp_name'], $proofDirectory . DIRECTORY_SEPARATOR . $proofName)) {
-            throw new RuntimeException('Unable to save request proof.');
+        if (!$requestForOther) {
+            if (!move_uploaded_file((string) $proof['tmp_name'], $proofDirectory . DIRECTORY_SEPARATOR . $proofName)) {
+                throw new RuntimeException('Unable to save request proof.');
+            }
+            $movedFiles[] = $proofDirectory . DIRECTORY_SEPARATOR . $proofName;
         }
         $assessedFee = $isBusinessClearance ? null : $documentType['fee_amount'];
         $paymentStatus = $assessedFee !== null && (float) $assessedFee === 0.0 ? 'Not Required' : 'Unpaid';
-        $stmt = $pdo->prepare("INSERT INTO document_request (tracking_code, resident_id, document_type_id, purpose, request_source, proof_path, proof_type, payment_status, assessed_fee, business_name, business_category, business_address, business_activity, request_for_other, owner_first_name, owner_middle_name, owner_last_name, owner_suffix, owner_date_of_birth, owner_address, owner_relationship, representation_consent_at) VALUES (?, ?, ?, ?, 'online', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?, UTC_TIMESTAMP(), NULL))");
-        $stmt->execute([$trackingCode, $residentId, $documentTypeId, $purpose, $proofPath, $proofType, $paymentStatus, $assessedFee, $isBusinessClearance ? $businessName : null, $isBusinessClearance ? $businessCategory : null, $isBusinessClearance ? $businessAddress : null, $isBusinessClearance ? $businessActivity : null, $requestForOther ? 1 : 0, $ownerFirstName, $ownerMiddleName, $ownerLastName, $ownerSuffix ?: null, $ownerBirthDate ?: null, $ownerAddress ?: null, $ownerRelationship ?: null, $representationConsent ? 1 : 0]);
+        $stmt = $pdo->prepare("INSERT INTO document_request (tracking_code, resident_id, document_type_id, purpose, request_source, proof_path, proof_type, payment_status, assessed_fee, business_name, business_category, business_address, business_activity, request_for_other, owner_first_name, owner_middle_name, owner_last_name, owner_suffix, owner_date_of_birth, owner_address, owner_relationship, owner_relationship_description, representation_consent_at) VALUES (?, ?, ?, ?, 'online', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$trackingCode, $residentId, $documentTypeId, $purpose, $proofPath, $requestForOther ? 'Representative documents' : $proofType, $paymentStatus, $assessedFee, $isBusinessClearance ? $businessName : null, $isBusinessClearance ? $businessCategory : null, $isBusinessClearance ? $businessAddress : null, $isBusinessClearance ? $businessActivity : null, $requestForOther ? 1 : 0, $ownerFirstName, $ownerMiddleName, $ownerLastName, $ownerSuffix ?: null, $ownerBirthDate ?: null, $ownerAddress ?: null, $ownerRelationship ?: null, $ownerRelationshipDescription !== '' ? $ownerRelationshipDescription : null, $consentAtUtc]);
         $requestId = (int) $pdo->lastInsertId();
+        foreach ($representativeDocuments as $representativeDocument) {
+            $storedName = bin2hex(random_bytes(16)) . '.' . $representativeDocument['extension'];
+            $destination = $representativeDirectory . DIRECTORY_SEPARATOR . $storedName;
+            if (!move_uploaded_file((string) $representativeDocument['file']['tmp_name'], $destination)) {
+                throw new RuntimeException('Unable to save a representative document.');
+            }
+            $movedFiles[] = $destination;
+            $originalName = basename(str_replace('\\', '/', (string) $representativeDocument['file']['name']));
+            $originalName = preg_replace('/[\x00-\x1f\x7f]/', '', $originalName) ?: 'uploaded-file.' . $representativeDocument['extension'];
+            $originalName = function_exists('mb_substr') ? mb_substr($originalName, 0, 255, 'UTF-8') : substr($originalName, 0, 255);
+            $insertDocument = $pdo->prepare('INSERT INTO request_representative_document (request_id, document_key, display_name, original_filename, file_path, file_size, file_format) VALUES (?, ?, ?, ?, ?, ?, ?)');
+            $insertDocument->execute([$requestId, $representativeDocument['key'], $representativeDocument['label'], $originalName, 'representative-documents/' . $storedName, (int) $representativeDocument['file']['size'], $representativeDocument['extension']]);
+        }
         $pdo->prepare('INSERT INTO request_status_log (request_id, updated_by_user_id, status, notes) VALUES (?, NULL, \'Pending\', ?)')->execute([$requestId, 'Request submitted by resident.']);
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        if (is_file($proofDirectory . DIRECTORY_SEPARATOR . $proofName)) unlink($proofDirectory . DIRECTORY_SEPARATOR . $proofName);
+        foreach ($movedFiles as $movedFile) if (is_file($movedFile)) @unlink($movedFile);
         throw $e;
     }
     notifyAdminsOfNewRequest($pdo, $trackingCode, (string)$documentType['name']);

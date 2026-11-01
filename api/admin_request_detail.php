@@ -18,7 +18,7 @@ $stmt = $pdo->prepare("SELECT dr.request_id, dr.tracking_code, dr.purpose, dr.cu
         CASE WHEN dr.payment_proof_path IS NULL THEN NULL ELSE CONCAT('api/payment_proof.php?id=', dr.request_id) END AS payment_proof_url,
         dr.rejection_reason, dr.created_at, dr.request_source, dr.walk_in_name, dr.walk_in_phone, dr.walk_in_address, dr.proof_type,
         dr.request_for_other, dr.owner_first_name, dr.owner_middle_name, dr.owner_last_name, dr.owner_suffix, dr.owner_date_of_birth,
-        dr.owner_address, dr.owner_relationship, dr.owner_id_checked_at, dr.pickup_date, dr.pickup_time, dr.pickup_deadline_at,
+        dr.owner_address, dr.owner_relationship, dr.owner_relationship_description, dr.owner_id_checked_at, dr.pickup_date, dr.pickup_time, dr.pickup_deadline_at,
         CASE WHEN dr.request_source = 'online' AND dr.proof_path IS NOT NULL THEN CONCAT('api/request_proof.php?id=', dr.request_id) ELSE NULL END AS proof_url,
         CASE WHEN dr.proof_path IS NULL THEN NULL ELSE LOWER(SUBSTRING_INDEX(dr.proof_path, '.', -1)) END AS proof_format,
         dt.name AS document_type, COALESCE(dr.assessed_fee, dt.fee_amount) AS fee_amount, dr.assessed_fee, dr.business_name, dr.business_category, dr.business_address, dr.business_activity, r.resident_id, COALESCE(r.first_name, dr.walk_in_name) AS first_name, r.middle_name, r.last_name, r.suffix, r.date_of_birth, r.civil_status, r.gender, r.email, COALESCE(r.phone_number, dr.walk_in_phone) AS phone_number, COALESCE(r.address, dr.walk_in_address) AS address,
@@ -47,8 +47,26 @@ if (!in_array($staffRole, ['super_admin', 'cashier'], true)) {
     }
 }
 if ($staffRole === 'document_issuer') {
-    foreach (['resident_id', 'walk_in_name', 'walk_in_phone', 'walk_in_address', 'purpose', 'proof_type', 'proof_url', 'proof_format', 'email', 'phone_number', 'address', 'date_of_birth', 'civil_status', 'gender', 'business_name', 'business_category', 'business_address', 'business_activity', 'rejection_reason', 'request_for_other', 'owner_first_name', 'owner_middle_name', 'owner_last_name', 'owner_suffix', 'owner_date_of_birth', 'owner_address', 'owner_relationship', 'owner_id_checked_at', 'resident_request_cooldown_until', 'resident_request_cooldown_active'] as $privateField) {
+    foreach (['resident_id', 'walk_in_name', 'walk_in_phone', 'walk_in_address', 'purpose', 'proof_type', 'proof_url', 'proof_format', 'email', 'phone_number', 'address', 'date_of_birth', 'civil_status', 'gender', 'business_name', 'business_category', 'business_address', 'business_activity', 'rejection_reason', 'request_for_other', 'owner_first_name', 'owner_middle_name', 'owner_last_name', 'owner_suffix', 'owner_date_of_birth', 'owner_address', 'owner_relationship', 'owner_relationship_description', 'owner_id_checked_at', 'resident_request_cooldown_until', 'resident_request_cooldown_active'] as $privateField) {
         $request[$privateField] = null;
+    }
+}
+
+$representativeDocuments = [];
+if (in_array($staffRole, ['super_admin', 'service_clerk'], true) && (int) $request['request_for_other'] === 1) {
+    $documents = $pdo->prepare('SELECT representative_document_id, display_name, original_filename, file_format, file_size, uploaded_at
+        FROM request_representative_document WHERE request_id = ? ORDER BY uploaded_at, representative_document_id');
+    $documents->execute([(int) $requestId]);
+    foreach ($documents->fetchAll(PDO::FETCH_ASSOC) as $document) {
+        $representativeDocuments[] = [
+            'id' => (int) $document['representative_document_id'],
+            'display_name' => (string) $document['display_name'],
+            'original_filename' => (string) $document['original_filename'],
+            'file_format' => (string) $document['file_format'],
+            'file_size' => (int) $document['file_size'],
+            'uploaded_at' => (string) $document['uploaded_at'],
+            'proof_url' => 'api/request_representative_document.php?id=' . (int) $document['representative_document_id'],
+        ];
     }
 }
 
@@ -85,5 +103,5 @@ if ($staffRole === 'document_issuer') {
     $internalNote = null;
 }
 
-echo json_encode(['success' => true, 'request' => $request, 'timeline' => $timeline, 'internal_note' => $internalNote, 'pending_reschedule' => $pendingReschedule]);
+echo json_encode(['success' => true, 'request' => $request, 'timeline' => $timeline, 'internal_note' => $internalNote, 'pending_reschedule' => $pendingReschedule, 'representative_documents' => $representativeDocuments]);
 ?>

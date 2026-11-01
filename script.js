@@ -890,6 +890,7 @@ document.addEventListener('change', event => {
         setRequestFieldError(field.id, 'request-doc-type-error', '');
         updateDocumentTypeInfo();
         updateBusinessRequestFields(field.value, 'online');
+        updateRequestRepresentativeDocuments();
     } else if (field.id === 'doc-purpose') {
         setRequestFieldError(field.id, 'request-purpose-error', '');
         updateRequestPurposeFields();
@@ -897,6 +898,12 @@ document.addEventListener('change', event => {
         setRequestFieldError(field.id, 'request-proof-type-error', '');
     } else if (field.id === 'request-proof') {
         handleRequestProofSelection(event);
+    } else if (field.id === 'request-owner-relationship' || field.id === 'request-owner-birthdate') {
+        updateRequestRepresentativeDocuments();
+    } else if (field.id === 'request-owner-consent') {
+        updateRequestRepresentationConsent();
+    } else if (field.matches('.representative-upload-input')) {
+        handleRepresentativeFileSelection(field);
     } else if (field.id === 'walkin-doc-type') {
         updateBusinessRequestFields(field.value, 'walkin');
     }
@@ -2761,13 +2768,14 @@ function handleProofKeydown(event) {
 }
 
 async function openProofPreview(path, request) {
-    const validPath = typeof path === 'string' && /^api\/(?:request_proof|resident_proof)\.php\?id=\d+$/.test(path);
+    const validPath = typeof path === 'string' && /^api\/(?:request_proof|resident_proof|request_representative_document)\.php\?id=\d+$/.test(path);
     if (!validPath) {
         showToast('Proof file is unavailable.', 'error');
         return;
     }
     const isResidentAccountProof = path.startsWith('api/resident_proof.php?');
-    const proofTitle = isResidentAccountProof ? 'Proof of residency' : 'Submitted proof';
+    const isRepresentativeDocument = path.startsWith('api/request_representative_document.php?');
+    const proofTitle = request?.proofTitle || (isRepresentativeDocument ? request?.documentName || 'Representative document' : isResidentAccountProof ? 'Proof of residency' : 'Submitted proof');
     const title = proofTitle;
     closeProofPreview();
 
@@ -2817,6 +2825,13 @@ async function openProofPreview(path, request) {
             ['Address', request.address],
             ['File type', request.proofType ? String(request.proofType).toUpperCase() : '—'],
             ['Registered', request.createdAt ? formatDateTime(request.createdAt) : '—']
+        ]
+        : isRepresentativeDocument
+        ? [
+            ['Tracking', request.tracking],
+            ['Document', request.documentType],
+            ['File type', request.proofFormat ? String(request.proofFormat).toUpperCase() : '—'],
+            ['Submitted', request.createdAt ? formatDateTime(request.createdAt) : '—']
         ]
         : [
             ['Tracking', request.tracking],
@@ -2964,6 +2979,25 @@ function openRequestProofPreview(request) {
         documentType: request.documentType || request.document_type,
         proofType: request.proof_type,
         createdAt: request.created_at
+    });
+}
+
+function openRepresentativeDocumentPreview(documentRecord, request) {
+    const path = typeof documentRecord?.proof_url === 'string' && /^api\/request_representative_document\.php\?id=\d+$/.test(documentRecord.proof_url)
+        ? documentRecord.proof_url
+        : null;
+    if (!path) {
+        showToast('Representative document is unavailable.', 'error');
+        return;
+    }
+    openProofPreview(path, {
+        proofTitle: documentRecord.display_name || 'Representative document',
+        documentName: documentRecord.display_name || 'Representative document',
+        proofFormat: documentRecord.file_format,
+        name: [request.owner_first_name, request.owner_middle_name, request.owner_last_name, request.owner_suffix].filter(Boolean).join(' ') || request.residentName || 'Document owner',
+        tracking: request.tracking_code,
+        documentType: request.document_type,
+        createdAt: documentRecord.uploaded_at
     });
 }
 
@@ -3956,6 +3990,233 @@ function toggleRequestOwnerFields() {
     const useOther = document.getElementById('request-for-other')?.value === '1';
     const fields = document.getElementById('request-owner-fields');
     if (fields) { fields.hidden = !useOther; fields.disabled = !useOther; }
+    const proofControls = document.getElementById('request-proof-controls');
+    const proofNote = document.getElementById('request-owner-proof-residency');
+    const proofType = document.getElementById('request-proof-type');
+    const proof = document.getElementById('request-proof');
+    const privacy = document.getElementById('request-proof-privacy');
+    if (proofControls) proofControls.hidden = useOther;
+    if (proofNote) proofNote.hidden = !useOther;
+    if (proofType) { proofType.disabled = useOther; proofType.required = !useOther; }
+    if (proof) proof.disabled = useOther;
+    if (privacy) {
+        privacy.querySelectorAll('.request-proof-privacy-desktop, .request-proof-privacy-mobile').forEach(note => { note.hidden = useOther; });
+        const ownerNote = privacy.querySelector('.request-proof-privacy-on-behalf');
+        if (ownerNote) ownerNote.hidden = !useOther;
+    }
+    if (!useOther) {
+        const consent = document.getElementById('request-owner-consent');
+        const consentAt = document.getElementById('request-owner-consent-at');
+        if (consent) consent.checked = false;
+        if (consentAt) consentAt.value = '';
+        document.getElementById('request-representative-documents')?.replaceChildren();
+        requestRepresentativeUploadInputs.forEach(input => { input.value = ''; });
+        requestRepresentativeUploadInputs.clear();
+    } else {
+        updateRequestRepresentativeDocuments();
+    }
+    updateRequestAvailability();
+}
+
+const requestRepresentativeUploadInputs = new Map();
+const requestRepresentativeIdHelper = 'Any valid government-issued ID is accepted, including the PhilID or ePhilID (national ID).';
+
+function requestOwnerAge() {
+    const value = document.getElementById('request-owner-birthdate')?.value || '';
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!match) return null;
+    const [, yearText, monthText, dayText] = match;
+    const birthYear = Number(yearText);
+    const birthMonth = Number(monthText);
+    const birthDay = Number(dayText);
+    const birth = new Date(Date.UTC(birthYear, birthMonth - 1, birthDay));
+    if (birth.getUTCFullYear() !== birthYear || birth.getUTCMonth() + 1 !== birthMonth || birth.getUTCDate() !== birthDay) return null;
+    const nowParts = new Intl.DateTimeFormat('en', { timeZone: 'Asia/Manila', year: 'numeric', month: 'numeric', day: 'numeric' }).formatToParts(new Date());
+    const today = Object.fromEntries(nowParts.filter(part => part.type !== 'literal').map(part => [part.type, Number(part.value)]));
+    let age = today.year - birthYear;
+    if (today.month < birthMonth || (today.month === birthMonth && today.day < birthDay)) age -= 1;
+    return age >= 0 && age <= 120 ? age : null;
+}
+
+function requestIsBusinessClearance() {
+    const select = document.getElementById('doc-type');
+    return /business/i.test(select?.selectedOptions?.[0]?.dataset.name || '');
+}
+
+function representativeDocumentRequirements() {
+    const relationship = document.getElementById('request-owner-relationship')?.value || '';
+    const age = requestOwnerAge();
+    if (!relationship || age === null) return [];
+    const upload = (key, label, helper, kind = 'document') => ({ key, label, helper, kind });
+    const ownerId = upload('owner_id', "Document owner's valid ID", requestRepresentativeIdHelper, 'id');
+    const requesterId = upload('requester_id', 'Your valid ID', requestRepresentativeIdHelper, 'id');
+    if (relationship === 'employee_staff') {
+        return [
+            upload('business_authorization_letter', 'Authorization letter from the business owner', 'Upload a letter signed by the business owner.', 'letter'),
+            upload('owner_id', "Business owner's valid ID", requestRepresentativeIdHelper, 'id'),
+            requesterId
+        ];
+    }
+    if (age < 18 && relationship === 'parent') {
+        return [
+            upload('birth_certificate', "Birth certificate of the document owner", 'Upload the document owner’s birth certificate.'),
+            requesterId
+        ];
+    }
+    if (age < 18 && relationship === 'guardian') {
+        return [
+            upload('guardianship_proof', 'Proof of guardianship', 'Upload a document that shows your legal guardianship.'),
+            upload('owner_birth_certificate_or_id', "Birth certificate or valid ID of the document owner", `Upload the owner's birth certificate or one valid ID. ${requestRepresentativeIdHelper}`, 'id-or-birth'),
+            requesterId
+        ];
+    }
+    const letterLabel = age < 18
+        ? "Signed authorization letter from the document owner's parent or guardian"
+        : 'Signed authorization letter from the document owner';
+    const letterHelper = age < 18
+        ? 'Upload a letter signed by the document owner’s parent or guardian.'
+        : 'Upload a letter signed by the document owner.';
+    return [
+        upload('authorization_letter', letterLabel, letterHelper, 'letter'),
+        ownerId,
+        requesterId
+    ];
+}
+
+function validateRepresentativeFile(file) {
+    if (!file) return 'Choose a file.';
+    const extension = file.name.split('.').pop()?.toLowerCase() || '';
+    if (!file.size) return 'This file is empty. Choose another file.';
+    if (file.size > 5 * 1024 * 1024) return 'The file is larger than 5 MB.';
+    if (!new Set(['pdf', 'jpg', 'jpeg', 'png']).has(extension)
+        || (file.type && !new Set(['application/pdf', 'image/jpeg', 'image/png']).has(file.type))) {
+        return 'Use a PDF, JPG, or PNG file.';
+    }
+    return '';
+}
+
+function updateRepresentativeUploadRow(input, error = '') {
+    const wrapper = input.closest('.representative-upload-item');
+    if (!wrapper) return;
+    const preview = wrapper.querySelector('.representative-upload-preview');
+    const name = wrapper.querySelector('.representative-upload-name');
+    const size = wrapper.querySelector('.representative-upload-size');
+    const errorRow = wrapper.querySelector('.representative-upload-error');
+    const file = input.files?.[0];
+    if (name) name.textContent = file?.name || '';
+    if (size) size.textContent = file ? formatRequestFileSize(file.size) : '';
+    if (preview) preview.hidden = !file;
+    if (errorRow) errorRow.textContent = error;
+    const picker = wrapper.querySelector('.representative-upload-picker');
+    if (picker) picker.setAttribute('aria-invalid', error ? 'true' : 'false');
+}
+
+function handleRepresentativeFileSelection(input) {
+    const file = input.files?.[0];
+    const error = file ? validateRepresentativeFile(file) : '';
+    if (error) input.value = '';
+    updateRepresentativeUploadRow(input, error);
+    updateRequestAvailability();
+}
+
+function updateRequestRepresentativeDocuments() {
+    const fields = document.getElementById('request-owner-fields');
+    const relationship = document.getElementById('request-owner-relationship');
+    const employeeOption = document.getElementById('request-owner-employee-option');
+    const descriptionGroup = document.getElementById('request-owner-relationship-description-group');
+    const description = document.getElementById('request-owner-relationship-description');
+    const docs = document.getElementById('request-representative-documents');
+    if (!fields || !relationship || !docs || fields.disabled) return;
+
+    const employeeAllowed = requestIsBusinessClearance();
+    if (employeeOption) {
+        employeeOption.hidden = !employeeAllowed;
+        employeeOption.disabled = !employeeAllowed;
+        if (!employeeAllowed && relationship.value === 'employee_staff') relationship.value = '';
+    }
+    const otherRelationship = relationship.value === 'other';
+    if (descriptionGroup) descriptionGroup.hidden = !otherRelationship;
+    if (description) {
+        description.disabled = !otherRelationship;
+        description.required = otherRelationship;
+        if (!otherRelationship) description.value = '';
+    }
+
+    const requirements = representativeDocumentRequirements();
+    const previousInputs = new Map(requestRepresentativeUploadInputs);
+    const nextInputs = new Map();
+    clearNode(docs);
+    if (!relationship.value || requestOwnerAge() === null) {
+        docs.appendChild(el('p', { className: 'form-hint request-document-requirements-note', text: 'Choose the document owner’s date of birth and your relationship to see the required documents.' }));
+    }
+    requirements.forEach((requirement, index) => {
+        const field = el('div', { className: 'input-group representative-upload-item' });
+        const labelId = `request-representative-label-${index}`;
+        const helperId = `request-representative-helper-${index}`;
+        const errorId = `request-representative-error-${index}`;
+        const inputId = `request-representative-file-${index}`;
+        const label = el('label', { attrs: { for: inputId, id: labelId } }, [requirement.label, ' ', el('span', { className: 'req-star', text: '*', attrs: { 'aria-hidden': 'true' } })]);
+        const helper = el('p', { className: 'request-owner-upload-helper', text: requirement.helper, attrs: { id: helperId } });
+        const input = previousInputs.get(requirement.key) || el('input', { className: 'request-proof-input representative-upload-input', attrs: {
+            id: inputId,
+            type: 'file',
+            name: `representativeDocuments[${requirement.key}]`,
+            accept: '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png',
+            required: '',
+            'aria-labelledby': labelId,
+            'aria-describedby': `${helperId} ${errorId}`
+        } });
+        input.id = inputId;
+        input.name = `representativeDocuments[${requirement.key}]`;
+        input.required = true;
+        input.disabled = false;
+        input.setAttribute('aria-labelledby', labelId);
+        input.setAttribute('aria-describedby', `${helperId} ${errorId}`);
+        if (!input.dataset.representativeUploadBound) {
+            input.addEventListener('change', () => handleRepresentativeFileSelection(input));
+            input.dataset.representativeUploadBound = 'true';
+        }
+        const picker = el('button', { className: 'request-upload-area representative-upload-picker', attrs: {
+            type: 'button',
+            'aria-describedby': `${helperId} ${errorId}`,
+            'aria-label': `Choose ${requirement.label}`
+        }, on: { click: () => input.click() } }, [
+            el('i', { className: 'fas fa-file-arrow-up', attrs: { 'aria-hidden': 'true' } }),
+            el('span', { text: 'Choose a file' }),
+            el('small', { className: 'request-upload-guidance', text: 'PDF, JPG, or PNG · maximum 5 MB' })
+        ]);
+        const name = el('strong', { className: 'representative-upload-name' });
+        const size = el('span', { className: 'representative-upload-size' });
+        const preview = el('div', { className: 'request-proof-preview representative-upload-preview', attrs: { hidden: '' } }, [
+            el('div', { className: 'request-proof-file-details' }, [
+                name,
+                el('span', { className: 'request-proof-file-meta' }, [size, el('span', { className: 'request-proof-attached' }, [el('i', { className: 'fas fa-check', attrs: { 'aria-hidden': 'true' } }), ' Attached'])])
+            ]),
+            el('div', { className: 'request-proof-actions' }, [
+                el('button', { attrs: { type: 'button' }, text: 'Remove', on: { click: () => { input.value = ''; updateRepresentativeUploadRow(input); updateRequestAvailability(); } } }),
+                el('button', { attrs: { type: 'button' }, text: 'Replace', on: { click: () => input.click() } })
+            ])
+        ]);
+        const errorRow = el('span', { className: 'reg-field-error request-proof-error representative-upload-error', attrs: { id: errorId, role: 'alert' } });
+        field.append(label, helper, input, picker, preview, errorRow);
+        docs.appendChild(field);
+        nextInputs.set(requirement.key, input);
+        if (input.files?.[0]) updateRepresentativeUploadRow(input);
+    });
+    previousInputs.forEach((input, key) => { if (!nextInputs.has(key)) input.value = ''; });
+    requestRepresentativeUploadInputs.clear();
+    nextInputs.forEach((input, key) => requestRepresentativeUploadInputs.set(key, input));
+    const relationshipError = document.getElementById('request-owner-relationship-error');
+    if (relationshipError) relationshipError.textContent = relationship.value ? '' : 'Choose your relationship to the document owner.';
+    updateRequestAvailability();
+}
+
+function updateRequestRepresentationConsent() {
+    const checkbox = document.getElementById('request-owner-consent');
+    const timestamp = document.getElementById('request-owner-consent-at');
+    if (!checkbox || !timestamp) return;
+    timestamp.value = checkbox.checked ? new Date().toISOString() : '';
+    updateRequestAvailability();
 }
 
 function bindPasswordChecklist(passwordField, confirmField, prefix = 'register') {
@@ -4543,6 +4804,7 @@ async function handleRequest(e) {
     const proofType = document.getElementById('request-proof-type');
     const proof = document.getElementById('request-proof');
     if (!form || !button || !confirmation || !documentType || !purpose || !proofType || !proof) return;
+    const requestForOther = document.getElementById('request-for-other')?.value === '1';
 
     confirmation.hidden = true;
     if (submitError) { submitError.hidden = true; submitError.textContent = ''; }
@@ -4550,18 +4812,20 @@ async function handleRequest(e) {
         setRequestFieldError('doc-type', 'request-doc-type-error', documentType.value ? '' : 'Choose a document type.'),
         setRequestFieldError('doc-purpose', 'request-purpose-error', purpose.value ? '' : 'Choose a purpose.'),
         setRequestFieldError('doc-purpose-other', 'request-purpose-other-error', purpose.value === 'Other' && !otherPurpose?.value.trim() ? 'Enter your purpose.' : ''),
-        setRequestFieldError('request-proof-type', 'request-proof-type-error', proofType.value ? '' : 'Choose a proof type.')
+        requestForOther ? false : setRequestFieldError('request-proof-type', 'request-proof-type-error', proofType.value ? '' : 'Choose a proof type.')
     ];
     const ownerFields = document.getElementById('request-owner-fields');
     if (ownerFields && !ownerFields.disabled) {
         const ownerFirst = document.getElementById('request-owner-first-name');
         const ownerLast = document.getElementById('request-owner-last-name');
         const ownerMiddle = document.getElementById('request-owner-middle-name');
+        const ownerRelationship = document.getElementById('request-owner-relationship');
+        const relationshipDescription = document.getElementById('request-owner-relationship-description');
         const ownerNameMessage = 'Use at least 2 characters with letters, spaces, hyphens, apostrophes, or periods. Names made of one repeated character are not accepted.';
         for (const [field, errorId, valid] of [
             [ownerFirst, 'request-owner-first-name-error', validPersonNameClient(ownerFirst?.value)],
             [ownerLast, 'request-owner-last-name-error', validPersonNameClient(ownerLast?.value)],
-            [ownerMiddle, null, !ownerMiddle?.value.trim() || validPersonNameClient(ownerMiddle.value, 1)]
+            [ownerMiddle, 'request-owner-middle-name-error', !ownerMiddle?.value.trim() || validPersonNameClient(ownerMiddle.value, 1)]
         ]) {
             if (!field) continue;
             field.setAttribute('aria-invalid', String(!valid));
@@ -4573,9 +4837,24 @@ async function handleRequest(e) {
             && document.getElementById('request-owner-street')?.value);
         const ownerAddressError = document.getElementById('request-owner-address-error');
         if (ownerAddressError) ownerAddressError.textContent = ownerAddressValid ? '' : 'Enter the house or lot number and choose the owner’s Purok and street.';
+        const relationshipValid = Boolean(ownerRelationship?.value) && !(ownerRelationship?.value === 'employee_staff' && !requestIsBusinessClearance());
+        const relationshipError = document.getElementById('request-owner-relationship-error');
+        if (relationshipError) relationshipError.textContent = relationshipValid ? '' : 'Choose your relationship to the document owner.';
+        const relationshipDescriptionValid = ownerRelationship?.value !== 'other' || Boolean(relationshipDescription?.value.trim());
+        if (relationshipDescription) relationshipDescription.setAttribute('aria-invalid', String(!relationshipDescriptionValid));
+        const relationshipDescriptionError = document.getElementById('request-owner-relationship-description-error');
+        if (relationshipDescriptionError) relationshipDescriptionError.textContent = relationshipDescriptionValid ? '' : 'Describe your relationship to the document owner.';
+        const consentAt = document.getElementById('request-owner-consent-at')?.value || '';
         if (!ownerAddressValid || !document.getElementById('request-owner-birthdate')?.value
-            || !document.getElementById('request-owner-relationship')?.value
+            || !relationshipValid || !relationshipDescriptionValid
             || !document.getElementById('request-owner-consent')?.checked) errors.push(true);
+        if (!consentAt) errors.push(true);
+        const representativeInputs = [...document.querySelectorAll('#request-representative-documents input[type="file"][required]')];
+        representativeInputs.forEach(input => {
+            const error = validateRepresentativeFile(input.files?.[0]);
+            updateRepresentativeUploadRow(input, error);
+            if (error) errors.push(true);
+        });
     }
     const businessFields = document.getElementById('online-business-fields');
     if (businessFields && !businessFields.hidden) {
@@ -4587,11 +4866,11 @@ async function handleRequest(e) {
         }
     }
 
-    const selectedProof = proof.files?.[0];
-    if (!selectedProof) {
+    const selectedProof = requestForOther ? null : proof.files?.[0];
+    if (!requestForOther && !selectedProof) {
         const existingProofError = document.getElementById('request-proof-error')?.textContent || '';
         errors.push(setRequestFieldError('request-proof-picker', 'request-proof-error', existingProofError || 'Choose a proof of residency file.'));
-    } else {
+    } else if (!requestForOther && selectedProof) {
         const fileError = !selectedProof.size
             ? 'That file is empty. Please choose a different file.'
             : selectedProof.size > 5 * 1024 * 1024
@@ -4609,12 +4888,18 @@ async function handleRequest(e) {
             purpose.value === 'Other' && !otherPurpose?.value.trim() && otherPurpose,
             ownerFields && !ownerFields.disabled && !validPersonNameClient(document.getElementById('request-owner-first-name')?.value) && document.getElementById('request-owner-first-name'),
             ownerFields && !ownerFields.disabled && !validPersonNameClient(document.getElementById('request-owner-last-name')?.value) && document.getElementById('request-owner-last-name'),
+            ownerFields && !ownerFields.disabled && document.getElementById('request-owner-middle-name')?.value.trim() && !validPersonNameClient(document.getElementById('request-owner-middle-name').value, 1) && document.getElementById('request-owner-middle-name'),
             ownerFields && !ownerFields.disabled && !document.getElementById('request-owner-birthdate')?.value && document.getElementById('request-owner-birthdate'),
             ownerFields && !ownerFields.disabled && !document.getElementById('request-owner-relationship')?.value && document.getElementById('request-owner-relationship'),
+            ownerFields && !ownerFields.disabled && document.getElementById('request-owner-relationship')?.value === 'other' && !document.getElementById('request-owner-relationship-description')?.value.trim() && document.getElementById('request-owner-relationship-description'),
             ownerFields && !ownerFields.disabled && !document.getElementById('request-owner-house-lot')?.value.trim() && document.getElementById('request-owner-house-lot'),
             ownerFields && !ownerFields.disabled && !document.getElementById('request-owner-consent')?.checked && document.getElementById('request-owner-consent'),
-            !proofType.value && proofType,
-            !selectedProof && document.getElementById('request-proof-picker'),
+            ownerFields && !ownerFields.disabled && !document.getElementById('request-owner-consent-at')?.value && document.getElementById('request-owner-consent'),
+            ownerFields && !ownerFields.disabled && [...document.querySelectorAll('#request-representative-documents input[type="file"][required]')].find(input => !input.files?.[0])?.closest('.representative-upload-item')?.querySelector('.representative-upload-picker'),
+            !requestForOther && !proofType.value && proofType,
+            !requestForOther && !selectedProof && document.getElementById('request-proof-picker'),
+            ownerFields && !ownerFields.disabled && !document.getElementById('request-owner-purok')?.value && document.getElementById('request-owner-purok'),
+            ownerFields && !ownerFields.disabled && !document.getElementById('request-owner-street')?.value && document.getElementById('request-owner-street'),
             selectedProof && document.getElementById('request-proof-error')?.textContent && document.getElementById('request-proof-picker')
         ].find(Boolean);
         firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -5524,7 +5809,13 @@ function updateRequestAvailability() {
             : 0;
         const full = pending >= limit;
         const unavailable = remaining > 0 || full;
-        button.disabled = requestSubmitting || unavailable;
+        const ownerFields = document.getElementById('request-owner-fields');
+        const requiresRepresentation = Boolean(ownerFields && !ownerFields.hidden && !ownerFields.disabled);
+        const consentReady = !requiresRepresentation || document.getElementById('request-owner-consent')?.checked === true;
+        const representativeInputs = [...document.querySelectorAll('#request-representative-documents input[type="file"][required]')];
+        const filesReady = !requiresRepresentation || (representativeInputs.length > 0 && representativeInputs.every(input => Boolean(input.files?.[0])));
+        const representationReady = consentReady && filesReady;
+        button.disabled = requestSubmitting || unavailable || !representationReady;
         button.textContent = remaining > 0 ? `New requests paused · ${formatShortCountdown(remaining)}` : full ? 'Pending request limit reached' : 'Submit request';
         note.hidden = !unavailable;
         note.textContent = remaining > 0
@@ -6427,6 +6718,7 @@ function formatActivityAction(action) {
         request_payment_verified: 'Payment verified',
         request_payment_rejected: 'Payment proof rejected',
         payment_proof_viewed: 'Payment proof viewed',
+        request_representative_document_viewed: 'Representative document viewed',
         disclosure_published: 'Disclosure posted',
         disclosure_draft_saved: 'Draft saved',
         disclosure_draft_deleted: 'Draft deleted',
@@ -6441,7 +6733,7 @@ function activityActionClass(action) {
     const normalized = String(action || '').toLowerCase().replace(/[\s-]+/g, '_');
     if (normalized.startsWith('failed_') || normalized.endsWith('_failed') || normalized.includes('reject')) return 'is-red';
     if (['admin_login_mfa', 'resident_login_success', 'admin_login', 'request_approved', 'request_completed', 'request_payment_verified', 'disclosure_published', 'approve_resident', 'resident_verified'].includes(normalized)) return 'is-green';
-    if (normalized.includes('mfa') || normalized.includes('authenticator') || normalized.includes('edit') || normalized === 'proof_viewed') return 'is-blue';
+    if (normalized.includes('mfa') || normalized.includes('authenticator') || normalized.includes('edit') || normalized === 'proof_viewed' || normalized === 'request_representative_document_viewed') return 'is-blue';
     if (normalized.includes('ready_for_pickup') || normalized === 'walk_in_request_created') return 'is-amber';
     return 'is-neutral';
 }
@@ -6892,7 +7184,10 @@ function renderAdminRequests() {
                 ])
             ]),
             el('td', { attrs: { 'data-label': 'Resident' } }, [
-                el('span', { text: r.residentName || 'Resident', attrs: { title: r.residentName || 'Resident' } }),
+                el('span', { className: 'request-resident-name', attrs: { title: r.residentName || 'Resident' } }, [
+                    el('span', { text: r.residentName || 'Resident' }),
+                    Number(r.request_for_other) === 1 ? el('span', { className: 'request-on-behalf-pill', text: 'On behalf' }) : null
+                ]),
                 Number(r.request_for_other) === 1 && r.documentOwnerName ? el('small', { className: 'request-owner-label', text: `Document for: ${r.documentOwnerName}` }) : null,
                 r.request_source === 'walk_in' ? el('small', { className: 'request-source-label', text: 'Walk-in / face-to-face' }) : null
             ]),
@@ -6925,7 +7220,10 @@ function renderAdminRequests() {
                 el('button', { className: 'request-tracking-copy', attrs: { type: 'button', 'aria-label': `Copy tracking number ${tracking}`, title: 'Copy tracking number' }, on: { click: () => copyRequestTracking(tracking) } }, [el('i', { className: 'fas fa-copy', attrs: { 'aria-hidden': 'true' } })])
             ]);
             const mobileResident = el('div', { className: 'admin-request-mobile-resident' }, [
-                el('span', { text: r.residentName || 'Resident' }),
+                el('span', { className: 'request-resident-name' }, [
+                    el('span', { text: r.residentName || 'Resident' }),
+                    Number(r.request_for_other) === 1 ? el('span', { className: 'request-on-behalf-pill', text: 'On behalf' }) : null
+                ]),
                 Number(r.request_for_other) === 1 && r.documentOwnerName ? el('small', { className: 'request-owner-label', text: `Document for: ${r.documentOwnerName}` }) : null,
                 r.request_source === 'walk_in' ? el('small', { className: 'request-source-label', text: 'Walk-in / face-to-face' }) : null
             ]);
@@ -7321,13 +7619,21 @@ async function openAdminRequestDetail(requestId) {
                 ['Business activity', request.business_activity]
             ])
         ]) : null;
+        const ownerRelationshipLabels = {
+            parent: 'Parent', guardian: 'Guardian', spouse: 'Spouse', child: 'Child', sibling: 'Sibling',
+            other_relative: 'Other relative', employee_staff: 'Employee or staff', other: 'Other'
+        };
+        const ownerRelationship = ownerRelationshipLabels[request.owner_relationship] || request.owner_relationship || 'Relationship not recorded';
+        const ownerRelationshipText = request.owner_relationship === 'other' && request.owner_relationship_description
+            ? `${ownerRelationship}: ${request.owner_relationship_description}`
+            : ownerRelationship;
         const ownerInfoCard = Number(request.request_for_other) === 1 ? el('section', { className: 'card request-detail-card request-detail-owner' }, [
             el('h3', { text: 'Document owner (requested on their behalf)' }),
             infoList([
                 ['Name', [request.owner_first_name, request.owner_middle_name, request.owner_last_name, request.owner_suffix].filter(Boolean).join(' ')],
                 ['Date of birth', request.owner_date_of_birth ? formatDate(request.owner_date_of_birth) : '—'],
                 ['Address', request.owner_address],
-                ['Requester relationship', request.owner_relationship],
+                ['Requester relationship', ownerRelationshipText],
                 ['Valid ID checked at pickup', request.owner_id_checked_at ? `Yes · ${formatDateTime(request.owner_id_checked_at)}` : 'Not yet checked']
             ]),
             request.current_status === 'Ready for Pickup' ? el('p', { className: 'request-owner-id-warning', text: 'Before completing pickup, check the document owner’s valid ID in person.' }) : null
@@ -7347,7 +7653,17 @@ async function openAdminRequestDetail(requestId) {
             el('button', { className: 'btn-outline', text: 'Lift cooldown', attrs: { type: 'button' }, on: { click: event => liftResidentRequestCooldown(Number(request.resident_id), event.currentTarget) } })
         ]) : null;
         const saveNoteButton = staffHasPermission('requests.manage') ? el('button', { className: 'btn-solid', text: 'Save note', attrs: { id: 'save-request-internal-note', type: 'button', disabled: '' }, on: { click: () => saveRequestInternalNote(requestId) } }) : null;
-        const residentInfo = infoList([['Name', residentName], ['Email', request.email], ['Phone', request.phone_number], ['Address', request.address]]);
+        const isOnBehalfRequest = Number(request.request_for_other) === 1;
+        const ownerName = [request.owner_first_name, request.owner_middle_name, request.owner_last_name, request.owner_suffix].filter(Boolean).join(' ');
+        const residentInfo = isOnBehalfRequest
+            ? infoList([
+                ['Document for', ownerName],
+                ['Filed by', `${residentName}, ${ownerRelationshipText}`],
+                ['Email', request.email],
+                ['Phone', request.phone_number],
+                ['Filed by address', request.address]
+            ])
+            : infoList([['Name', residentName], ['Email', request.email], ['Phone', request.phone_number], ['Address', request.address]]);
         residentInfo.appendChild(el('div', { className: 'request-detail-purpose-row' }, [
             el('dt', { text: 'Purpose of request' }),
             el('dd', { text: request.purpose || 'No purpose provided.' })
@@ -7359,11 +7675,22 @@ async function openAdminRequestDetail(requestId) {
                 on: { click: () => openRequestProofPreview(request) }
             }, [el('i', { className: 'fas fa-file-alt', attrs: { 'aria-hidden': 'true' } }), el('span', { text: `View submitted proof${request.proof_type ? ` (${request.proof_type})` : ''}` })])
             : request.request_source === 'walk_in' ? el('p', { className: 'field-help request-proof-walk-in', text: 'Resident identity checked in person by staff.' }) : null;
+        const representativeDocuments = Array.isArray(data.representative_documents) ? data.representative_documents : [];
+        const representativeDocumentsList = isOnBehalfRequest ? el('div', { className: 'request-representative-documents-list' }, [
+            el('h4', { text: 'Representative documents' }),
+            representativeDocuments.length
+                ? el('ul', {}, representativeDocuments.map(documentRecord => el('li', {}, [
+                    el('span', { text: documentRecord.display_name || 'Representative document' }),
+                    el('button', { className: 'btn-outline request-representative-document-view', text: 'View', attrs: { type: 'button', 'aria-haspopup': 'dialog', 'aria-label': `View ${documentRecord.display_name || 'representative document'}` }, on: { click: () => openRepresentativeDocumentPreview(documentRecord, { ...request, residentName }) } })
+                ])))
+                : el('p', { className: 'field-help', text: 'No representative documents are available to this staff role.' })
+        ]) : null;
         const detailGrid = el('div', { className: 'request-detail-grid' }, [
             el('section', { className: 'card request-detail-card request-detail-resident' }, [
                 el('h3', { text: 'Resident details' }),
                 residentInfo,
-                proofButton ? el('div', { className: 'request-detail-proof-row' }, [proofButton]) : null
+                proofButton ? el('div', { className: 'request-detail-proof-row' }, [proofButton]) : null,
+                representativeDocumentsList
             ]),
             el('section', { className: 'card request-detail-card' }, [
                 el('h3', { text: 'Request timeline' }),
@@ -9383,6 +9710,64 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateStickyHeader();
         window.addEventListener('scroll', updateStickyHeader, { passive: true });
         window.addEventListener('resize', updateStickyHeader, { passive: true });
+    }
+
+    const registerForm = document.getElementById('register-form');
+    if (registerForm) {
+        const birthDate = document.getElementById('register-birth-date');
+        const dateControl = birthDate?.closest('.register-date-control');
+        const syncBirthDatePlaceholder = () => dateControl?.classList.toggle('has-value', Boolean(birthDate?.value));
+        birthDate?.addEventListener('input', syncBirthDatePlaceholder);
+        birthDate?.addEventListener('change', syncBirthDatePlaceholder);
+        syncBirthDatePlaceholder();
+
+        let registerFieldScrollTimers = [];
+        const keepRegisterFieldVisible = field => {
+            if (!window.matchMedia('(max-width: 767px)').matches || !document.getElementById('register')?.classList.contains('active')) return;
+            registerFieldScrollTimers.forEach(timer => window.clearTimeout(timer));
+            registerFieldScrollTimers = [0, 120, 280].map(delay => window.setTimeout(() => {
+                if (!field.isConnected || !registerForm.contains(field) || document.activeElement !== field
+                    || !document.getElementById('register')?.classList.contains('active')) return;
+                const label = field.labels?.[0] || field.closest('.reg-field')?.querySelector('label');
+                if (!label) return;
+
+                const visualViewport = window.visualViewport;
+                const viewportTop = visualViewport?.offsetTop || 0;
+                const viewportBottom = viewportTop + (visualViewport?.height || window.innerHeight);
+                const fixedHeader = document.querySelector('#main-nav.is-scrolled .portal-main-row');
+                const fixedHeaderBottom = fixedHeader?.getBoundingClientRect().bottom || 0;
+                const safeTop = Math.max(viewportTop, fixedHeaderBottom) + 8;
+                const safeBottom = viewportBottom - 12;
+                const labelRect = label.getBoundingClientRect();
+                const fieldRect = field.getBoundingClientRect();
+                let scrollBy = 0;
+                if (labelRect.top < safeTop) scrollBy = labelRect.top - safeTop;
+                else if (fieldRect.bottom > safeBottom) scrollBy = fieldRect.bottom - safeBottom;
+                if (!scrollBy) return;
+
+                const panel = field.closest('.reg-right-panel');
+                if (panel && panel.scrollHeight > panel.clientHeight + 1) panel.scrollBy({ top: scrollBy, behavior: 'smooth' });
+                else window.scrollBy({ top: scrollBy, behavior: 'smooth' });
+            }, delay));
+        };
+        registerForm.addEventListener('focusin', event => {
+            if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement || event.target instanceof HTMLTextAreaElement) {
+                keepRegisterFieldVisible(event.target);
+            }
+        });
+        registerForm.addEventListener('invalid', event => {
+            if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement || event.target instanceof HTMLTextAreaElement) {
+                keepRegisterFieldVisible(event.target);
+            }
+        }, true);
+        const keepFocusedRegisterFieldVisible = () => {
+            const focused = document.activeElement;
+            if (focused instanceof HTMLInputElement || focused instanceof HTMLSelectElement || focused instanceof HTMLTextAreaElement) {
+                if (registerForm.contains(focused)) keepRegisterFieldVisible(focused);
+            }
+        };
+        window.visualViewport?.addEventListener('resize', keepFocusedRegisterFieldVisible, { passive: true });
+        window.visualViewport?.addEventListener('scroll', keepFocusedRegisterFieldVisible, { passive: true });
     }
 
     const updateUnavailableMobileAddress = () => {

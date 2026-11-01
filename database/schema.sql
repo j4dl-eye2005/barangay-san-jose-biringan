@@ -143,6 +143,7 @@ CREATE TABLE IF NOT EXISTS document_request (
     owner_date_of_birth DATE DEFAULT NULL,
     owner_address VARCHAR(255) DEFAULT NULL,
     owner_relationship VARCHAR(30) DEFAULT NULL,
+    owner_relationship_description VARCHAR(120) DEFAULT NULL,
     representation_consent_at DATETIME DEFAULT NULL,
     owner_id_checked_at DATETIME DEFAULT NULL,
     owner_id_checked_by_user_id INT DEFAULT NULL,
@@ -164,6 +165,23 @@ CREATE TABLE IF NOT EXISTS document_request (
         REFERENCES user (user_id) ON DELETE SET NULL,
     CONSTRAINT fk_request_owner_id_checker FOREIGN KEY (owner_id_checked_by_user_id)
         REFERENCES user (user_id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS request_representative_document (
+    representative_document_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    request_id INT NOT NULL,
+    document_key VARCHAR(50) NOT NULL,
+    display_name VARCHAR(180) NOT NULL,
+    original_filename VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_size INT UNSIGNED NOT NULL,
+    file_format VARCHAR(10) NOT NULL,
+    uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_request_representative_document (request_id, document_key),
+    UNIQUE KEY uq_representative_document_path (file_path),
+    INDEX idx_representative_document_request (request_id, uploaded_at),
+    CONSTRAINT fk_representative_document_request FOREIGN KEY (request_id)
+        REFERENCES document_request (request_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS request_cancellation_log (

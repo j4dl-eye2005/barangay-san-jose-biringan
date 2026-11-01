@@ -5525,3 +5525,130 @@ body.public-portal-view:has(#record.active) .site-disclaimer-bar { border-top: 1
     .request-owner-grid { grid-template-columns: 1fr; }
 }
 
+/* On-behalf request details use the same quiet mint grouping as business details. */
+body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    margin: 4px 0 0;
+    padding: 16px;
+    border: 1px solid #c8ddca;
+    border-radius: 10px;
+    background: #f2f8f2;
+}
+body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields[hidden] { display: none; }
+body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields > legend {
+    width: 100%;
+    box-sizing: border-box;
+    grid-column: 1 / -1;
+    margin: 0;
+    padding: 0 0 10px;
+    border-bottom: 1px solid #d7e5d8;
+    color: #26352b;
+    font-size: 16px;
+    font-weight: 650;
+    line-height: 1.35;
+}
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-grid > .input-group,
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-address-grid > .input-group {
+    display: grid;
+    min-width: 0;
+    align-content: start;
+    gap: 7px;
+    margin: 0;
+}
+body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields .input-group > label {
+    margin: 0;
+    color: #414a43;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.35;
+    letter-spacing: normal;
+    text-transform: none;
+}
+body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields .req-star { color: #b42318; }
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-date-field { position: relative; min-width: 0; }
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-date-field input[type="date"] { width: 100%; }
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-date-field input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .7; }
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-address-grid {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-street { grid-column: 1 / -1; }
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    margin: 0;
+    padding: 10px 12px;
+    border-left: 3px solid #d08b22;
+    border-radius: 6px;
+    background: #fff8e9;
+    color: #68450d;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.5;
+}
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-warning > i { flex: 0 0 auto; margin-top: 3px; color: #9a6b12; }
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-upload-helper { margin: 0; color: #59665d; font-size: 13px; font-weight: 400; line-height: 1.4; }
+body.resident-workspace-view #resident-dashboard #request-form .request-authorization-template { margin: 0; font-size: 13px; }
+body.resident-workspace-view #resident-dashboard #request-form .request-authorization-template a { color: #0c5700; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+body.resident-workspace-view #resident-dashboard #request-form .request-representative-documents { display: grid; gap: 12px; }
+body.resident-workspace-view #resident-dashboard #request-form .request-representative-documents[hidden] { display: none; }
+body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item { display: grid; min-width: 0; gap: 6px; margin: 0; }
+body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item > label { margin: 0; color: #414a43; font-size: 14px; font-weight: 600; line-height: 1.35; }
+body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item .request-upload-area { min-height: 76px; }
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-consent { display: flex; align-items: flex-start; gap: 9px; margin: 0; color: #46534a; font-size: 13px; font-weight: 400; line-height: 1.5; cursor: pointer; }
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-consent > input[type="checkbox"] { width: 18px; height: 18px; min-width: 18px; min-height: 18px; flex: 0 0 18px; margin: 1px 0 0; accent-color: #0c5700; }
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-consent > span { font-weight: 400; }
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-consent a { color: #0c5700; font: inherit; font-weight: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-proof-residency { margin: 0; padding: 12px; border: 1px solid #d7e5d8; border-radius: 8px; background: #f5faf5; color: #35483a; }
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-proof-residency[hidden] { display: none; }
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-proof-residency strong { display: block; margin-bottom: 4px; font-size: 14px; }
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-proof-residency p { margin: 0; font-size: 13px; line-height: 1.45; }
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-relationship-description[hidden] { display: none !important; }
+body.resident-workspace-view #resident-dashboard #request-form .request-document-requirements-note { margin: 0; color: #59665d; font-size: 13px; line-height: 1.4; }
+
+@media (max-width: 767px) {
+    body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields { gap: 10px; margin-top: 4px; padding: 12px; }
+    body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields > legend { padding-bottom: 8px; font-size: 15px; font-weight: 650; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-owner-warning { gap: 7px; padding: 9px 10px; border: 1px solid #ead9a8; border-radius: 7px; background: #fff8e8; font-size: 12px; line-height: 1.45; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-owner-warning > i { margin-top: 2px; font-size: 12px; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-owner-grid { grid-template-columns: minmax(0, 1fr) minmax(76px, .42fr) minmax(0, 1fr); grid-template-areas: "first last last" "middle middle suffix" "birth birth birth" "relationship relationship relationship" "description description description" "address address address"; gap: 9px 8px; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-owner-first { grid-area: first; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-owner-last { grid-area: last; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-owner-middle { grid-area: middle; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-owner-suffix { grid-area: suffix; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-owner-birth { grid-area: birth; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-owner-relationship-field { grid-area: relationship; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-owner-relationship-description { grid-area: description; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-owner-address-grid { grid-area: address; grid-column: auto; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 9px 8px; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-owner-street { grid-column: 1 / -1; }
+    body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields .input-group > label,
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item > label { font-size: 15px; font-weight: 600; }
+    body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields :is(input:not([type="file"]), select) { height: 44px; min-height: 44px; padding: 8px 10px; font-size: 15px; line-height: 1.35; }
+    body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields input::placeholder { color: #9aa39c; opacity: 1; font-size: 15px; }
+    body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields select:has(option:checked[value=""]) { color: #9aa39c; }
+    body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields select option { color: #26352b; font-size: 15px; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-owner-upload-helper { font-size: 12px; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-document-requirements-note { font-size: 12px; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-representative-documents { gap: 9px; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item { gap: 5px; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item .request-upload-area { min-height: 60px; gap: 4px; padding: 8px 10px; font-size: 14px; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item .request-upload-area > i { width: 22px; height: 22px; flex-basis: 22px; font-size: 12px; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item .request-upload-guidance { font-size: 11px; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-owner-consent { gap: 8px; font-size: 13px; line-height: 1.45; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-owner-consent > input[type="checkbox"] { width: 18px; height: 18px; min-width: 18px; min-height: 18px; flex-basis: 18px; margin-top: 1px; }
+    body.resident-workspace-view #resident-dashboard #request-form #request-proof-group:has(#request-owner-proof-residency:not([hidden])) { margin-top: 22px; }
+    body.resident-workspace-view #resident-dashboard #request-form #request-proof-group .request-proof-privacy { margin-top: 10px; font-size: 12px; line-height: 1.45; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-guidance-mobile a { font-weight: inherit; text-decoration-thickness: 1px; }
+}
+

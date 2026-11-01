@@ -1,22 +1,27 @@
--- Apply once after keep_but_change_migration.sql and the other request/payment migrations, before deploying the request workflow updates.
-ALTER TABLE document_request
-    ADD COLUMN request_for_other TINYINT(1) NOT NULL DEFAULT 0,
-    ADD COLUMN owner_first_name VARCHAR(100) DEFAULT NULL,
-    ADD COLUMN owner_middle_name VARCHAR(100) DEFAULT NULL,
-    ADD COLUMN owner_last_name VARCHAR(100) DEFAULT NULL,
-    ADD COLUMN owner_suffix VARCHAR(20) DEFAULT NULL,
-    ADD COLUMN owner_date_of_birth DATE DEFAULT NULL,
-    ADD COLUMN owner_address VARCHAR(255) DEFAULT NULL,
-    ADD COLUMN owner_relationship VARCHAR(30) DEFAULT NULL,
-    ADD COLUMN representation_consent_at DATETIME DEFAULT NULL,
-    ADD COLUMN owner_id_checked_at DATETIME DEFAULT NULL,
-    ADD COLUMN owner_id_checked_by_user_id INT DEFAULT NULL,
-    ADD COLUMN pickup_date DATE DEFAULT NULL,
-    ADD COLUMN pickup_time TIME DEFAULT NULL,
-    ADD COLUMN pickup_deadline_at DATETIME DEFAULT NULL,
-    ADD INDEX idx_request_pickup_deadline (current_status, pickup_deadline_at),
-    ADD CONSTRAINT fk_request_owner_id_checker FOREIGN KEY (owner_id_checked_by_user_id)
-        REFERENCES `user` (user_id) ON DELETE SET NULL;
+-- Apply after keep_but_change_migration.sql and the other request/payment migrations.
+-- Metadata checks make a retry safe if some request columns already exist.
+SET @request_enhancements_alter = CONCAT_WS(', ',
+    IF(NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_request' AND COLUMN_NAME = 'request_for_other'), 'ADD COLUMN request_for_other TINYINT(1) NOT NULL DEFAULT 0', NULL),
+    IF(NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_request' AND COLUMN_NAME = 'owner_first_name'), 'ADD COLUMN owner_first_name VARCHAR(100) DEFAULT NULL', NULL),
+    IF(NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_request' AND COLUMN_NAME = 'owner_middle_name'), 'ADD COLUMN owner_middle_name VARCHAR(100) DEFAULT NULL', NULL),
+    IF(NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_request' AND COLUMN_NAME = 'owner_last_name'), 'ADD COLUMN owner_last_name VARCHAR(100) DEFAULT NULL', NULL),
+    IF(NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_request' AND COLUMN_NAME = 'owner_suffix'), 'ADD COLUMN owner_suffix VARCHAR(20) DEFAULT NULL', NULL),
+    IF(NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_request' AND COLUMN_NAME = 'owner_date_of_birth'), 'ADD COLUMN owner_date_of_birth DATE DEFAULT NULL', NULL),
+    IF(NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_request' AND COLUMN_NAME = 'owner_address'), 'ADD COLUMN owner_address VARCHAR(255) DEFAULT NULL', NULL),
+    IF(NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_request' AND COLUMN_NAME = 'owner_relationship'), 'ADD COLUMN owner_relationship VARCHAR(30) DEFAULT NULL', NULL),
+    IF(NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_request' AND COLUMN_NAME = 'representation_consent_at'), 'ADD COLUMN representation_consent_at DATETIME DEFAULT NULL', NULL),
+    IF(NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_request' AND COLUMN_NAME = 'owner_id_checked_at'), 'ADD COLUMN owner_id_checked_at DATETIME DEFAULT NULL', NULL),
+    IF(NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_request' AND COLUMN_NAME = 'owner_id_checked_by_user_id'), 'ADD COLUMN owner_id_checked_by_user_id INT DEFAULT NULL', NULL),
+    IF(NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_request' AND COLUMN_NAME = 'pickup_date'), 'ADD COLUMN pickup_date DATE DEFAULT NULL', NULL),
+    IF(NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_request' AND COLUMN_NAME = 'pickup_time'), 'ADD COLUMN pickup_time TIME DEFAULT NULL', NULL),
+    IF(NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_request' AND COLUMN_NAME = 'pickup_deadline_at'), 'ADD COLUMN pickup_deadline_at DATETIME DEFAULT NULL', NULL),
+    IF(NOT EXISTS (SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_request' AND INDEX_NAME = 'idx_request_pickup_deadline'), 'ADD INDEX idx_request_pickup_deadline (current_status, pickup_deadline_at)', NULL),
+    IF(NOT EXISTS (SELECT 1 FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_request' AND COLUMN_NAME = 'owner_id_checked_by_user_id' AND REFERENCED_TABLE_NAME = 'user' AND REFERENCED_COLUMN_NAME = 'user_id'), 'ADD CONSTRAINT fk_request_owner_id_checker FOREIGN KEY (owner_id_checked_by_user_id) REFERENCES `user` (user_id) ON DELETE SET NULL', NULL)
+);
+SET @request_enhancements_sql = IF(@request_enhancements_alter = '', 'SELECT 1', CONCAT('ALTER TABLE document_request ', @request_enhancements_alter));
+PREPARE request_enhancements_stmt FROM @request_enhancements_sql;
+EXECUTE request_enhancements_stmt;
+DEALLOCATE PREPARE request_enhancements_stmt;
 
 CREATE TABLE IF NOT EXISTS request_cancellation_log (
     cancellation_id BIGINT AUTO_INCREMENT PRIMARY KEY,

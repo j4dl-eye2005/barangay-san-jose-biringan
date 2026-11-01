@@ -40,7 +40,7 @@ if (isset($_GET['admin_access_form'])) {
     $publicCssUrl = htmlspecialchars($appBasePath . '/css/public.css?v=20261016-sticky-menu-stable', ENT_QUOTES, 'UTF-8');
     $responsiveCssUrl = htmlspecialchars($appBasePath . '/css/shared-responsive.css?v=20261027-proof-preview-styles-v2', ENT_QUOTES, 'UTF-8');
     $cssUrl = htmlspecialchars($appBasePath . '/css/admin-access.css?v=20261021-admin-access-panel-contrast-v3', ENT_QUOTES, 'UTF-8');
-    $portalCssUrl = htmlspecialchars($appBasePath . '/css/portal-public.css?v=20261031-request-workflow-v1', ENT_QUOTES, 'UTF-8');
+    $portalCssUrl = htmlspecialchars($appBasePath . '/css/portal-public.css?v=20261101-representative-requests-v1', ENT_QUOTES, 'UTF-8');
     $jsUrl = htmlspecialchars($appBasePath . '/admin-access.js?v=20261021-shared-mobile-shell-v1', ENT_QUOTES, 'UTF-8');
     $adminInitialSection = null;
     ob_start();
@@ -210,11 +210,11 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <link data-portal-route-css="auth" data-portal-css-href="css/auth.css?v=20261031-address-spacing-v1">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin.css?v=20261023-server-disclosure-drafts-v1">
     <link rel="stylesheet" href="css/public.css?v=20261016-sticky-menu-stable">
-    <link data-portal-route-css="admin" data-portal-css-href="css/admin-tables.css?v=20261031-request-workflow-v1">
+    <link data-portal-route-css="admin" data-portal-css-href="css/admin-tables.css?v=20261101-representative-requests-v1">
     <link rel="stylesheet" href="css/shared-responsive.css?v=20261028-mobile-proof-row-v1">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261031-address-summary-v1">
     <link data-portal-route-css="unavailable" data-portal-css-href="css/unavailable.css?v=20261023-mobile-404-wrap-v2">
-    <link rel="stylesheet" href="css/portal-public.css?v=20261031-request-workflow-v1">
+    <link rel="stylesheet" href="css/portal-public.css?v=20261101-representative-requests-v1">
     <link rel="stylesheet" href="css/record-spa.css?v=20261028-record-spa-sk-maroon-v2">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -857,20 +857,26 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                             </div>
                             <fieldset id="request-owner-fields" class="input-group request-owner-fields" hidden disabled>
                                 <legend>Document owner's details</legend>
-                                <p class="form-hint">You are responsible for the accuracy of these details. The secretary will check the document owner's valid ID at pickup. False claims may lead to account suspension.</p>
+                                <p class="form-hint request-owner-warning"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i><span>You are responsible for the accuracy of these details. The secretary will check the document owner's valid ID at pickup. False claims may lead to account suspension and may be punishable under Philippine law. The document will be released only to the document owner or to you, with a valid ID.</span></p>
                                 <div class="request-owner-grid">
-                                    <div class="input-group"><label for="request-owner-first-name">First name</label><input id="request-owner-first-name" name="ownerFirstName" maxlength="100" autocomplete="off" placeholder="e.g., Maria" aria-describedby="request-owner-first-name-error"><span class="reg-field-error" id="request-owner-first-name-error" role="alert"></span></div>
-                                    <div class="input-group"><label for="request-owner-middle-name">Middle name (optional)</label><input id="request-owner-middle-name" name="ownerMiddleName" maxlength="100" autocomplete="off" placeholder="e.g., Clara (optional)"></div>
-                                    <div class="input-group"><label for="request-owner-last-name">Last name</label><input id="request-owner-last-name" name="ownerLastName" maxlength="100" autocomplete="off" placeholder="e.g., Santos" aria-describedby="request-owner-last-name-error"><span class="reg-field-error" id="request-owner-last-name-error" role="alert"></span></div>
-                                    <div class="input-group"><label for="request-owner-suffix">Suffix (optional)</label><input id="request-owner-suffix" name="ownerSuffix" maxlength="20" autocomplete="off"></div>
-                                    <div class="input-group"><label for="request-owner-birthdate">Date of birth</label><input id="request-owner-birthdate" name="ownerDateOfBirth" type="date" autocomplete="off"></div>
-                                    <div class="input-group"><label for="request-owner-relationship">Your relationship</label><select id="request-owner-relationship" name="ownerRelationship"><option value="">Choose relationship</option><option value="parent">Parent</option><option value="guardian">Guardian</option><option value="child">Child</option><option value="spouse">Spouse</option><option value="other">Other</option></select></div>
-                                    <div class="input-group"><label for="request-owner-house-lot">House or lot number</label><input id="request-owner-house-lot" name="ownerHouseLotNumber" maxlength="40" autocomplete="off" placeholder="e.g., 12"></div>
-                                    <div class="input-group"><label for="request-owner-street">Street</label><select id="request-owner-street" name="ownerStreet"><option value="">Select a street</option><?php foreach ($requestAddressOptions['streets'] as $street): ?><option value="<?= htmlspecialchars($street, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($street, ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-                                    <div class="input-group"><label for="request-owner-purok">Purok</label><select id="request-owner-purok" name="ownerPurok"><option value="">Select a Purok</option><?php foreach ($requestAddressOptions['puroks'] as $purok): ?><option value="<?= htmlspecialchars($purok, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($purok, ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
+                                    <div class="input-group request-owner-first"><label for="request-owner-first-name">First name <span class="req-star" aria-hidden="true">*</span></label><input id="request-owner-first-name" name="ownerFirstName" maxlength="100" autocomplete="off" placeholder="e.g., Maria" required aria-describedby="request-owner-first-name-error"><span class="reg-field-error" id="request-owner-first-name-error" role="alert"></span></div>
+                                    <div class="input-group request-owner-middle"><label for="request-owner-middle-name">Middle name <span class="optional-label">(optional)</span></label><input id="request-owner-middle-name" name="ownerMiddleName" maxlength="100" autocomplete="off" placeholder="e.g., Clara" aria-describedby="request-owner-middle-name-error"><span class="reg-field-error" id="request-owner-middle-name-error" role="alert"></span></div>
+                                    <div class="input-group request-owner-last"><label for="request-owner-last-name">Last name <span class="req-star" aria-hidden="true">*</span></label><input id="request-owner-last-name" name="ownerLastName" maxlength="100" autocomplete="off" placeholder="e.g., Santos" required aria-describedby="request-owner-last-name-error"><span class="reg-field-error" id="request-owner-last-name-error" role="alert"></span></div>
+                                    <div class="input-group request-owner-suffix"><label for="request-owner-suffix">Suffix <span class="optional-label">(optional)</span></label><input id="request-owner-suffix" name="ownerSuffix" maxlength="20" autocomplete="off" placeholder="e.g., Jr."></div>
+                                    <div class="input-group request-owner-birth"><label for="request-owner-birthdate">Date of birth <span class="req-star" aria-hidden="true">*</span></label><div class="request-owner-date-field"><input id="request-owner-birthdate" name="ownerDateOfBirth" type="date" autocomplete="off" max="<?= (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d') ?>" required></div></div>
+                                    <div class="input-group request-owner-relationship-field"><label for="request-owner-relationship">Your relationship to the document owner <span class="req-star" aria-hidden="true">*</span></label><select id="request-owner-relationship" name="ownerRelationship" required><option value="" selected disabled>Choose relationship</option><option value="parent">Parent</option><option value="guardian">Guardian</option><option value="spouse">Spouse</option><option value="child">Child</option><option value="sibling">Sibling</option><option value="other_relative">Other relative</option><option id="request-owner-employee-option" value="employee_staff" hidden disabled>Employee or staff</option><option value="other">Other</option></select><span class="reg-field-error" id="request-owner-relationship-error" role="alert"></span></div>
+                                    <div class="input-group request-owner-relationship-description" id="request-owner-relationship-description-group" hidden><label for="request-owner-relationship-description">Please describe your relationship <span class="req-star" aria-hidden="true">*</span></label><input id="request-owner-relationship-description" name="ownerRelationshipDescription" maxlength="120" autocomplete="off" placeholder="Describe your relationship"><span class="reg-field-error" id="request-owner-relationship-description-error" role="alert"></span></div>
+                                    <div class="request-owner-address-grid">
+                                        <div class="input-group request-owner-street"><label for="request-owner-street">Street <span class="req-star" aria-hidden="true">*</span></label><select id="request-owner-street" name="ownerStreet" required><option value="" selected disabled>Select a street</option><?php foreach ($requestAddressOptions['streets'] as $street): ?><option value="<?= htmlspecialchars($street, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($street, ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
+                                        <div class="input-group request-owner-house-lot"><label for="request-owner-house-lot">House or lot number <span class="req-star" aria-hidden="true">*</span></label><input id="request-owner-house-lot" name="ownerHouseLotNumber" maxlength="40" autocomplete="off" placeholder="e.g., 12" required></div>
+                                        <div class="input-group request-owner-purok"><label for="request-owner-purok">Purok <span class="req-star" aria-hidden="true">*</span></label><select id="request-owner-purok" name="ownerPurok" required><option value="" selected disabled>Select a Purok</option><?php foreach ($requestAddressOptions['puroks'] as $purok): ?><option value="<?= htmlspecialchars($purok, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($purok, ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
+                                    </div>
                                 </div>
                                 <span class="reg-field-error" id="request-owner-address-error" role="alert"></span>
-                                <label class="request-owner-consent"><input type="checkbox" id="request-owner-consent" name="representationConsent" value="1"><span>I confirm these details are accurate and I am authorized to request this document for this person.</span></label>
+                                <p class="request-authorization-template"><a href="authorization-letter-template.html" target="_blank" rel="noopener">Download authorization letter template</a></p>
+                                <div class="request-representative-documents" id="request-representative-documents" aria-live="polite"></div>
+                                <label class="request-owner-consent" for="request-owner-consent"><input type="checkbox" id="request-owner-consent" name="representationConsent" value="1"><span>I confirm that the document owner has authorized me (or that I am their parent or legal guardian), that the details above are accurate, and that I have informed the owner that Barangay San Jose will process their personal information for this request, as explained in the <a href="#terms" data-action-click="showSection('terms'); scrollToId('tc-representative'); return false">Terms and Conditions</a> and the <a href="#privacy-policy" data-action-click="showSection('privacy-policy'); scrollToId('pp-document-owners'); return false">Privacy Policy</a>.</span></label>
+                                <input type="hidden" id="request-owner-consent-at" name="representationConsentAt" value="">
                             </fieldset>
                             <fieldset id="online-business-fields" class="input-group business-request-fields" hidden>
                                 <legend>Business details</legend>
@@ -880,19 +886,23 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                                 <div class="business-field"><label for="request-business-activity">Business activity</label><input id="request-business-activity" name="businessActivity" maxlength="180" placeholder="e.g. sari-sari store, food services" disabled></div>
                                 <p class="form-hint business-request-note"><i class="fas fa-circle-info" aria-hidden="true"></i><span>The barangay will confirm the applicable fee. A barangay business clearance <strong>does not replace a city or municipal business permit</strong> or required inspections.</span></p>
                             </fieldset>
-                            <fieldset class="input-group request-proof-group">
-                                <label for="request-proof-type">Proof of Residency</label>
-                                <select id="request-proof-type" name="proofType" required aria-describedby="request-proof-type-error"><option value="" selected disabled>Select proof type</option><option value="National ID">National ID</option><option value="Certificate of Residency">Certificate of Residency</option></select>
-                                <span class="reg-field-error" id="request-proof-type-error" role="alert"></span>
-                                <button type="button" class="request-upload-area" id="request-proof-picker" aria-describedby="request-proof-guidance request-proof-error" data-action-click="openRequestProofPicker()"><i class="fas fa-camera" aria-hidden="true"></i><span>Choose a file or take a photo</span><small class="request-upload-guidance" id="request-proof-guidance">PDF, JPG, or PNG · maximum 5 MB</small></button>
-                                <input type="file" id="request-proof" name="proof" class="request-proof-input" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/*" aria-hidden="true" tabindex="-1">
-                                <div class="request-proof-preview" id="request-proof-preview" hidden>
-                                    <img id="request-proof-thumbnail" alt="" hidden>
-                                    <div class="request-proof-file-details"><strong id="request-proof-name"></strong><span class="request-proof-file-meta"><span id="request-proof-size"></span><span class="request-proof-attached"><i class="fas fa-check" aria-hidden="true"></i> Attached</span></span></div>
-                                    <div class="request-proof-actions"><button type="button" data-action-click="removeRequestProof()">Remove</button><button type="button" data-action-click="openRequestProofPicker()">Replace</button></div>
+                            <fieldset class="input-group request-proof-group" id="request-proof-group">
+                                <legend class="visually-hidden">Proof of residency</legend>
+                                <div id="request-proof-controls">
+                                    <label for="request-proof-type">Proof of Residency</label>
+                                    <select id="request-proof-type" name="proofType" required aria-describedby="request-proof-type-error"><option value="" selected disabled>Select proof type</option><option value="National ID">National ID</option><option value="Certificate of Residency">Certificate of Residency</option></select>
+                                    <span class="reg-field-error" id="request-proof-type-error" role="alert"></span>
+                                    <button type="button" class="request-upload-area" id="request-proof-picker" aria-describedby="request-proof-guidance request-proof-error" data-action-click="openRequestProofPicker()"><i class="fas fa-camera" aria-hidden="true"></i><span>Choose a file or take a photo</span><small class="request-upload-guidance" id="request-proof-guidance">PDF, JPG, or PNG · maximum 5 MB</small></button>
+                                    <input type="file" id="request-proof" name="proof" class="request-proof-input" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/*" aria-hidden="true" tabindex="-1">
+                                    <div class="request-proof-preview" id="request-proof-preview" hidden>
+                                        <img id="request-proof-thumbnail" alt="" hidden>
+                                        <div class="request-proof-file-details"><strong id="request-proof-name"></strong><span class="request-proof-file-meta"><span id="request-proof-size"></span><span class="request-proof-attached"><i class="fas fa-check" aria-hidden="true"></i> Attached</span></span></div>
+                                        <div class="request-proof-actions"><button type="button" data-action-click="removeRequestProof()">Remove</button><button type="button" data-action-click="openRequestProofPicker()">Replace</button></div>
+                                    </div>
+                                    <span class="reg-field-error request-proof-error" id="request-proof-error" role="alert"></span>
                                 </div>
-                                <span class="reg-field-error request-proof-error" id="request-proof-error" role="alert"></span>
-                                <p class="request-proof-privacy" id="request-proof-privacy"><i class="fas fa-lock" aria-hidden="true"></i><span class="request-proof-privacy-desktop">This uploaded proof may contain <strong>sensitive information</strong>. It is stored for the sample request workflow and available to project administrators; this prototype is not an official barangay service.</span><span class="request-proof-privacy-mobile">Your ID is only used to verify that you live in the barangay. It is not shown on public records.</span></p>
+                                <div class="request-owner-proof-residency" id="request-owner-proof-residency" hidden><strong>Proof of residency (document owner's)</strong><p>The document owner's valid ID, when required above, serves as proof of residency, unless the barangay's records say otherwise. The ID does not need to show an address; the barangay checks its own records.</p></div>
+                                <p class="request-proof-privacy" id="request-proof-privacy"><i class="fas fa-lock" aria-hidden="true"></i><span class="request-proof-privacy-desktop">This uploaded proof may contain <strong>sensitive information</strong>. It is stored for the sample request workflow and available to project administrators; this prototype is not an official barangay service.</span><span class="request-proof-privacy-mobile">Your ID is only used to verify that you live in the barangay. It is not shown on public records.</span><span class="request-proof-privacy-on-behalf" hidden>These IDs and documents are only used to confirm the request and the owner's address. They are not shown on public records.</span></p>
                             </fieldset>
                             <button id="request-submit" type="submit" class="btn-solid full-width" aria-describedby="request-submit-guidance request-verification-note">Submit request</button>
                             <p id="request-cooldown-note" class="request-cooldown-note" role="status" aria-live="polite" hidden></p>
@@ -1072,6 +1082,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('pp-collect')">Information we collect</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('pp-use')">How we use it</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('pp-accounts')">Accounts &amp; uploads</button></li>
+                        <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('pp-document-owners')">Personal information of document owners</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('pp-retention')">Data retention</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('pp-security')">Security</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('pp-third')">Third-party services</button></li>
@@ -1086,7 +1097,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <header class="policy-header policy-privacy">
                         <p class="eyebrow">Legal</p>
                         <h1 id="privacy-policy-title">Privacy Policy</h1>
-                    <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 27, 2026</span></p></header>
+                    <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated November 1, 2026</span></p></header>
                     <p class="policy-lead">This is an academic prototype, not an official barangay service. It may process information entered into its forms as described below. This notice models the protections expected for real personal information under the Philippine Data Privacy Act of 2012 (Republic Act No. 10173); the academic-project notice does not mean submitted data is fictional or automatically deleted.</p>
 
                     <h2 id="pp-collect">Information we collect</h2>
@@ -1117,6 +1128,17 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     </p>
                     <p>The portal currently does not provide blotter-record or 4Ps-data modules. Do not enter those sensitive records in request purposes, notes, uploads, or other free-text fields. The printable output is permanently marked as a sample and is not an official barangay document.</p>
                     <p>Request proofs, payment receipts, and disclosure attachments are stored outside the public web root by default. Request proofs and payment receipts are served only through administrator-only endpoints. Published disclosure attachments are intentionally available to the public; administrators should not publish an attachment containing personal information unless disclosure is authorized and necessary.</p>
+
+                    <h2 id="pp-document-owners">Personal information of document owners</h2>
+                    <p>Barangay San Jose processes personal information in accordance with Republic Act No. 10173 (Data Privacy Act of 2012) and its Implementing Rules and Regulations.</p>
+                    <ul>
+                        <li>What we collect: when a request is made for another person, the document owner's name, date of birth, address, copies of IDs, and authorization or guardianship documents, supplied by the requester. The date of birth (age) and civil status are sensitive personal information under the law.</li>
+                        <li>Why: only to verify the requester's authority, process the request, and issue and release the document.</li>
+                        <li>Basis: the document owner's consent, which the law allows to be given by a lawful representative or an agent specifically authorized by the owner, shown by the signed authorization letter. For a minor, the parent or legal guardian acts for the child. By submitting a request for someone else, the requester confirms that the owner has been informed and has agreed.</li>
+                        <li>Who can see it: authorized barangay staff only. It is not shown on public records, and each time staff open a representative document, it is recorded in the activity log.</li>
+                        <li>How long: kept only as long as necessary for the purpose, which is [retention period set by the barangay], and then deleted or disposed of securely.</li>
+                        <li>Your rights: as a data subject, you may ask to access, correct, or object to the processing of your personal information, ask for it to be blocked or removed where the law allows, and file a complaint with the National Privacy Commission. Contact: [privacy contact or Data Protection Officer of Barangay San Jose].</li>
+                    </ul>
 
                     <h2 id="pp-retention">Data retention</h2>
                     <p>Unverified accounts with no request are marked archived after 30 days. Archiving disables access but does not itself delete the account record. Password-reset tokens expire after one hour and email-verification links after 24 hours; expired tokens may remain in the database until cleanup runs. Successfully sent email bodies are cleared and their queue records are removed after 30 days.</p>
@@ -1170,6 +1192,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <ol class="policy-toc-list">
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('tc-acceptance')">Acceptance</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('tc-accounts')">Accounts &amp; services</button></li>
+                        <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('tc-representative')">Requests made on behalf of another person</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('tc-responsibilities')">Your responsibilities</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('tc-fees')">Fees and pickup</button></li>
                         <li><button type="button" class="policy-toc-btn" data-action-click="scrollToId('tc-admin')">Admin rights</button></li>
@@ -1186,7 +1209,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <header class="policy-header policy-terms">
                         <p class="eyebrow">Legal</p>
                         <h1 id="terms-title">Terms &amp; Conditions</h1>
-                    <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 23, 2026</span></p></header>
+                    <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated November 1, 2026</span></p></header>
                     <p class="policy-lead">This is an academic prototype, not an official barangay service. By creating an account or using its account features, you agree to these Terms. The separate Privacy Notice explains how information entered into the prototype is handled.</p>
 
                     <h2 id="tc-acceptance">Acceptance</h2>
@@ -1194,6 +1217,15 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
 
                     <h2 id="tc-accounts">Accounts &amp; services</h2>
                     <p>The prototype allows users to register, submit proof of residency with an online request, track requests, and view sample public disclosures. Users may sign in and browse before verifying their email, but must verify it before submitting an online request. This academic prototype cannot issue an official barangay document or guarantee a real barangay service. Provide accurate information for the exercise and keep your password and authenticator codes confidential.</p>
+
+                    <h2 id="tc-representative">Requests made on behalf of another person</h2>
+                    <p>1. Who may request. A document may be requested for another person only (a) by that person's parent or legal guardian, if the person is under 18 years old, the age of majority under Republic Act No. 6809 and Article 234 of the Family Code, or (b) by a representative specifically authorized in writing by the document owner, if the owner is 18 or older.</p>
+                    <p>2. Required documents. The requester must upload the documents listed on the request form. These requirements are the same as those stated in the barangay's Citizen's Charter, under Republic Act No. 11032 (Ease of Doing Business and Efficient Government Service Delivery Act of 2018). Uploaded electronic copies are accepted as electronic documents under Republic Act No. 8792 (Electronic Commerce Act of 2000). The original documents and a valid ID must be shown at pickup.</p>
+                    <p>3. Valid ID. Any valid government-issued ID is accepted, including the PhilID or ePhilID, which the barangay accepts as sufficient proof of identity under Republic Act No. 11055 (Philippine Identification System Act), subject to authentication.</p>
+                    <p>4. Accuracy and responsibility. The requester is responsible for the accuracy of everything entered and attached. Giving false information, submitting a forged or altered document, or using another person's identity without right may be punishable under Philippine law, including falsification and use of falsified documents under Articles 171 and 172 of the Revised Penal Code, and computer-related forgery and identity theft under Republic Act No. 10175 (Cybercrime Prevention Act of 2012). The barangay may also refuse the request, suspend the account, and report the matter to the proper authorities.</p>
+                    <p>5. Verification. The barangay may contact the document owner to verify the request, may require the owner to appear in person, and may refuse a request made on behalf of another person, especially for certificates about a person's personal circumstances.</p>
+                    <p>6. Processing time. Processing time is counted from the date the barangay receives the complete requirements, as provided in Republic Act No. 11032 and the barangay's Citizen's Charter.</p>
+                    <p>7. Release. A document is released only to the document owner or to the representative named on the request, upon showing an original valid ID, and its release is recorded.</p>
 
                     <h2 id="tc-responsibilities">Your responsibilities</h2>
                     <p>You agree not to:</p>
@@ -1398,7 +1430,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <?php require __DIR__ . '/includes/shared/site-footer.php'; ?>
 
     <?php require __DIR__ . '/includes/shared/dialogs.php'; ?>    <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true">Message</div>
-    <script src="script.js?v=20261031-address-summary-v1" defer></script>
+    <script src="script.js?v=20261101-representative-requests-v1" defer></script>
 </body>
 </html>
 

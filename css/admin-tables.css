@@ -106,6 +106,13 @@
 .request-cooldown-admin,
 .request-reschedule-review { grid-column: 1 / -1; }
 .request-detail-owner .request-owner-id-warning { margin-top: 12px; }
+.request-resident-name { display: inline-flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 6px; }
+.request-on-behalf-pill { display: inline-flex; min-height: 19px; align-items: center; padding: 2px 7px; border: 1px solid #c4dfca; border-radius: 999px; background: #edf7ef; color: #24583a; font-size: 10px; font-weight: 650; line-height: 1.2; white-space: nowrap; }
+.request-representative-documents-list { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--color-border); }
+.request-representative-documents-list h4 { margin: 0 0 8px; color: var(--color-ink); font-size: 13px; font-weight: 700; }
+.request-representative-documents-list ul { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.request-representative-documents-list li { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 10px; border: 1px solid var(--color-border); border-radius: 8px; background: #fbfcfb; color: var(--color-text); font-size: 12px; }
+.request-representative-document-view { min-height: 34px; padding: 5px 13px; white-space: nowrap; }
 .request-cooldown-admin p { margin: 0 0 12px; color: var(--color-muted); font-size: var(--text-12); }
 
 /* Admin overview, request detail, and audit log */

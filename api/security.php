@@ -608,7 +608,7 @@ function validateDocxPackage(string $path, string $mime): bool
 
 function privateStorageDirectory(string $kind): string
 {
-    if (!in_array($kind, ['proofs', 'disclosures', 'profile-photos'], true)) throw new InvalidArgumentException('Invalid private storage type.');
+    if (!in_array($kind, ['proofs', 'disclosures', 'profile-photos', 'representative-documents'], true)) throw new InvalidArgumentException('Invalid private storage type.');
     loadPortalEnvFile();
     $config = portalConfig();
     $base = $config['private_storage'];
@@ -689,7 +689,7 @@ function resolveStoredUpload(string $storedPath): ?string
         if (!preg_match('/\.(?:pdf|docx|jpg|jpeg|png)$/i', $filename)
             || preg_match('/[\x00-\x1f\x7f]/', $filename)
             || $filename === '.' || $filename === '..') return null;
-    } elseif (preg_match('#^(?:private/)?(proofs|disclosures)/([a-f0-9]{32}\.(?:pdf|docx|jpg|jpeg|png))$#i', $normalized, $stored)) {
+    } elseif (preg_match('#^(?:private/)?(proofs|disclosures|representative-documents)/([a-f0-9]{32}\.(?:pdf|docx|jpg|jpeg|png))$#i', $normalized, $stored)) {
         $kind = strtolower($stored[1]);
         $filename = $stored[2];
     } else {
