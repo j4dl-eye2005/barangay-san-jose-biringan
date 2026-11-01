@@ -36,6 +36,20 @@ function representativeRequestDocumentRequirements(string $relationship, int $ow
     ];
 }
 
+function representativeRequestVisibleDocumentLabel(string $key, string $storedLabel): string
+{
+    return match ($key) {
+        'authorization_letter' => str_contains($storedLabel, 'parent or guardian')
+            ? "Signed authorization letter from the applicant's parent or guardian"
+            : 'Signed authorization letter from the applicant',
+        'owner_id' => str_starts_with($storedLabel, 'Business owner') ? $storedLabel : "Applicant's valid ID",
+        'requester_id' => 'Your valid ID (authorized representative)',
+        'birth_certificate' => 'Birth certificate of the applicant',
+        'owner_birth_certificate_or_id' => 'Birth certificate or valid ID of the applicant',
+        default => $storedLabel,
+    };
+}
+
 function representativeRequestUpload(array $uploads, string $key): ?array
 {
     if (!isset($uploads['name'][$key], $uploads['tmp_name'][$key], $uploads['error'][$key], $uploads['size'][$key])) return null;
@@ -239,12 +253,12 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
             || ($ownerRelationship === 'employee_staff' && !$isBusinessClearance)
             || !$representationConsent) {
             http_response_code(400);
-            echo json_encode(['success'=>false, 'message'=>'For a request on someone else’s behalf, enter the document owner’s valid name, date of birth and address, choose your relationship, and confirm the information.']);
+            echo json_encode(['success'=>false, 'message'=>'For a request as an authorized representative, enter the applicant’s valid name, date of birth and address, choose your relationship to the applicant, and confirm the information.']);
             exit;
         }
         $consentTimestamp = is_string($data['representationConsentAt'] ?? null) ? $data['representationConsentAt'] : '';
         if (!preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/', $consentTimestamp)) {
-            http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Confirm the on-behalf request before submitting.']); exit;
+            http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Confirm the authorized-representative request before submitting.']); exit;
         }
         try {
             $consentDate = new DateTimeImmutable($consentTimestamp, new DateTimeZone('UTC'));
@@ -252,7 +266,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($consentDate > $nowUtc->modify('+5 minutes')) throw new RuntimeException('Invalid confirmation time.');
             $consentAtUtc = $consentDate->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
         } catch (Throwable $error) {
-            http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Confirm the on-behalf request before submitting.']); exit;
+            http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Confirm the authorized-representative request before submitting.']); exit;
         }
         $ownerAge = $today->diff($ownerDate)->y;
         $requiredDocuments = representativeRequestDocumentRequirements($ownerRelationship, $ownerAge, $isBusinessClearance);
@@ -265,7 +279,8 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $fileExtension = $file ? validateUpload($file, ['pdf' => true, 'jpg' => true, 'jpeg' => true, 'png' => true], 5 * 1024 * 1024) : null;
             if ($fileExtension === null) {
                 http_response_code(400);
-                echo json_encode(['success'=>false, 'message'=>"Attach a valid PDF, JPG, or PNG file (up to 5 MB) for: {$label}."]);
+                $visibleLabel = representativeRequestVisibleDocumentLabel($key, $label);
+                echo json_encode(['success'=>false, 'message'=>"Attach a valid PDF, JPG, or PNG file (up to 5 MB) for: {$visibleLabel}."]);
                 exit;
             }
             $representativeDocuments[] = ['key' => $key, 'label' => $label, 'file' => $file, 'extension' => $fileExtension];

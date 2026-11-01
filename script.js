@@ -2991,10 +2991,10 @@ function openRepresentativeDocumentPreview(documentRecord, request) {
         return;
     }
     openProofPreview(path, {
-        proofTitle: documentRecord.display_name || 'Representative document',
-        documentName: documentRecord.display_name || 'Representative document',
+        proofTitle: representativeDocumentDisplayLabel(documentRecord.display_name || 'Representative document'),
+        documentName: representativeDocumentDisplayLabel(documentRecord.display_name || 'Representative document'),
         proofFormat: documentRecord.file_format,
-        name: [request.owner_first_name, request.owner_middle_name, request.owner_last_name, request.owner_suffix].filter(Boolean).join(' ') || request.residentName || 'Document owner',
+        name: [request.owner_first_name, request.owner_middle_name, request.owner_last_name, request.owner_suffix].filter(Boolean).join(' ') || request.residentName || 'Applicant',
         tracking: request.tracking_code,
         documentType: request.document_type,
         createdAt: documentRecord.uploaded_at
@@ -4020,6 +4020,17 @@ function toggleRequestOwnerFields() {
 
 const requestRepresentativeUploadInputs = new Map();
 const requestRepresentativeIdHelper = 'Any valid government-issued ID is accepted, including the PhilID or ePhilID (national ID).';
+function representativeDocumentDisplayLabel(label) {
+    const visibleLabels = {
+        "Signed authorization letter from the document owner's parent or guardian": "Signed authorization letter from the applicant's parent or guardian",
+        'Signed authorization letter from the document owner': 'Signed authorization letter from the applicant',
+        "Document owner's valid ID": "Applicant's valid ID",
+        'Birth certificate of the document owner': 'Birth certificate of the applicant',
+        'Birth certificate or valid ID of the document owner': 'Birth certificate or valid ID of the applicant',
+        'Your valid ID': 'Your valid ID (authorized representative)'
+    };
+    return visibleLabels[String(label || '')] || String(label || '');
+}
 
 function requestOwnerAge() {
     const value = document.getElementById('request-owner-birthdate')?.value || '';
@@ -4048,8 +4059,8 @@ function representativeDocumentRequirements() {
     const age = requestOwnerAge();
     if (!relationship || age === null) return [];
     const upload = (key, label, helper, kind = 'document') => ({ key, label, helper, kind });
-    const ownerId = upload('owner_id', "Document owner's valid ID", requestRepresentativeIdHelper, 'id');
-    const requesterId = upload('requester_id', 'Your valid ID', requestRepresentativeIdHelper, 'id');
+    const ownerId = upload('owner_id', "Applicant's valid ID", requestRepresentativeIdHelper, 'id');
+    const requesterId = upload('requester_id', 'Your valid ID (authorized representative)', requestRepresentativeIdHelper, 'id');
     if (relationship === 'employee_staff') {
         return [
             upload('business_authorization_letter', 'Authorization letter from the business owner', 'Upload a letter signed by the business owner.', 'letter'),
@@ -4059,23 +4070,23 @@ function representativeDocumentRequirements() {
     }
     if (age < 18 && relationship === 'parent') {
         return [
-            upload('birth_certificate', "Birth certificate of the document owner", 'Upload the document owner’s birth certificate.'),
+            upload('birth_certificate', 'Birth certificate of the applicant', 'Upload the applicant’s birth certificate.'),
             requesterId
         ];
     }
     if (age < 18 && relationship === 'guardian') {
         return [
             upload('guardianship_proof', 'Proof of guardianship', 'Upload a document that shows your legal guardianship.'),
-            upload('owner_birth_certificate_or_id', "Birth certificate or valid ID of the document owner", `Upload the owner's birth certificate or one valid ID. ${requestRepresentativeIdHelper}`, 'id-or-birth'),
+            upload('owner_birth_certificate_or_id', 'Birth certificate or valid ID of the applicant', `Upload the applicant's birth certificate or one valid ID. ${requestRepresentativeIdHelper}`, 'id-or-birth'),
             requesterId
         ];
     }
     const letterLabel = age < 18
-        ? "Signed authorization letter from the document owner's parent or guardian"
-        : 'Signed authorization letter from the document owner';
+        ? "Signed authorization letter from the applicant's parent or guardian"
+        : 'Signed authorization letter from the applicant';
     const letterHelper = age < 18
-        ? 'Upload a letter signed by the document owner’s parent or guardian.'
-        : 'Upload a letter signed by the document owner.';
+        ? 'Upload a letter signed by the applicant’s parent or guardian.'
+        : 'Upload a letter signed by the applicant.';
     return [
         upload('authorization_letter', letterLabel, letterHelper, 'letter'),
         ownerId,
@@ -4147,7 +4158,7 @@ function updateRequestRepresentativeDocuments() {
     const nextInputs = new Map();
     clearNode(docs);
     if (!relationship.value || requestOwnerAge() === null) {
-        docs.appendChild(el('p', { className: 'form-hint request-document-requirements-note', text: 'Choose the document owner’s date of birth and your relationship to see the required documents.' }));
+        docs.appendChild(el('p', { className: 'form-hint request-document-requirements-note', text: 'Choose the applicant’s date of birth and your relationship to the applicant to see the required documents.' }));
     }
     requirements.forEach((requirement, index) => {
         const field = el('div', { className: 'input-group representative-upload-item' });
@@ -4207,7 +4218,7 @@ function updateRequestRepresentativeDocuments() {
     requestRepresentativeUploadInputs.clear();
     nextInputs.forEach((input, key) => requestRepresentativeUploadInputs.set(key, input));
     const relationshipError = document.getElementById('request-owner-relationship-error');
-    if (relationshipError) relationshipError.textContent = relationship.value ? '' : 'Choose your relationship to the document owner.';
+    if (relationshipError) relationshipError.textContent = relationship.value ? '' : 'Choose your relationship to the applicant.';
     updateRequestAvailability();
 }
 
@@ -4836,14 +4847,14 @@ async function handleRequest(e) {
             && document.getElementById('request-owner-purok')?.value
             && document.getElementById('request-owner-street')?.value);
         const ownerAddressError = document.getElementById('request-owner-address-error');
-        if (ownerAddressError) ownerAddressError.textContent = ownerAddressValid ? '' : 'Enter the house or lot number and choose the owner’s Purok and street.';
+        if (ownerAddressError) ownerAddressError.textContent = ownerAddressValid ? '' : 'Enter the house or lot number and choose the applicant’s Purok and street.';
         const relationshipValid = Boolean(ownerRelationship?.value) && !(ownerRelationship?.value === 'employee_staff' && !requestIsBusinessClearance());
         const relationshipError = document.getElementById('request-owner-relationship-error');
-        if (relationshipError) relationshipError.textContent = relationshipValid ? '' : 'Choose your relationship to the document owner.';
+        if (relationshipError) relationshipError.textContent = relationshipValid ? '' : 'Choose your relationship to the applicant.';
         const relationshipDescriptionValid = ownerRelationship?.value !== 'other' || Boolean(relationshipDescription?.value.trim());
         if (relationshipDescription) relationshipDescription.setAttribute('aria-invalid', String(!relationshipDescriptionValid));
         const relationshipDescriptionError = document.getElementById('request-owner-relationship-description-error');
-        if (relationshipDescriptionError) relationshipDescriptionError.textContent = relationshipDescriptionValid ? '' : 'Describe your relationship to the document owner.';
+        if (relationshipDescriptionError) relationshipDescriptionError.textContent = relationshipDescriptionValid ? '' : 'Describe your relationship to the applicant.';
         const consentAt = document.getElementById('request-owner-consent-at')?.value || '';
         if (!ownerAddressValid || !document.getElementById('request-owner-birthdate')?.value
             || !relationshipValid || !relationshipDescriptionValid
@@ -6158,7 +6169,7 @@ function renderResidentRequestList(requests = residentRequestItems) {
         if (paymentControl) item.appendChild(paymentControl);
 
         if (Number(r.request_for_other) === 1) {
-            item.appendChild(el('p', { className: 'request-owner-label', text: `Document for: ${r.documentOwnerName || 'another person'}` }));
+            item.appendChild(el('p', { className: 'request-owner-label', text: `Applicant: ${r.documentOwnerName || 'Not recorded'}` }));
         }
 
         if (r.current_status === 'Rejected') {
@@ -6729,6 +6740,15 @@ function formatActivityAction(action) {
     };
     return labels[normalized] || raw.replaceAll('_', ' ').replace(/\b\w/g, character => character.toUpperCase());
 }
+function formatActivityDetails(entry) {
+    const details = String(entry?.details || '');
+    const action = String(entry?.action || '').toLowerCase().replace(/[\s-]+/g, '_');
+    if (action === 'request_representative_document_viewed') {
+        const match = details.match(/^Tracking number: ([^ ·]+) · Resident: (.+?) · Document: (.+)$/);
+        if (match) return `Tracking number: ${match[1]} · Authorized representative: ${match[2]} · Document: ${representativeDocumentDisplayLabel(match[3])}`;
+    }
+    return details;
+}
 function activityActionClass(action) {
     const normalized = String(action || '').toLowerCase().replace(/[\s-]+/g, '_');
     if (normalized.startsWith('failed_') || normalized.endsWith('_failed') || normalized.includes('reject')) return 'is-red';
@@ -6744,9 +6764,9 @@ function formatMobileActivityAction(action) {
 function getMobileActivityTarget(entry, detailText = '') {
     const securityInfo = getActivitySecurityInfo(entry);
     if (securityInfo) return securityInfo.device ? `Device: ${securityInfo.device}` : '';
-    const raw = String(entry.details || '').trim();
-    const requestMatch = raw.match(/^Tracking number: ([^ ·]+) · Resident: (.+?) · Document: (.+)$/);
-    if (requestMatch) return `Resident: ${requestMatch[2].trim()}`;
+    const raw = String(formatActivityDetails(entry) || '').trim();
+    const requestMatch = raw.match(/^Tracking number: ([^ ·]+) · ((?:Resident|Authorized representative): .+?) · Document: (.+)$/);
+    if (requestMatch) return requestMatch[2].trim();
     const residentMatch = raw.match(/^Resident:\s*(.+)$/i);
     if (residentMatch) return `Resident: ${residentMatch[1].replace(/\s*\(ID\s.*$/i, '').trim()}`;
     const legacyResidentMatch = raw.match(/^Resident\s+(.+?)\s*\(ID\s/i);
@@ -6831,7 +6851,7 @@ async function exportActivityCsv() {
     for (let page=1; page<=Math.max(1,firstData.pages||0); page++) {
         if (page > 1) base.set('page',String(page));
         const payload = page===1 ? firstData : await (await fetch(`api/admin_activity.php?${base}`)).json();
-        (payload.entries||[]).forEach(r=>rows.push([r.created_at,r.admin_name,r.admin_role,formatActivityAction(r.action),r.details]));
+        (payload.entries||[]).forEach(r=>rows.push([r.created_at,r.admin_name,r.admin_role,formatActivityAction(r.action),formatActivityDetails(r)]));
     }
     const blob = new Blob([rows.map(row => row.map(quote).join(',')).join('\r\n')], {type:'text/csv;charset=utf-8'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'activity-log.csv'; a.click(); URL.revokeObjectURL(a.href);
@@ -6877,24 +6897,25 @@ async function loadAdminActivity(page = 1) {
             const mobileGroups = [];
             const mobileGroupMap = new Map();
             data.entries.forEach(entry => {
+                const displayDetails = formatActivityDetails(entry);
                 const date = new Date(entry.created_at);
                 const datePresentation = getActivityDatePresentation(date, activitySort);
                 if (datePresentation.groupLabel && datePresentation.key !== group) { group = datePresentation.key; tbody.appendChild(el('tr',{className:'activity-date-group'},[el('th',{text:datePresentation.groupLabel,attrs:{colspan:'4'}})])); }
                 const detail = el('td',{className:'activity-detail-cell',attrs:{'data-label':'Details'}});
-                const match = String(entry.details||'').match(/^Tracking number: ([^ ·]+) · Resident: (.+?) · Document: (.+)$/);
+                const match = displayDetails.match(/^Tracking number: ([^ ·]+) · ((?:Resident|Authorized representative): .+?) · Document: (.+)$/);
                 if (match) {
                     const tracking = el('a',{className:'activity-tracking',text:match[1],attrs:{href:'#admin-dashboard'},on:{click:e=>{e.preventDefault();openAdminRequestDetail(Number(entry.request_id));}}});
                     detail.append(el('strong',{text:match[3]}), el('small',{className:'activity-request-meta'},[match[2], ' · ', tracking]));
                 }
                 else if(entry.action==='disclosure_edited' && entry.edit_details) { let snapshot; try { snapshot=JSON.parse(entry.edit_details); } catch (_) {} const title=snapshot ? `Disclosure #${snapshot.disclosure_id}: ${snapshot.title}` : entry.details; detail.appendChild(el('strong',{text:title||'Disclosure edited'})); }
-                else if(entry.details === 'Name not recorded') detail.appendChild(el('em',{className:'activity-name-missing',text:'Name not recorded'}));
+                else if(displayDetails === 'Name not recorded') detail.appendChild(el('em',{className:'activity-name-missing',text:'Name not recorded'}));
                 else if(String(entry.action || '').toLowerCase().replace(/[\s-]+/g, '_') === 'resident_login_success') detail.appendChild(el('strong',{text:'Resident account signed in successfully'}));
                 else if(entry.action==='approve_resident' || entry.action==='reject_resident' || entry.action==='proof_viewed') {
                     detail.appendChild(el('strong',{text:String(entry.details||'').replace(/^Resident:\s*/,'').replace(/\s*\(ID\s.*$/,'')||'—'}));
                     if (entry.action === 'reject_resident' && entry.reason) detail.appendChild(el('small',{className:'activity-request-meta',text:`Reason: ${entry.reason}`}));
                 }
                 else {
-                    const rawDetails = String(entry.details || '—');
+                    const rawDetails = String(displayDetails || '—');
                     const securityInfo = getActivitySecurityInfo(entry);
                     if (securityInfo) {
                         detail.appendChild(el('strong', { text: securityInfo.summary }));
@@ -6913,7 +6934,7 @@ async function loadAdminActivity(page = 1) {
                     let snapshot; try { snapshot=JSON.parse(entry.edit_details); } catch (_) { snapshot=null; }
                     detail.appendChild(el('details',{className:'activity-edit-details'},[el('summary',{text:'View details'}),el('p',{text:snapshot ? `Before: ${snapshot.before?.title||''} — ${snapshot.before?.content||''}\nAfter: ${snapshot.after?.title||''} — ${snapshot.after?.content||''}` : entry.edit_details})]));
                 }
-                const residentActor = /^resident[_ ]/i.test(String(entry.action || '')) ? String(entry.details || '').match(/^Resident:\s*(.+?)(?:\s*\(ID\s.*)?$/i)?.[1]?.trim() : '';
+                const residentActor = /^resident[_ ]/i.test(String(entry.action || '')) ? displayDetails.match(/^Resident:\s*(.+?)(?:\s*\(ID\s.*)?$/i)?.[1]?.trim() : '';
                 const actorName = residentActor || entry.admin_name || '—';
                 const actorRole = residentActor ? 'Resident' : (entry.admin_role || 'Admin');
                 const row = el('tr',{},[
@@ -7186,9 +7207,9 @@ function renderAdminRequests() {
             el('td', { attrs: { 'data-label': 'Resident' } }, [
                 el('span', { className: 'request-resident-name', attrs: { title: r.residentName || 'Resident' } }, [
                     el('span', { text: r.residentName || 'Resident' }),
-                    Number(r.request_for_other) === 1 ? el('span', { className: 'request-on-behalf-pill', text: 'On behalf' }) : null
+                    Number(r.request_for_other) === 1 ? el('span', { className: 'request-on-behalf-pill', text: 'Representative' }) : null
                 ]),
-                Number(r.request_for_other) === 1 && r.documentOwnerName ? el('small', { className: 'request-owner-label', text: `Document for: ${r.documentOwnerName}` }) : null,
+                Number(r.request_for_other) === 1 && r.documentOwnerName ? el('small', { className: 'request-owner-label', text: `Applicant: ${r.documentOwnerName}` }) : null,
                 r.request_source === 'walk_in' ? el('small', { className: 'request-source-label', text: 'Walk-in / face-to-face' }) : null
             ]),
             el('td', { text: r.documentType, attrs: { 'data-label': 'Document' } }),
@@ -7222,9 +7243,9 @@ function renderAdminRequests() {
             const mobileResident = el('div', { className: 'admin-request-mobile-resident' }, [
                 el('span', { className: 'request-resident-name' }, [
                     el('span', { text: r.residentName || 'Resident' }),
-                    Number(r.request_for_other) === 1 ? el('span', { className: 'request-on-behalf-pill', text: 'On behalf' }) : null
+                    Number(r.request_for_other) === 1 ? el('span', { className: 'request-on-behalf-pill', text: 'Representative' }) : null
                 ]),
-                Number(r.request_for_other) === 1 && r.documentOwnerName ? el('small', { className: 'request-owner-label', text: `Document for: ${r.documentOwnerName}` }) : null,
+                Number(r.request_for_other) === 1 && r.documentOwnerName ? el('small', { className: 'request-owner-label', text: `Applicant: ${r.documentOwnerName}` }) : null,
                 r.request_source === 'walk_in' ? el('small', { className: 'request-source-label', text: 'Walk-in / face-to-face' }) : null
             ]);
             const mobileMeta = el('div', { className: 'admin-request-mobile-meta' }, [
@@ -7628,15 +7649,15 @@ async function openAdminRequestDetail(requestId) {
             ? `${ownerRelationship}: ${request.owner_relationship_description}`
             : ownerRelationship;
         const ownerInfoCard = Number(request.request_for_other) === 1 ? el('section', { className: 'card request-detail-card request-detail-owner' }, [
-            el('h3', { text: 'Document owner (requested on their behalf)' }),
+            el('h3', { text: 'Applicant details' }),
             infoList([
                 ['Name', [request.owner_first_name, request.owner_middle_name, request.owner_last_name, request.owner_suffix].filter(Boolean).join(' ')],
                 ['Date of birth', request.owner_date_of_birth ? formatDate(request.owner_date_of_birth) : '—'],
                 ['Address', request.owner_address],
-                ['Requester relationship', ownerRelationshipText],
+                ['Relationship to applicant', ownerRelationshipText],
                 ['Valid ID checked at pickup', request.owner_id_checked_at ? `Yes · ${formatDateTime(request.owner_id_checked_at)}` : 'Not yet checked']
             ]),
-            request.current_status === 'Ready for Pickup' ? el('p', { className: 'request-owner-id-warning', text: 'Before completing pickup, check the document owner’s valid ID in person.' }) : null
+            request.current_status === 'Ready for Pickup' ? el('p', { className: 'request-owner-id-warning', text: 'Before completing pickup, check the applicant’s valid ID in person.' }) : null
         ]) : null;
         const rescheduleReviewCard = data.pending_reschedule && staffHasPermission('requests.manage') ? el('section', { className: 'card request-detail-card request-reschedule-review' }, [
             el('h3', { text: 'Pickup reschedule request' }),
@@ -7657,11 +7678,11 @@ async function openAdminRequestDetail(requestId) {
         const ownerName = [request.owner_first_name, request.owner_middle_name, request.owner_last_name, request.owner_suffix].filter(Boolean).join(' ');
         const residentInfo = isOnBehalfRequest
             ? infoList([
-                ['Document for', ownerName],
-                ['Filed by', `${residentName}, ${ownerRelationshipText}`],
+                ['Applicant', ownerName],
+                ['Authorized representative', `${residentName} (relationship: ${ownerRelationshipText})`],
                 ['Email', request.email],
                 ['Phone', request.phone_number],
-                ['Filed by address', request.address]
+                ['Authorized representative address', request.address]
             ])
             : infoList([['Name', residentName], ['Email', request.email], ['Phone', request.phone_number], ['Address', request.address]]);
         residentInfo.appendChild(el('div', { className: 'request-detail-purpose-row' }, [
@@ -7679,10 +7700,13 @@ async function openAdminRequestDetail(requestId) {
         const representativeDocumentsList = isOnBehalfRequest ? el('div', { className: 'request-representative-documents-list' }, [
             el('h4', { text: 'Representative documents' }),
             representativeDocuments.length
-                ? el('ul', {}, representativeDocuments.map(documentRecord => el('li', {}, [
-                    el('span', { text: documentRecord.display_name || 'Representative document' }),
-                    el('button', { className: 'btn-outline request-representative-document-view', text: 'View', attrs: { type: 'button', 'aria-haspopup': 'dialog', 'aria-label': `View ${documentRecord.display_name || 'representative document'}` }, on: { click: () => openRepresentativeDocumentPreview(documentRecord, { ...request, residentName }) } })
-                ])))
+                ? el('ul', {}, representativeDocuments.map(documentRecord => {
+                    const displayName = representativeDocumentDisplayLabel(documentRecord.display_name || 'Representative document');
+                    return el('li', {}, [
+                        el('span', { text: displayName }),
+                        el('button', { className: 'btn-outline request-representative-document-view', text: 'View', attrs: { type: 'button', 'aria-haspopup': 'dialog', 'aria-label': `View ${displayName}` }, on: { click: () => openRepresentativeDocumentPreview(documentRecord, { ...request, residentName }) } })
+                    ]);
+                }))
                 : el('p', { className: 'field-help', text: 'No representative documents are available to this staff role.' })
         ]) : null;
         const detailGrid = el('div', { className: 'request-detail-grid' }, [
@@ -7754,7 +7778,7 @@ function processRequest(id, action, request = null) {
     } else if (action === 'Pickup') {
         const checkRequired = Number(request?.request_for_other) === 1;
         const prompt = checkRequired
-            ? 'Confirm that you checked the document owner’s valid ID in person before marking this request as picked up.'
+            ? 'Confirm that you checked the applicant’s valid ID in person before marking this request as picked up.'
             : 'Mark this request as picked up?';
         if (window.confirm(prompt)) sendProcessRequest(id, action, null, checkRequired);
     } else if (action === 'RescheduleApprove') {

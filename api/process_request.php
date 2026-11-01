@@ -68,7 +68,7 @@ try {
     }
 
     if ($action === 'Pickup' && !empty($currentRequest['request_for_other']) && !$ownerIdChecked) {
-        $pdo->rollBack(); http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Confirm that you checked the document owner’s valid ID before marking pickup complete.']); exit;
+        $pdo->rollBack(); http_response_code(400); echo json_encode(['success'=>false, 'message'=>'Confirm that you checked the applicant’s valid ID before marking pickup complete.']); exit;
     }
 
     $changes = [];
