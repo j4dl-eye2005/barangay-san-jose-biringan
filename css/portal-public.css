@@ -3958,9 +3958,9 @@ body.resident-workspace-view #resident-dashboard .request-item-heading .status-b
     margin-top: 0;
 }
 body.resident-workspace-view #resident-dashboard #request-list {
-    height: min(68vh, 580px);
+    height: min(82vh, 780px);
     min-height: 0;
-    max-height: min(68vh, 580px);
+    max-height: min(82vh, 780px);
     overflow-y: auto;
     overscroll-behavior: contain;
     padding-right: 8px;
@@ -3974,7 +3974,7 @@ body.resident-workspace-view #resident-dashboard #request-list {
     }
     body.resident-workspace-view #resident-dashboard #request-list {
         height: auto;
-        max-height: min(68vh, 580px);
+        max-height: min(82vh, 780px);
         flex: 1 1 auto;
     }
 }
