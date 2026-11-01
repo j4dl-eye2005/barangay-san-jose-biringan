@@ -854,7 +854,7 @@ function setPhoneValidation(field) {
 document.addEventListener('input', event => {
     const field = event.target;
     if (!(field instanceof HTMLInputElement)) return;
-    if (['register-first-name', 'register-middle-name', 'register-last-name'].includes(field.id)) {
+    if (['register-first-name', 'register-middle-name', 'register-last-name', 'request-owner-first-name', 'request-owner-middle-name', 'request-owner-last-name'].includes(field.id)) {
         setRegistrationNameValidation(field);
     }
     if (['doc-purpose-other'].includes(field.id)) {
@@ -965,7 +965,7 @@ async function checkResidentEmailAvailability(field, email, sequence) {
 
 document.addEventListener('blur', event => {
     const field = event.target;
-    if (field instanceof HTMLInputElement && ['register-first-name', 'register-middle-name', 'register-last-name'].includes(field.id)) {
+    if (field instanceof HTMLInputElement && ['register-first-name', 'register-middle-name', 'register-last-name', 'request-owner-first-name', 'request-owner-middle-name', 'request-owner-last-name'].includes(field.id)) {
         setRegistrationNameValidation(field);
     }
     if (field instanceof HTMLInputElement && field.type === 'email' && field.id === 'register-email'
@@ -3982,7 +3982,10 @@ function setRegistrationNameValidation(field, { showRequired = false } = {}) {
     const rules = {
         'register-first-name': { label: 'first name', minLength: 2, required: true, errorId: 'register-first-name-error' },
         'register-middle-name': { label: 'middle name', minLength: 1, required: false, errorId: 'register-middle-name-error' },
-        'register-last-name': { label: 'last name', minLength: 2, required: true, errorId: 'register-last-name-error' }
+        'register-last-name': { label: 'last name', minLength: 2, required: true, errorId: 'register-last-name-error' },
+        'request-owner-first-name': { label: 'first name', minLength: 2, required: true, errorId: 'request-owner-first-name-error' },
+        'request-owner-middle-name': { label: 'middle name', minLength: 1, required: false, errorId: 'request-owner-middle-name-error' },
+        'request-owner-last-name': { label: 'last name', minLength: 2, required: true, errorId: 'request-owner-last-name-error' }
     };
     const rule = rules[field.id];
     if (!rule) return true;
@@ -4852,16 +4855,8 @@ async function handleRequest(e) {
         const ownerMiddle = document.getElementById('request-owner-middle-name');
         const ownerRelationship = document.getElementById('request-owner-relationship');
         const relationshipDescription = document.getElementById('request-owner-relationship-description');
-        const ownerNameMessage = 'Use at least 2 characters with letters, spaces, hyphens, apostrophes, or periods. Names made of one repeated character are not accepted.';
-        for (const [field, errorId, valid] of [
-            [ownerFirst, 'request-owner-first-name-error', validPersonNameClient(ownerFirst?.value)],
-            [ownerLast, 'request-owner-last-name-error', validPersonNameClient(ownerLast?.value)],
-            [ownerMiddle, 'request-owner-middle-name-error', !ownerMiddle?.value.trim() || validPersonNameClient(ownerMiddle.value, 1)]
-        ]) {
-            if (!field) continue;
-            field.setAttribute('aria-invalid', String(!valid));
-            if (errorId) document.getElementById(errorId).textContent = valid ? '' : ownerNameMessage;
-            if (!valid) errors.push(true);
+        for (const field of [ownerFirst, ownerMiddle, ownerLast]) {
+            if (field && !setRegistrationNameValidation(field, { showRequired: true })) errors.push(true);
         }
         const ownerAddressValid = Boolean(document.getElementById('request-owner-house-lot')?.value.trim()
             && document.getElementById('request-owner-purok')?.value
