@@ -3960,7 +3960,7 @@ body.resident-workspace-view #resident-dashboard .request-item-heading .status-b
 body.resident-workspace-view #resident-dashboard #request-list {
     height: min(68vh, 580px);
     min-height: 0;
-    max-height: none;
+    max-height: min(68vh, 580px);
     overflow-y: auto;
     overscroll-behavior: contain;
     padding-right: 8px;
@@ -3974,6 +3974,7 @@ body.resident-workspace-view #resident-dashboard #request-list {
     }
     body.resident-workspace-view #resident-dashboard #request-list {
         height: auto;
+        max-height: min(68vh, 580px);
         flex: 1 1 auto;
     }
 }
@@ -5459,7 +5460,8 @@ body.public-portal-view:has(#record.active) .site-disclaimer-bar { border-top: 1
 @media (max-width: 767px) {
     body.resident-workspace-view #resident-dashboard #request-list {
         height: min(62vh, 520px);
-        min-height: 260px;
+        min-height: min(260px, 62vh);
+        max-height: min(62vh, 520px);
     }
 }
 
@@ -5580,7 +5582,16 @@ body.resident-workspace-view #resident-dashboard #request-form .request-owner-ad
     display: grid;
     grid-column: 1 / -1;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     gap: 12px;
+}
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-address-grid > .input-group,
+body.resident-workspace-view #resident-dashboard #request-form .request-owner-address-grid :is(input, select) {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 body.resident-workspace-view #resident-dashboard #request-form .request-owner-street { grid-column: 1 / -1; }
 body.resident-workspace-view #resident-dashboard #request-form .request-owner-warning {
@@ -5622,7 +5633,7 @@ body.resident-workspace-view #resident-dashboard #request-form .request-document
     body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields > legend { padding-bottom: 8px; font-size: 15px; font-weight: 650; }
     body.resident-workspace-view #resident-dashboard #request-form .request-owner-warning { gap: 7px; padding: 9px 10px; border: 1px solid #ead9a8; border-radius: 7px; background: #fff8e8; font-size: 12px; line-height: 1.45; }
     body.resident-workspace-view #resident-dashboard #request-form .request-owner-warning > i { margin-top: 2px; font-size: 12px; }
-    body.resident-workspace-view #resident-dashboard #request-form .request-owner-grid { grid-template-columns: minmax(0, 1fr) minmax(76px, .42fr) minmax(0, 1fr); grid-template-areas: "first last last" "middle middle suffix" "birth birth birth" "relationship relationship relationship" "description description description" "address address address"; gap: 9px 8px; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-owner-grid { width: 100%; min-width: 0; grid-template-columns: minmax(0, 1fr) minmax(76px, .42fr) minmax(0, 1fr); grid-template-areas: "first last last" "middle middle suffix" "birth birth birth" "relationship relationship relationship" "description description description" "address address address"; gap: 9px 8px; }
     body.resident-workspace-view #resident-dashboard #request-form .request-owner-first { grid-area: first; }
     body.resident-workspace-view #resident-dashboard #request-form .request-owner-last { grid-area: last; }
     body.resident-workspace-view #resident-dashboard #request-form .request-owner-middle { grid-area: middle; }
@@ -5630,7 +5641,7 @@ body.resident-workspace-view #resident-dashboard #request-form .request-document
     body.resident-workspace-view #resident-dashboard #request-form .request-owner-birth { grid-area: birth; }
     body.resident-workspace-view #resident-dashboard #request-form .request-owner-relationship-field { grid-area: relationship; }
     body.resident-workspace-view #resident-dashboard #request-form .request-owner-relationship-description { grid-area: description; }
-    body.resident-workspace-view #resident-dashboard #request-form .request-owner-address-grid { grid-area: address; grid-column: auto; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 9px 8px; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-owner-address-grid { grid-row: address-start / address-end; grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); justify-self: stretch; gap: 9px 8px; }
     body.resident-workspace-view #resident-dashboard #request-form .request-owner-street { grid-column: 1 / -1; }
     body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields .input-group > label,
     body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item > label { font-size: 15px; font-weight: 600; }

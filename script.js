@@ -449,9 +449,29 @@ function setPortalLanguage(eventOrLanguage) {
 })();
 
 /** Format a date as "Oct 8, 2026" — unambiguous for PH readers */
+function isValidDateValue(value) {
+    if (value == null || value === '') return false;
+    const text = String(value).trim();
+    if (!text || /^0000-00-00(?:$|[ T])/.test(text)) return false;
+    const dateOnly = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:$|[ T])/);
+    if (dateOnly) {
+        const year = Number(dateOnly[1]);
+        const month = Number(dateOnly[2]);
+        const day = Number(dateOnly[3]);
+        const utcDate = new Date(Date.UTC(year, month - 1, day));
+        return year > 0
+            && utcDate.getUTCFullYear() === year
+            && utcDate.getUTCMonth() === month - 1
+            && utcDate.getUTCDate() === day;
+    }
+    return !Number.isNaN(new Date(text).getTime());
+}
+
 function formatDate(d) {
+    if (d == null || d === '') return '';
+    if (!isValidDateValue(d)) return '—';
     const dt = new Date(d);
-    return isNaN(dt) ? d : dt.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+    return dt.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 /* ============================================================
@@ -6029,7 +6049,7 @@ function createPickupRescheduleControl(request) {
     if (request.latestRescheduleStatus === 'Pending') {
         return el('p', { className: 'request-reschedule-pending', text: 'Your pickup reschedule request is waiting for secretary review.' });
     }
-    if (!request.pickup_date || count >= 2) return null;
+    if (!isValidDateValue(request.pickup_date) || count >= 2) return null;
     const panel = el('div', { className: 'resident-request-action resident-request-reschedule' });
     const openButton = el('button', { className: 'btn-outline', text: 'Request a new pickup date', attrs: { type: 'button' } });
     const form = el('div', { className: 'request-reschedule-form', attrs: { hidden: '' } });
@@ -6191,9 +6211,11 @@ function renderResidentRequestList(requests = residentRequestItems) {
             const details = String(r.pickupDetails || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean);
             const pickup = details.find(line => /^Pickup:/i.test(line)) || '';
             const residentNote = details.find(line => /^Note to resident:/i.test(line)) || '';
+            const hasPickupDate = isValidDateValue(r.pickup_date);
+            const hasPickupDeadline = isValidDateValue(r.pickup_deadline_at);
             item.appendChild(el('div', { className: 'request-note request-note-ready' }, [
-                el('p', { text: r.pickup_date ? `Scheduled pickup: ${formatDate(r.pickup_date)}${r.pickup_time ? ` at ${formatPickupTime(r.pickup_time)}` : ''}` : pickup ? formatPickupDetails(pickup.replace(/^Pickup:\s*/i, '')) : 'Please proceed to Barangay Hall during office hours.' }),
-                r.pickup_deadline_at ? el('p', { text: `Pickup deadline: ${formatDateTime(r.pickup_deadline_at)}` }) : null,
+                el('p', { text: hasPickupDate ? `Scheduled pickup: ${formatDate(r.pickup_date)}${r.pickup_time ? ` at ${formatPickupTime(r.pickup_time)}` : ''}` : pickup ? formatPickupDetails(pickup.replace(/^Pickup:\s*/i, '')) : 'Please proceed to Barangay Hall during office hours.' }),
+                hasPickupDeadline ? el('p', { text: `Pickup deadline: ${formatDateTime(r.pickup_deadline_at)}` }) : null,
                 residentNote ? el('p', { text: residentNote.replace(/^Note to resident:\s*/i, '') }) : null
             ]));
             const rescheduleControl = createPickupRescheduleControl(r);
@@ -6221,8 +6243,10 @@ let activityDirection = 'DESC';
 let activityLastRows = [];
 
 function formatDateTime(value) {
+    if (value == null || value === '') return '';
+    if (!isValidDateValue(value)) return '—';
     const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? String(value || '') : date.toLocaleString('en-PH', {
+    return date.toLocaleString('en-PH', {
         year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
     });
 }
