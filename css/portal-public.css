@@ -3958,9 +3958,9 @@ body.resident-workspace-view #resident-dashboard .request-item-heading .status-b
     margin-top: 0;
 }
 body.resident-workspace-view #resident-dashboard #request-list {
-    height: auto;
+    height: min(82vh, 780px);
     min-height: 0;
-    max-height: none;
+    max-height: min(82vh, 780px);
     overflow-y: auto;
     overscroll-behavior: contain;
     padding-right: 8px;
@@ -3974,7 +3974,7 @@ body.resident-workspace-view #resident-dashboard #request-list {
     }
     body.resident-workspace-view #resident-dashboard #request-list {
         height: auto;
-        max-height: none;
+        max-height: min(82vh, 780px);
         flex: 1 1 auto;
     }
 }
@@ -4332,11 +4332,17 @@ body.resident-workspace-view #resident-dashboard .request-guidance-desktop {
 /* Desktop-only privacy note and request tracking guidance. */
 @media (min-width: 1024px) {
     body.resident-workspace-view #resident-dashboard .dashboard-grid.resident-grid {
-        align-items: stretch;
+        align-items: start;
     }
     body.resident-workspace-view #resident-dashboard .resident-grid > .card {
         height: auto;
-        align-self: stretch;
+        align-self: auto;
+    }
+    /* Track my requests card sticks to the top as the form card grows */
+    body.resident-workspace-view #resident-dashboard #resident-request-panel-list {
+        position: sticky;
+        top: 16px;
+        align-self: start;
     }
     body.resident-workspace-view #resident-dashboard #request-proof-privacy {
         margin-top: 12px;
