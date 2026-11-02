@@ -1,5 +1,5 @@
 body.public-portal-view #record.record-spa-section { position: relative; isolation: isolate; min-height: 0; padding: 28px 0 24px; background: #86162b; }
-body.public-portal-view #record.record-spa-section::before { position: absolute; inset: 0; z-index: -1; background: url("../assets/Sangguniang_Kabataan_logo.svg") calc(100% + 95vh) 50% / 190vh 190vh no-repeat; background-attachment: fixed; opacity: .09; content: ""; pointer-events: none; }
+body.public-portal-view #record.record-spa-section::before { position: absolute; inset: 0; z-index: -1; background: url("../assets/Sangguniang_Kabataan_logo.svg") right -10% center / 70% 70% no-repeat; opacity: .09; content: ""; pointer-events: none; }
 .record-spa-shell { width: min(100% - 48px, 1200px); margin: 0 auto; }
 .record-spa-breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 20px; color: rgba(255,255,255,.84); font-size: 13px; }
 .record-spa-breadcrumb a { color: #fff; text-underline-offset: 3px; }
