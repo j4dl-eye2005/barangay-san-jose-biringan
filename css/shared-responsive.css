@@ -2864,6 +2864,6 @@ img.proof-preview-media { width: auto; }
     #resident-dashboard .request-submit-guidance,
     #resident-dashboard .request-verification-note { font-size: 13px; }
     #resident-dashboard .request-filter-tabs button { min-height: 44px; font-size: 14px; }
-    #resident-dashboard #request-list { max-height: min(82vh, 780px); padding-right: 2px; }
+    #resident-dashboard #request-list { max-height: none; overflow: visible; padding-right: 0; }
     #resident-dashboard .request-submit-confirmation .request-success-dashboard { width: 100%; min-height: 44px; justify-self: stretch; }
 }

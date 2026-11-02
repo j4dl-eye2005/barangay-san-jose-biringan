@@ -174,7 +174,7 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
             <div class="business-receipt" aria-label="Payment information">
                 <p><span>Portal receipt no.</span><strong><?= $escape($portalReceiptNumber) ?></strong></p>
                 <p><span>Date paid</span><strong><?= $escape($paidDate ?: 'Not recorded') ?></strong></p>
-                <p><span>Amount paid</span><strong><?= $paid ? '₱ ' . $escape(number_format((float) $request['fee_amount'], 2)) : 'Not recorded' ?></strong></p>
+                <p><span>Amount paid</span><strong><?= $paid ? '₱' . $escape(number_format((float) $request['fee_amount'], 2)) : 'Not recorded' ?></strong></p>
                 <p><span>Printed date</span><strong><?= $escape($manila->format('F d, Y')) ?></strong></p>
             </div>
             <div class="business-issued">

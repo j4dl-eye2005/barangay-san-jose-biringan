@@ -1312,12 +1312,12 @@ function updateLandingDocumentFinder(purpose) {
         general: {
             name: 'Barangay Clearance',
             description: 'General-purpose clearance for employment, business, or personal use.',
-            fee: '₱50'
+            fee: '₱50.00'
         },
         residency: {
             name: 'Certificate of Residency',
             description: 'Confirms you are a registered resident of Barangay San Jose.',
-            fee: '₱50'
+            fee: '₱50.00'
         },
         indigency: {
             name: 'Certificate of Indigency',
@@ -1327,7 +1327,7 @@ function updateLandingDocumentFinder(purpose) {
         business: {
             name: 'Barangay Business Clearance',
             description: 'Barangay-level approval required before applying for a city business permit.',
-            fee: '₱200'
+            fee: '₱200.00'
         }
     };
     const suggestion = suggestions[purpose];
@@ -4487,7 +4487,7 @@ async function getDocumentTypes() {
 }
 function publicDocumentFeeLabel(documentName) {
     const fee = publicDocumentTypeFees.get(String(documentName || '').trim().toLowerCase());
-    return fee === undefined || fee === null ? 'Fee confirmed at the barangay hall' : fee === 0 ? 'Free' : `Fee: ₱${fee}`;
+    return fee === undefined || fee === null ? 'Fee confirmed at the barangay hall' : fee === 0 ? 'Free' : `Fee: ${formatPhpAmount(fee)}`;
 }
 function updatePublicDocumentFees(types) {
     publicDocumentTypeFees = new Map(types.map(type => [
@@ -4525,7 +4525,7 @@ async function loadDocTypes() {
     types.forEach(t => {
         const hasFeeField = Object.prototype.hasOwnProperty.call(t, 'fee');
         const fee = hasFeeField && (t.fee == null || t.fee === '') ? null : getDocumentFee(t);
-        const feeLabel = fee === null ? 'Fee confirmed at the barangay hall' : fee === 0 ? 'Free' : `₱${fee}`;
+        const feeLabel = fee === null ? 'Fee confirmed at the barangay hall' : fee === 0 ? 'Free' : formatPhpAmount(fee);
         const option = el('option', { text: `${t.name} · ${feeLabel}` });
         option.value = t.document_type_id;
         option.dataset.name = t.name;
@@ -4574,7 +4574,7 @@ function updateDocumentTypeInfo() {
     const processingTime = selected?.dataset.processingTime?.trim() || '';
     clearNode(content);
     if (name) {
-        const feeText = fee === null ? 'Fee confirmed at the barangay hall' : fee === 0 ? 'Free' : `₱${fee}`;
+        const feeText = fee === null ? 'Fee confirmed at the barangay hall' : fee === 0 ? 'Free' : formatPhpAmount(fee);
         content.append(el('span', { className: 'request-summary-document', text: name }));
         if (requirements) {
             content.appendChild(el('p', {
@@ -5932,49 +5932,8 @@ function createResidentRequestPlaceholder() {
     ]);
 }
 
-function fillResidentRequestListWithPlaceholders(list, visibleRequestCount) {
-    if (visibleRequestCount < 1) return;
-    const isMobile = window.matchMedia('(max-width: 767px)').matches;
-    if (isMobile) {
-        const count = Math.min(2, Math.max(0, 2 - visibleRequestCount));
-        for (let index = 0; index < count; index += 1) {
-            list.appendChild(createResidentRequestPlaceholder());
-        }
-        return;
-    }
-
-    const minimumCount = visibleRequestCount < 3 ? 1 : 0;
-    const panel = document.getElementById('resident-request-panel-list');
-    const formPanel = document.getElementById('resident-request-panel-new');
-    const listRect = list.getBoundingClientRect();
-    const panelRect = panel?.getBoundingClientRect();
-    const formRect = formPanel?.getBoundingClientRect();
-    const layoutAvailable = panelRect?.height > 0 && formRect?.height > 0;
-    if (!layoutAvailable) {
-        for (let index = 0; index < minimumCount; index += 1) {
-            list.appendChild(createResidentRequestPlaceholder());
-        }
-        return;
-    }
-
-    const panelPaddingBottom = Number.parseFloat(getComputedStyle(panel).paddingBottom) || 0;
-    const listOffset = listRect.top - panelRect.top;
-    const availableHeight = Math.max(0, formRect.height - listOffset - panelPaddingBottom);
-    let remainingHeight = availableHeight - list.scrollHeight;
-    let count = 0;
-    while (count < 2) {
-        const placeholder = createResidentRequestPlaceholder();
-        const beforeHeight = list.scrollHeight;
-        list.appendChild(placeholder);
-        const addedHeight = list.scrollHeight - beforeHeight;
-        if (count < minimumCount || addedHeight <= remainingHeight) {
-            count += 1;
-            remainingHeight -= addedHeight;
-            continue;
-        }
-        placeholder.remove();
-        break;
-    }
+function fillResidentRequestListWithPlaceholders() {
+    // The track-my-requests card grows with real requests; the page scrolls once.
 }
 
 function cancellationCooldownLabel(seconds) {
@@ -6174,14 +6133,14 @@ function renderResidentRequestList(requests = residentRequestItems) {
             progress
         ]);
 
-        const feeText = fee === null ? 'To be confirmed' : fee === 0 ? 'Free' : `₱${fee}`;
+        const feeText = fee === null ? 'To be confirmed' : fee === 0 ? 'Free' : formatPhpAmount(fee);
         const paymentRow = el('div', { className: 'request-payment-line' }, [
             el('strong', { text: `Fee: ${feeText}` }),
             fee === 0
                 ? el('span', { className: 'payment-status-chip payment-free', text: 'No payment required' })
                 : fee === null
                     ? el('span', { className: 'payment-status-chip payment-unpaid', text: 'TBA' })
-                    : el('span', { className: `payment-status-chip ${paymentStatusClass(paymentStatus)}`, text: paymentStatus })
+                    : el('span', { className: `payment-status-chip ${paymentStatusClass(paymentStatus)}`, text: formatPaymentStatusLabel(paymentStatus) })
         ]);
         item.appendChild(paymentRow);
         const paymentControl = createResidentPaymentControl(r, fee, paymentStatus);
@@ -6432,10 +6391,30 @@ function createResidentPaymentControl(request, fee, paymentStatus) {
     const section = el('section', { className: 'resident-payment-review' });
     const emailAddress = String(currentUser?.email || 'your registered email');
     if (paymentStatus === 'Paid') {
-        section.classList.add('resident-payment-confirmed');
+        section.classList.add('resident-payment-recorded');
+        const noteId = `resident-payment-recorded-note-${request.request_id}`;
+        const note = el('p', {
+            className: 'resident-payment-recorded-note',
+            text: `A status notice is being sent to ${maskEmailAddress(emailAddress)} (check your Spam folder). It is not your official receipt, so keep the one from the cashier or payment provider.`,
+            attrs: { id: noteId, hidden: '' }
+        });
+        const details = el('button', {
+            className: 'resident-payment-details-toggle',
+            text: 'Details',
+            attrs: { type: 'button', 'aria-expanded': 'false', 'aria-controls': noteId }
+        });
+        details.addEventListener('click', () => {
+            const open = note.hidden;
+            note.hidden = !open;
+            details.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
         section.append(
-            el('strong', { className: 'resident-payment-instructions-title', text: 'Payment recorded' }),
-            el('p', { className: 'field-help', text: `The portal queues a payment confirmation for ${emailAddress}. Check your Gmail inbox and Spam folder. If it does not arrive, the request status is still shown here. This email is a portal status notice; keep the official receipt from the cashier or payment provider.` })
+            el('div', { className: 'resident-payment-recorded-row' }, [
+                el('i', { className: 'fas fa-check', attrs: { 'aria-hidden': 'true' } }),
+                el('span', { text: 'Payment recorded' }),
+                details
+            ]),
+            note
         );
         return section;
     }
@@ -7591,7 +7570,7 @@ async function openAdminRequestDetail(requestId) {
                 } }
             }, [trackingCopyIcon, trackingCopyTooltip, trackingCopyAnnouncement])
         ]);
-        const feeText = fee === null ? 'To be confirmed' : fee === 0 ? 'Free' : `₱${fee}`;
+        const feeText = fee === null ? 'To be confirmed' : fee === 0 ? 'Free' : formatPhpAmount(fee);
         const canReverseCash = request.latest_payment_method === 'cash';
         const paymentButton = !staffHasPermission('payments.manage') || fee === null || fee === 0 || paymentStatus === 'Pending Verification' || !['Approved', 'Ready for Pickup'].includes(request.current_status) || (paymentStatus === 'Paid' && !canReverseCash) ? null : el('button', {
             className: paymentStatus === 'Paid' ? 'btn-outline' : 'btn-solid',
@@ -8040,7 +8019,27 @@ function titleCaseName(name) {
 
 function formatPhpAmount(value) {
     const amount = Number(value);
-    return Number.isFinite(amount) ? new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount) : 'To be assessed';
+    if (!Number.isFinite(amount)) return 'To be assessed';
+    const digits = Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return `${amount < 0 ? '-' : ''}₱${digits}`;
+}
+
+function formatPaymentStatusLabel(status) {
+    const labels = {
+        'Pending Verification': 'Pending verification',
+        'Not Required': 'Not required'
+    };
+    return labels[status] || status;
+}
+
+function maskEmailAddress(email, fallback = 'your registered email') {
+    const value = String(email || '').trim();
+    const at = value.lastIndexOf('@');
+    if (at < 1 || at === value.length - 1) return fallback;
+    const local = value.slice(0, at);
+    const domain = value.slice(at + 1);
+    if (!local || !domain.includes('.')) return fallback;
+    return `${local.charAt(0)}***@${domain}`;
 }
 
 async function loadAdminCollections() {
