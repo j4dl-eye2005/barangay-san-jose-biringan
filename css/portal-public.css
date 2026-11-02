@@ -5464,13 +5464,7 @@ body.public-portal-view:has(#record.active) .site-disclaimer-bar { border-top: 1
         max-height: none;
     }
     body.resident-workspace-view #resident-dashboard #resident-request-panel-list.active {
-        display: flex;
-        flex-direction: column;
-        flex: 1 1 auto;
-        min-height: calc(100vh - 120px);
-    }
-    body.resident-workspace-view #resident-dashboard #resident-request-panel-list.active #request-list {
-        flex: 1 1 auto;
+        display: block;
     }
 }
 
