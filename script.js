@@ -6479,7 +6479,7 @@ function createResidentPaymentControl(request, fee, paymentStatus) {
         'aria-hidden': 'true'
     };
     if (isMobile) {
-        proofAttributes.capture = 'environment';
+        // No capture attribute — allow camera, photos, or files from the picker
     }
     const proof = el('input', { className: 'resident-payment-file-input', attrs: proofAttributes });
     const submitButton = el('button', { className: 'btn-solid', text: 'Send for verification', attrs: { type: 'submit' } });
