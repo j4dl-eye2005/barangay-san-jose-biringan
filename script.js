@@ -63,6 +63,10 @@ window.onRecaptchaLoad = function onRecaptchaLoad() {
     }
 };
 
+// If reCAPTCHA already loaded and fired its onload callback before this script
+// ran (possible with defer ordering), re-invoke the handler now.
+if (window.grecaptcha?.render) window.onRecaptchaLoad();
+
 let currentUser = null;
 let adminSidebarPhotoLookupUserId = null;
 let walkInPanelReturnFocus = null;

@@ -194,7 +194,10 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <meta name="recaptcha-site-key" content="<?= htmlspecialchars($recaptchaSiteKey, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="recaptcha-local-bypass" content="<?= $localCaptchaBypass ? 'true' : 'false' ?>">
     <link rel="icon" type="image/png" href="assets/favicon-optimized.png">
-    <?php if (!$localCaptchaBypass): ?><script src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&amp;render=explicit" defer></script><?php endif; ?>
+    <?php if (!$localCaptchaBypass): ?>
+    <script>window.onRecaptchaLoad = function(){};</script>
+    <script src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&amp;render=explicit" defer></script>
+    <?php endif; ?>
     <?php if ($verifyToken !== ''): ?>
     <meta name="email-verify-token" content="<?= htmlspecialchars($verifyToken, ENT_QUOTES, 'UTF-8') ?>">
     <?php endif; ?>
