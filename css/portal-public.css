@@ -5480,6 +5480,7 @@ body.public-portal-view:has(#record.active) .site-disclaimer-bar { border-top: 1
     display: grid;
     gap: 8px;
 }
+.resident-payment-instructions[hidden] { display: none !important; }
 .resident-payment-instructions > p {
     margin: 0;
     color: #3f4a43;
