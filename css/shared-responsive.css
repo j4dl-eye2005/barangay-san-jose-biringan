@@ -1944,6 +1944,8 @@ img.proof-preview-media { width: auto; }
     #resident-dashboard [data-request-panel] { display: none; }
     #resident-dashboard [data-request-panel].active {
         display: block;
+        width: 100%;
+        box-sizing: border-box;
         margin-top: 20px;
         animation: resident-request-panel-in .24s ease-out both;
     }

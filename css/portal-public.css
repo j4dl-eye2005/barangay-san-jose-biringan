@@ -5459,9 +5459,18 @@ body.public-portal-view:has(#record.active) .site-disclaimer-bar { border-top: 1
 
 @media (max-width: 767px) {
     body.resident-workspace-view #resident-dashboard #request-list {
-        height: min(62vh, 520px);
-        min-height: min(260px, 62vh);
-        max-height: min(62vh, 520px);
+        height: auto;
+        min-height: 0;
+        max-height: none;
+    }
+    body.resident-workspace-view #resident-dashboard #resident-request-panel-list.active {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: calc(100vh - 120px);
+    }
+    body.resident-workspace-view #resident-dashboard #resident-request-panel-list.active #request-list {
+        flex: 1 1 auto;
     }
 }
 
@@ -5643,6 +5652,7 @@ body.resident-workspace-view #resident-dashboard #request-form .request-document
     body.resident-workspace-view #resident-dashboard #request-form .request-owner-relationship-description { grid-area: description; }
     body.resident-workspace-view #resident-dashboard #request-form .request-owner-address-grid { grid-row: address-start / address-end; grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); justify-self: stretch; gap: 9px 8px; }
     body.resident-workspace-view #resident-dashboard #request-form .request-owner-street { grid-column: 1 / -1; }
+    body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields .request-owner-house-lot > label { font-size: 14px; white-space: nowrap; }
     body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields .input-group > label,
     body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item > label { font-size: 15px; font-weight: 600; }
     body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields :is(input:not([type="file"]), select) { height: 44px; min-height: 44px; padding: 8px 10px; font-size: 15px; line-height: 1.35; }
@@ -5661,5 +5671,9 @@ body.resident-workspace-view #resident-dashboard #request-form .request-document
     body.resident-workspace-view #resident-dashboard #request-form #request-proof-group:has(#request-owner-proof-residency:not([hidden])) { margin-top: 22px; }
     body.resident-workspace-view #resident-dashboard #request-form #request-proof-group .request-proof-privacy { margin-top: 10px; font-size: 12px; line-height: 1.45; }
     body.resident-workspace-view #resident-dashboard #request-form .request-guidance-mobile a { font-weight: inherit; text-decoration-thickness: 1px; }
+}
+
+@media (max-width: 360px) {
+    body.resident-workspace-view #resident-dashboard #request-form .request-owner-address-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
