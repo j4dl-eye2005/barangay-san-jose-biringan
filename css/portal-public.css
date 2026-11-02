@@ -3963,7 +3963,7 @@ body.resident-workspace-view #resident-dashboard #request-list {
     max-height: min(82vh, 780px);
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding-right: 8px;
+    padding: 2px 10px 2px 2px;
     scrollbar-gutter: stable;
 }
 @media (min-width: 768px) {
