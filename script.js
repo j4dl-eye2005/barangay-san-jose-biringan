@@ -107,6 +107,8 @@ let bulletinDeleteReturnFocus = null;
 let publicDisclosuresLoaded = false;
 let publicDisclosuresLoadedAt = 0;
 let publicDisclosuresItems = [];
+let publicBulletinLatestAnnouncements = [];
+let publicBulletinLatestLoaded = false;
 let publicRecordDetailLoadToken = 0;
 let publicDisclosuresLoadPromise = null;
 let publicDisclosuresInFlightQueryKey = '';
@@ -1823,11 +1825,11 @@ function renderBulletinLatest(query = '') {
     // Category records are a separate page view; loading their data must not
     // reveal the overview's latest-announcements block above that page.
     section.hidden = Boolean(activeBulletinCategory);
-    const announcements = publicDisclosuresItems.filter(item => Number(item.category_id) === 1).slice(0, 3);
+    const announcements = publicBulletinLatestAnnouncements.slice(0, 3);
 
     // Keep already fetched announcement cards visible while the full archive
     // query is refreshed after returning from a category view.
-    if (!publicDisclosuresLoaded && announcements.length === 0) {
+    if (!publicBulletinLatestLoaded && announcements.length === 0) {
         if (publicDisclosuresLoadError) {
             clearNode(container);
             container.setAttribute('aria-busy', 'false');
@@ -9513,6 +9515,12 @@ async function loadDisclosures(force = false, requestedPage = 1) {
             const items = await res.json();
             if (!Array.isArray(items)) throw new Error('Public records returned an invalid response.');
             publicDisclosuresItems = appendPage ? [...publicDisclosuresItems, ...items] : items;
+            if (requestedCategory === null || requestedCategory === 1) {
+                publicBulletinLatestAnnouncements = publicDisclosuresItems
+                    .filter(item => Number(item.category_id) === 1)
+                    .slice(0, 3);
+                publicBulletinLatestLoaded = true;
+            }
             publicDisclosuresPage = page;
             publicDisclosuresTotal = Number(res.headers.get('X-Public-Records-Total')) || 0;
             publicDisclosuresHasMore = publicDisclosuresPage * publicDisclosuresPerPage < publicDisclosuresTotal;
