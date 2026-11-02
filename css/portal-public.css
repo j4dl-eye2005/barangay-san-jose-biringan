@@ -3958,9 +3958,9 @@ body.resident-workspace-view #resident-dashboard .request-item-heading .status-b
     margin-top: 0;
 }
 body.resident-workspace-view #resident-dashboard #request-list {
-    height: min(82vh, 780px);
+    height: auto;
     min-height: 0;
-    max-height: min(82vh, 780px);
+    max-height: none;
     overflow-y: auto;
     overscroll-behavior: contain;
     padding-right: 8px;
@@ -3974,7 +3974,7 @@ body.resident-workspace-view #resident-dashboard #request-list {
     }
     body.resident-workspace-view #resident-dashboard #request-list {
         height: auto;
-        max-height: min(82vh, 780px);
+        max-height: none;
         flex: 1 1 auto;
     }
 }
