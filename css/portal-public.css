@@ -1346,7 +1346,7 @@ body.public-portal-view #bulletin::before {
     position: absolute;
     inset: 0;
     z-index: -1;
-    background: url("../assets/Sangguniang_Kabataan_logo.svg") calc(100% + 95vw) 50vw / 190vw 190vw no-repeat;
+    background: url("../assets/Sangguniang_Kabataan_logo.svg") calc(100% + 95vw) 20vw / 190vw 190vw no-repeat;
     background-attachment: fixed;
     opacity: .07;
     pointer-events: none;
