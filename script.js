@@ -6430,12 +6430,33 @@ function createResidentPaymentControl(request, fee, paymentStatus) {
         );
         return section;
     }
-    section.appendChild(el('div', { className: 'resident-payment-instructions' }, [
-        el('strong', { className: 'resident-payment-instructions-title', text: 'Where and how to pay' }),
+    const payInstructionsNoteId = `resident-payment-instructions-note-${request.request_id}`;
+    const payInstructionsNote = el('div', {
+        className: 'resident-payment-instructions',
+        attrs: { id: payInstructionsNoteId, hidden: '' }
+    }, [
         el('p', { text: `For an in-person payment, visit the Barangay Hall cashier in Barangay San Jose, Biringan City. Show tracking code ${String(request.tracking_code || '')}, confirm the accepted payment method, and ask the cashier to record the payment against this request.` }),
         el('p', { text: 'For online payment, scan the GCash QR below and pay the exact assessed fee. Verify the recipient shown in GCash before confirming; transfer fees may apply.' }),
         el('img', { className: 'resident-payment-gcash-qr', attrs: { src: 'assets/gcash-payment-qr.png', alt: 'GCash payment QR code' } }),
         el('p', { text: `After paying through GCash, enter the receipt number as the Payment reference and attach a screenshot of the receipt under Receipt proof. Staff must verify the payment before the request can move forward. The portal emails an update to ${emailAddress}.` })
+    ]);
+    const payInstructionsToggle = el('button', {
+        className: 'resident-payment-details-toggle',
+        text: 'Details',
+        attrs: { type: 'button', 'aria-expanded': 'false', 'aria-controls': payInstructionsNoteId }
+    });
+    payInstructionsToggle.addEventListener('click', () => {
+        const open = payInstructionsNote.hidden;
+        payInstructionsNote.hidden = !open;
+        payInstructionsToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    section.appendChild(el('div', { className: 'resident-payment-recorded' }, [
+        el('div', { className: 'resident-payment-recorded-row' }, [
+            el('i', { className: 'fas fa-credit-card', attrs: { 'aria-hidden': 'true' } }),
+            el('span', { text: 'Where and how to pay' }),
+            payInstructionsToggle
+        ]),
+        payInstructionsNote
     ]));
     if (paymentStatus === 'Rejected' && request.payment_rejection_reason) {
         section.appendChild(el('p', { className: 'request-payment-rejection', text: `Payment proof needs an update: ${request.payment_rejection_reason}` }));

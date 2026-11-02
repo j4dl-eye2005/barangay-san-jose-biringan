@@ -3958,11 +3958,13 @@ body.resident-workspace-view #resident-dashboard .request-item-heading .status-b
     margin-top: 0;
 }
 body.resident-workspace-view #resident-dashboard #request-list {
-    height: auto;
+    height: min(82vh, 780px);
     min-height: 0;
-    max-height: none;
-    overflow: visible;
-    padding: 0;
+    max-height: min(82vh, 780px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 2px 10px 2px 2px;
+    scrollbar-gutter: stable;
 }
 body.resident-workspace-view #resident-dashboard .request-item .request-tracking-line {
     margin: 3px 0 0;
@@ -4334,11 +4336,17 @@ body.resident-workspace-view #resident-dashboard .request-guidance-desktop {
         align-self: auto;
     }
     body.resident-workspace-view #resident-dashboard #resident-request-panel-list {
-        position: static;
-        height: auto;
-        max-height: none;
-        overflow: visible;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        position: sticky;
+        top: 16px;
         align-self: start;
+    }
+    body.resident-workspace-view #resident-dashboard #resident-request-panel-list #request-list {
+        height: auto;
+        max-height: min(82vh, 780px);
+        flex: 1 1 auto;
     }
     body.resident-workspace-view #resident-dashboard #request-proof-privacy {
         margin-top: 12px;
