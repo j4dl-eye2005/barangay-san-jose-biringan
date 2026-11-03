@@ -5683,6 +5683,8 @@ body.resident-workspace-view #resident-dashboard #request-form .request-owner-pr
 body.resident-workspace-view #resident-dashboard #request-form .request-owner-proof-residency p { margin: 0; font-size: 13px; line-height: 1.45; }
 body.resident-workspace-view #resident-dashboard #request-form .request-owner-relationship-description[hidden] { display: none !important; }
 body.resident-workspace-view #resident-dashboard #request-form .request-document-requirements-note { margin: 0; color: #59665d; font-size: 13px; line-height: 1.4; }
+.representative-upload-heading { display: none; }
+.representative-upload-mobile-copy { display: none; }
 
 @media (max-width: 767px) {
     body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields { gap: 10px; margin-top: 4px; padding: 12px; }
@@ -5708,11 +5710,39 @@ body.resident-workspace-view #resident-dashboard #request-form .request-document
     body.resident-workspace-view #resident-dashboard #request-form #request-owner-fields select option { color: #26352b; font-size: 15px; }
     body.resident-workspace-view #resident-dashboard #request-form .request-owner-upload-helper { font-size: 12px; }
     body.resident-workspace-view #resident-dashboard #request-form .request-document-requirements-note { font-size: 12px; }
-    body.resident-workspace-view #resident-dashboard #request-form .request-representative-documents { gap: 9px; }
+    body.resident-workspace-view #resident-dashboard #request-form .request-representative-documents { gap: 14px; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-heading { display: grid; gap: 4px; margin: 0 0 2px; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-heading-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-heading-row > strong { color: #34443a; font-size: 13px; font-weight: 650; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-progress { color: #68756c; font-size: 11px; font-weight: 600; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-heading > p { margin: 0; color: #68756c; font-size: 11px; font-weight: 400; line-height: 1.4; }
     body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item { gap: 5px; }
-    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item .request-upload-area { min-height: 60px; gap: 4px; padding: 8px 10px; font-size: 14px; }
-    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item .request-upload-area > i { width: 22px; height: 22px; flex-basis: 22px; font-size: 12px; }
-    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item .request-upload-guidance { font-size: 11px; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item > label { position: relative; padding-left: 21px; color: #414a43; font-size: 12px; font-weight: 600; line-height: 1.35; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item > label::before { position: absolute; top: 1px; left: 0; display: grid; width: 14px; height: 14px; place-items: center; border: 1.5px solid #aeb8b0; border-radius: 50%; color: transparent; content: ""; font-size: 9px; font-weight: 800; line-height: 1; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item.has-file > label::before { border-color: #14532d; background: #14532d; color: #fff; content: "✓"; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-first .request-owner-upload-helper { margin-left: 21px; font-size: 11px; line-height: 1.35; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item:not(.representative-upload-first) .request-owner-upload-helper { display: none; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item .representative-upload-picker { display: flex; min-height: 44px; flex-direction: row; align-items: center; justify-content: flex-start; gap: 9px; padding: 7px 10px; border: 1.5px dashed #43824e; border-radius: 6px; background: #fff; font-size: 13px; text-align: left; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item .representative-upload-picker:hover { border-color: #14532d; background: #fbfefb; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item .representative-upload-picker > i { display: grid; width: 20px; height: 20px; flex: 0 0 20px; place-items: center; border-radius: 0; background: transparent; color: #17632e; font-size: 13px; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item .representative-upload-picker > span { color: #14532d; font-size: 12px; font-weight: 650; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item .representative-upload-desktop-copy { display: none; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item .representative-upload-mobile-copy { display: inline; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-picker[hidden] { display: none !important; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item .representative-upload-picker .request-upload-guidance { display: none; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-preview { display: grid; min-height: 44px; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 7px; margin: 0; padding: 5px 8px; border: 1px solid #c8d8ca; border-radius: 6px; background: #fff; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-preview[hidden] { display: none; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-preview.has-thumbnail { grid-template-columns: 34px minmax(0, 1fr) auto; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-preview::before { color: #477c51; font-size: 17px; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-preview::after { display: none; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-preview > .representative-upload-thumbnail:not([hidden]) { display: block; width: 34px; height: 34px; border-radius: 4px; object-fit: cover; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-thumbnail[hidden] { display: none !important; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-preview .request-proof-file-details { gap: 1px; font-size: 11px; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-preview .request-proof-file-details strong { font-size: 11px; font-weight: 600; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-preview .request-proof-file-details span { font-size: 10px; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-preview .request-proof-actions { gap: 5px; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-preview .request-proof-actions button { min-height: 30px; padding: 3px 2px; font-size: 10px; }
+    body.resident-workspace-view #resident-dashboard #request-form .representative-upload-item .representative-upload-error { margin: 0; }
     body.resident-workspace-view #resident-dashboard #request-form .request-owner-consent { gap: 8px; font-size: 13px; line-height: 1.45; }
     body.resident-workspace-view #resident-dashboard #request-form .request-owner-consent > input[type="checkbox"] { width: 18px; height: 18px; min-width: 18px; min-height: 18px; flex-basis: 18px; margin-top: 1px; }
     body.resident-workspace-view #resident-dashboard #request-form #request-proof-group:has(#request-owner-proof-residency:not([hidden])) { margin-top: 22px; }

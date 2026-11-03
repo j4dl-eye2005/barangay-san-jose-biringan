@@ -4088,7 +4088,7 @@ function representativeDocumentRequirements() {
     const age = requestOwnerAge();
     if (!relationship || age === null) return [];
     const upload = (key, label, helper, kind = 'document') => ({ key, label, helper, kind });
-    const ownerId = upload('owner_id', "Applicant's valid ID", requestRepresentativeIdHelper, 'id');
+    const ownerId = upload('owner_id', 'Applicant’s valid ID', requestRepresentativeIdHelper, 'id');
     const requesterId = upload('requester_id', 'Your valid ID (authorized representative)', requestRepresentativeIdHelper, 'id');
     if (relationship === 'employee_staff') {
         return [
@@ -4112,7 +4112,7 @@ function representativeDocumentRequirements() {
     }
     const letterLabel = age < 18
         ? "Signed authorization letter from the applicant's parent or guardian"
-        : 'Signed authorization letter from the applicant';
+        : 'Signed authorization letter';
     const letterHelper = age < 18
         ? 'Upload a letter signed by the applicant’s parent or guardian.'
         : 'Upload a letter signed by the applicant.';
@@ -4141,14 +4141,50 @@ function updateRepresentativeUploadRow(input, error = '') {
     const preview = wrapper.querySelector('.representative-upload-preview');
     const name = wrapper.querySelector('.representative-upload-name');
     const size = wrapper.querySelector('.representative-upload-size');
+    const thumbnail = wrapper.querySelector('.representative-upload-thumbnail');
     const errorRow = wrapper.querySelector('.representative-upload-error');
     const file = input.files?.[0];
-    if (name) name.textContent = file?.name || '';
+    const mobile = window.matchMedia('(max-width: 767px)').matches;
+    if (name) {
+        const value = file?.name || '';
+        name.textContent = mobile && value.length > 38
+            ? `${value.slice(0, 17)}…${value.slice(-17)}`
+            : value;
+        name.title = value;
+    }
     if (size) size.textContent = file ? formatRequestFileSize(file.size) : '';
     if (preview) preview.hidden = !file;
+    if (thumbnail) {
+        if (input.dataset.previewUrl) {
+            URL.revokeObjectURL(input.dataset.previewUrl);
+            delete input.dataset.previewUrl;
+        }
+        const isImage = Boolean(mobile && file && /^image\//i.test(file.type));
+        preview?.classList.toggle('has-thumbnail', isImage);
+        thumbnail.hidden = !isImage;
+        thumbnail.removeAttribute('src');
+        if (isImage && file) {
+            input.dataset.previewUrl = URL.createObjectURL(file);
+            thumbnail.src = input.dataset.previewUrl;
+        }
+    }
     if (errorRow) errorRow.textContent = error;
     const picker = wrapper.querySelector('.representative-upload-picker');
-    if (picker) picker.setAttribute('aria-invalid', error ? 'true' : 'false');
+    if (picker) {
+        picker.hidden = mobile && Boolean(file);
+        picker.setAttribute('aria-invalid', error ? 'true' : 'false');
+    }
+    wrapper.classList.toggle('has-file', Boolean(file));
+    updateRepresentativeUploadProgress(wrapper.closest('.request-representative-documents'));
+}
+
+function updateRepresentativeUploadProgress(container) {
+    if (!container) return;
+    const inputs = [...container.querySelectorAll('.representative-upload-input')];
+    const attached = inputs.filter(input => input.files?.[0]).length;
+    const progress = container.querySelector('.representative-upload-progress');
+    if (progress) progress.textContent = `${attached} of ${inputs.length} attached`;
+    inputs.forEach(input => input.closest('.representative-upload-item')?.classList.toggle('has-file', Boolean(input.files?.[0])));
 }
 
 function handleRepresentativeFileSelection(input) {
@@ -4156,6 +4192,7 @@ function handleRepresentativeFileSelection(input) {
     const error = file ? validateRepresentativeFile(file) : '';
     if (error) input.value = '';
     updateRepresentativeUploadRow(input, error);
+    updateRepresentativeUploadProgress(document.getElementById('request-representative-documents'));
     updateRequestAvailability();
 }
 
@@ -4189,6 +4226,16 @@ function updateRequestRepresentativeDocuments() {
     if (!relationship.value || requestOwnerAge() === null) {
         docs.appendChild(el('p', { className: 'form-hint request-document-requirements-note', text: 'Choose the applicant’s date of birth and your relationship to the applicant to see the required documents.' }));
     }
+    if (requirements.length) {
+        const attached = requirements.filter(requirement => previousInputs.get(requirement.key)?.files?.[0]).length;
+        docs.appendChild(el('div', { className: 'representative-upload-heading' }, [
+            el('div', { className: 'representative-upload-heading-row' }, [
+                el('strong', { text: 'Required documents' }),
+                el('span', { className: 'representative-upload-progress', text: `${attached} of ${requirements.length} attached`, attrs: { 'aria-live': 'polite' } })
+            ]),
+            el('p', { text: 'PDF, JPG, or PNG, up to 5 MB each. Any valid government-issued ID is accepted, including the PhilID or ePhilID.' })
+        ]));
+    }
     requirements.forEach((requirement, index) => {
         const field = el('div', { className: 'input-group representative-upload-item' });
         const labelId = `request-representative-label-${index}`;
@@ -4197,11 +4244,12 @@ function updateRequestRepresentativeDocuments() {
         const inputId = `request-representative-file-${index}`;
         const label = el('label', { attrs: { for: inputId, id: labelId } }, [requirement.label, ' ', el('span', { className: 'req-star', text: '*', attrs: { 'aria-hidden': 'true' } })]);
         const helper = el('p', { className: 'request-owner-upload-helper', text: requirement.helper, attrs: { id: helperId } });
+        const isMobile = window.matchMedia('(max-width: 767px)').matches;
         const input = previousInputs.get(requirement.key) || el('input', { className: 'request-proof-input representative-upload-input', attrs: {
             id: inputId,
             type: 'file',
             name: `representativeDocuments[${requirement.key}]`,
-            accept: '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png',
+            accept: isMobile ? '.pdf,application/pdf,image/*' : '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png',
             required: '',
             'aria-labelledby': labelId,
             'aria-describedby': `${helperId} ${errorId}`
@@ -4210,6 +4258,7 @@ function updateRequestRepresentativeDocuments() {
         input.name = `representativeDocuments[${requirement.key}]`;
         input.required = true;
         input.disabled = false;
+        input.accept = isMobile ? '.pdf,application/pdf,image/*' : '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png';
         input.setAttribute('aria-labelledby', labelId);
         input.setAttribute('aria-describedby', `${helperId} ${errorId}`);
         if (!input.dataset.representativeUploadBound) {
@@ -4222,23 +4271,27 @@ function updateRequestRepresentativeDocuments() {
             'aria-label': `Choose ${requirement.label}`
         }, on: { click: () => input.click() } }, [
             el('i', { className: 'fas fa-file-arrow-up', attrs: { 'aria-hidden': 'true' } }),
-            el('span', { text: 'Choose a file' }),
+            el('span', { className: 'representative-upload-desktop-copy', text: 'Choose a file' }),
+            el('span', { className: 'representative-upload-mobile-copy', text: 'Choose a file or take a photo' }),
             el('small', { className: 'request-upload-guidance', text: 'PDF, JPG, or PNG · maximum 5 MB' })
         ]);
         const name = el('strong', { className: 'representative-upload-name' });
         const size = el('span', { className: 'representative-upload-size' });
         const preview = el('div', { className: 'request-proof-preview representative-upload-preview', attrs: { hidden: '' } }, [
+            el('img', { className: 'representative-upload-thumbnail', attrs: { alt: '', hidden: '' } }),
             el('div', { className: 'request-proof-file-details' }, [
                 name,
                 el('span', { className: 'request-proof-file-meta' }, [size, el('span', { className: 'request-proof-attached' }, [el('i', { className: 'fas fa-check', attrs: { 'aria-hidden': 'true' } }), ' Attached'])])
             ]),
             el('div', { className: 'request-proof-actions' }, [
-                el('button', { attrs: { type: 'button' }, text: 'Remove', on: { click: () => { input.value = ''; updateRepresentativeUploadRow(input); updateRequestAvailability(); } } }),
+                el('button', { attrs: { type: 'button' }, text: 'Remove', on: { click: () => { input.value = ''; updateRepresentativeUploadRow(input); updateRepresentativeUploadProgress(docs); updateRequestAvailability(); } } }),
                 el('button', { attrs: { type: 'button' }, text: 'Replace', on: { click: () => input.click() } })
             ])
         ]);
         const errorRow = el('span', { className: 'reg-field-error request-proof-error representative-upload-error', attrs: { id: errorId, role: 'alert' } });
         field.append(label, helper, input, picker, preview, errorRow);
+        if (index === 0) field.classList.add('representative-upload-first');
+        if (requirement.kind === 'id' || requirement.kind === 'id-or-birth') field.classList.add('representative-upload-id');
         docs.appendChild(field);
         nextInputs.set(requirement.key, input);
         if (input.files?.[0]) updateRepresentativeUploadRow(input);
@@ -4246,6 +4299,7 @@ function updateRequestRepresentativeDocuments() {
     previousInputs.forEach((input, key) => { if (!nextInputs.has(key)) input.value = ''; });
     requestRepresentativeUploadInputs.clear();
     nextInputs.forEach((input, key) => requestRepresentativeUploadInputs.set(key, input));
+    updateRepresentativeUploadProgress(docs);
     const relationshipError = document.getElementById('request-owner-relationship-error');
     if (relationshipError) relationshipError.textContent = relationship.value ? '' : 'Choose your relationship to the applicant.';
     updateRequestAvailability();
