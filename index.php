@@ -307,7 +307,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <label class="visually-hidden" for="document-finder-purpose">What do you need the document for?</label>
                     <select id="document-finder-purpose" data-action-change="updateLandingDocumentFinder(this)">
                         <option value="">Choose a purpose</option>
-                        <option value="general">Employment, business, or personal use</option>
+                        <option value="general">Employment, business, personal use, or whatever legal purpose it may serve</option>
                         <option value="residency">Confirm that I live in Barangay San Jose</option>
                         <option value="indigency">Show financial need for a government program</option>
                         <option value="business">Apply for a city business permit</option>
@@ -846,7 +846,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                                 <label for="doc-purpose">Purpose</label>
                                 <select id="doc-purpose" name="purposeCategory" required aria-describedby="request-purpose-error">
                                     <option value="" selected disabled>Select a purpose</option>
-                                    <option value="Employment">Employment</option><option value="Scholarship">Scholarship</option><option value="Business permit">Business permit</option><option value="School requirement">School requirement</option><option value="Other">Other</option>
+                                    <option value="Employment">Employment</option><option value="Scholarship">Scholarship</option><option value="Business permit">Business permit</option><option value="School requirement">School requirement</option><option value="Whatever legal purpose it may serve">Whatever legal purpose it may serve</option><option value="Other">Other</option>
                                 </select>
                                 <span class="reg-field-error" id="request-purpose-error" role="alert"></span>
                                 <div class="request-purpose-other" id="request-purpose-other-group" hidden>
