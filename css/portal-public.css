@@ -1346,7 +1346,7 @@ body.public-portal-view #bulletin::before {
     position: absolute;
     inset: 0;
     z-index: -1;
-    background: url("../assets/Sangguniang_Kabataan_logo.svg") calc(100% + 95vw) 20vw / 190vw 190vw no-repeat;
+    background: url("../assets/Sangguniang_Kabataan_logo.svg") calc(100% + 95vw) -50vw / 190vw 190vw no-repeat;
     background-attachment: fixed;
     opacity: .07;
     pointer-events: none;
@@ -1425,6 +1425,12 @@ body.public-portal-view #bulletin {
     background: #fff;
 }
 body.public-portal-view #bulletin::before { display: block; }
+@media (max-width: 767px) {
+    body.public-portal-view #bulletin::before {
+        background-position: calc(100% + 125vw) -25vw;
+        background-size: 220vw 220vw;
+    }
+}
 body.public-portal-view #bulletin .bulletin-title-row { align-items: center; }
 body.public-portal-view #bulletin .bulletin-sk-logo { width: 32px; height: 32px; flex-basis: 32px; }
 body.public-portal-view #bulletin .bulletin-latest-grid {
