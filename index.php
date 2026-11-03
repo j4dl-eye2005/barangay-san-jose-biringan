@@ -1213,13 +1213,13 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         <p class="eyebrow">Legal</p>
                         <h1 id="terms-title">Terms &amp; Conditions</h1>
                     <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated November 1, 2026</span></p></header>
-                    <p class="policy-lead">This is an academic prototype, not an official barangay service. By creating an account or using its account features, you agree to these Terms. The separate Privacy Notice explains how information entered into the prototype is handled.</p>
+                    <p class="policy-lead">This is a prototype, not an official barangay service. By creating an account or using its account features, you agree to these Terms. The separate Privacy Notice explains how information entered into the prototype is handled.</p>
 
                     <h2 id="tc-acceptance">Acceptance</h2>
                     <p>By creating an account or using account features, you agree to these Terms. If you do not agree, do not create an account. These Terms apply together with the Privacy Policy and any instructions shown for a feature. Registration uses one checkbox to record agreement to these Terms and acknowledgment of the Privacy Policy; that acknowledgment is not consent to optional uses of personal information.</p>
 
                     <h2 id="tc-accounts">Accounts &amp; services</h2>
-                    <p>The prototype allows users to register, submit proof of residency with an online request, track requests, and view sample public disclosures. Users may sign in and browse before verifying their email, but must verify it before submitting an online request. This academic prototype cannot issue an official barangay document or guarantee a real barangay service. Provide accurate information for the exercise and keep your password and authenticator codes confidential.</p>
+                    <p>The prototype allows users to register, submit proof of residency with an online request, track requests, and view sample public disclosures. Users may sign in and browse before verifying their email, but must verify it before submitting an online request. This prototype cannot issue an official barangay document or guarantee a real barangay service. Provide accurate information for the exercise and keep your password and authenticator codes confidential.</p>
 
                     <h2 id="tc-representative">Requests made by an authorized representative</h2>
                     <p>1. Who may request. A document may be requested for another person only (a) by that person's parent or legal guardian, if the person is under 18 years old, the age of majority under Republic Act No. 6809 and Article 234 of the Family Code, or (b) by an authorized representative specifically authorized in writing by the applicant, if the applicant is 18 or older.</p>
@@ -1243,13 +1243,13 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     </ul>
 
                     <h2 id="tc-fees">Fees and pickup</h2>
-                    <p>Document types and payment-status fields in this prototype are examples for the academic exercise. The prototype does not process or collect payments or issue official documents. For paid requests, residents can submit a reference and receipt for administrator review after paying through a method confirmed directly with the barangay. Listed fees must be confirmed before real use. Free requests do not require payment proof.</p>
+                    <p>Document types and payment-status fields in this prototype are examples for the exercise. The prototype does not process or collect payments or issue official documents. For paid requests, residents can submit a reference and receipt for administrator review after paying through a method confirmed directly with the barangay. Listed fees must be confirmed before real use. Free requests do not require payment proof.</p>
 
                     <h2 id="tc-admin">Administration rights</h2>
                     <p>Project administrators may review submitted files and requests to demonstrate a review workflow. Walk-in records are sample entries. No decision in this prototype is an official eligibility determination, and no request can result in an official document. If you have a concern about a project account or sample request, contact the project email below.</p>
 
                     <h2 id="tc-warranties">No warranties</h2>
-                    <p>This academic prototype may be unavailable, delayed, or changed for maintenance, security, connectivity, or project reasons. We do not warrant uninterrupted or error-free access. A portal status or confirmation is not an official decision or government document.</p>
+                    <p>This prototype may be unavailable, delayed, or changed for maintenance, security, connectivity, or project reasons. We do not warrant uninterrupted or error-free access. A portal status or confirmation is not an official decision or government document.</p>
 
                     <h2 id="tc-liability">Liability</h2>
                     <p>To the extent permitted by Philippine law, the project operator is not responsible for losses caused by a user's failure to protect account credentials, inaccurate information supplied by a user, third-party services outside the project's control, or interruptions beyond reasonable control. Nothing in these Terms excludes liability or a remedy that cannot lawfully be excluded, limits rights provided by law, or excuses a party from its legal duties.</p>
@@ -1270,7 +1270,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <div class="policy-contact-card">
                         <span class="policy-contact-icon"><i class="fas fa-envelope" aria-hidden="true"></i></span>
                         <div class="policy-contact-body">
-                            <strong>Barangay San Jose Digital Portal academic project</strong>
+                            <strong>Barangay San Jose Digital Portal</strong>
                             <a href="mailto:deleonjuliusakeem@gmail.com">deleonjuliusakeem@gmail.com</a>
                         </div>
                     </div>
@@ -1310,7 +1310,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         <p class="eyebrow">Legal</p>
                         <h1 id="moderation-title">Moderation Policy</h1>
                         <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 31, 2026</span></p></header>
-                    <p class="policy-lead">This academic prototype is not an official barangay service. This policy explains how project administrators handle account, request, and sample disclosure submissions.</p>
+                    <p class="policy-lead">This prototype is not an official barangay service. This policy explains how project administrators handle account, request, and sample disclosure submissions.</p>
 
                     <h2 id="mod-prohibited">Prohibited content</h2>
                     <p>We may reject or remove submissions that include:</p>
@@ -1344,7 +1344,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
 
                     <h2 id="mod-data">Email and personal data</h2>
                     <p>The portal may email residents about account verification and document request events, including submission, cancellation, status changes, and pickup reschedule decisions. Email delivery can be delayed or fail; residents should also check their portal request status. Applicant and authorized-representative details, uploaded proof, reasons, status history, and audit records are used to demonstrate and administer this workflow. Access is limited by staff role, and information should not be included in public disclosures unless publication is authorized and necessary.</p>
-                    <p>Personal information is handled under the Data Privacy Act of 2012 (Republic Act No. 10173) and the portal Privacy Policy. The portal collects only information used for the requested workflow, applies access controls, and retains request and audit records for administration and accountability. Do not submit another person’s information unless you are authorized to do so. This academic prototype is not an official barangay service and does not replace a formally designated personal information controller or Data Protection Officer.</p>
+                    <p>Personal information is handled under the Data Privacy Act of 2012 (Republic Act No. 10173) and the portal Privacy Policy. The portal collects only information used for the requested workflow, applies access controls, and retains request and audit records for administration and accountability. Do not submit another person’s information unless you are authorized to do so. This prototype is not an official barangay service and does not replace a formally designated personal information controller or Data Protection Officer.</p>
 
                     <h2 id="mod-responsibility">User responsibility</h2>
                     <p>Check information and files before submitting them, use the portal only for your own authorized account and requests, and respect the privacy and rights of other people. When acting for another person, you are responsible for the accuracy of the information and for having authority to submit it. Report suspected account compromise or an incorrect moderation action promptly.</p>
@@ -1353,7 +1353,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <div class="policy-contact-card">
                         <span class="policy-contact-icon"><i class="fas fa-envelope" aria-hidden="true"></i></span>
                         <div class="policy-contact-body">
-                            <strong>Barangay San Jose Digital Portal academic project</strong>
+                            <strong>Barangay San Jose Digital Portal</strong>
                             <a href="mailto:deleonjuliusakeem@gmail.com">deleonjuliusakeem@gmail.com</a>
                         </div>
                     </div>
@@ -1388,7 +1388,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                         <p class="eyebrow">Legal</p>
                         <h1 id="copyright-title">Copyright Notice</h1>
                         <p class="policy-updated"><span class="policy-updated-date"><i class="fas fa-circle-check" aria-hidden="true"></i> Last updated October 21, 2026</span></p></header>
-                    <p class="policy-lead">We respect intellectual property rights under Philippine law, including the Intellectual Property Code of the Philippines (Republic Act No. 8293). This academic prototype explains how project materials and submissions may be used, and how to report a suspected infringement.</p>
+                    <p class="policy-lead">We respect intellectual property rights under Philippine law, including the Intellectual Property Code of the Philippines (Republic Act No. 8293). This prototype explains how project materials and submissions may be used, and how to report a suspected infringement.</p>
 
                     <h2 id="cr-policy">Copyright policy</h2>
                     <p>Text, graphics, software, photographs, and other materials on the portal may be protected by copyright or other rights. Those rights remain with the relevant owner. You may not copy or reuse protected portal material except with permission or as allowed by law. Nothing on this page transfers ownership of a government seal, third-party work, or other protected material.</p>
@@ -1415,7 +1415,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
                     <div class="policy-contact-card">
                         <span class="policy-contact-icon"><i class="fas fa-envelope" aria-hidden="true"></i></span>
                         <div class="policy-contact-body">
-                            <strong>Barangay San Jose Digital Portal academic project</strong>
+                            <strong>Barangay San Jose Digital Portal</strong>
                             <a href="mailto:deleonjuliusakeem@gmail.com">deleonjuliusakeem@gmail.com</a>
                         </div>
                     </div>
