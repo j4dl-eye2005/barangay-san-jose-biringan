@@ -558,6 +558,13 @@
     flex-wrap: wrap;
     white-space: normal;
 }
+#admin-dashboard #admin-collections-panel .collection-actions > .action-btn {
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    min-width: max-content;
+    overflow-wrap: normal;
+    white-space: nowrap;
+}
 #admin-dashboard #admin-collections-panel .collection-fee-entry {
     display: flex;
     min-width: 0;

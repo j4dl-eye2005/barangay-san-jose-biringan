@@ -213,7 +213,7 @@ if ($adminInitialSection !== null && (($_SESSION['role'] ?? '') !== 'Admin' || e
     <link data-portal-route-css="auth" data-portal-css-href="css/auth.css?v=20261031-address-spacing-v1">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin.css?v=20261023-server-disclosure-drafts-v1">
     <link rel="stylesheet" href="css/public.css?v=20261016-sticky-menu-stable">
-    <link data-portal-route-css="admin" data-portal-css-href="css/admin-tables.css?v=20261101-representative-requests-v1">
+    <link data-portal-route-css="admin" data-portal-css-href="css/admin-tables.css?v=20261112-collection-action-wrap-v1">
     <link rel="stylesheet" href="css/shared-responsive.css?v=20261101-track-panel-width-v1">
     <link data-portal-route-css="admin" data-portal-css-href="css/admin-responsive.css?v=20261031-address-summary-v1">
     <link data-portal-route-css="unavailable" data-portal-css-href="css/unavailable.css?v=20261023-mobile-404-wrap-v2">

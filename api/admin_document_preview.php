@@ -132,6 +132,7 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="<?= $escape(csrfToken()) ?>">
     <title><?= $escape($title) ?> · Sample preview</title>
     <link rel="stylesheet" href="../document-preview.css?v=20261030-business-clearance-header-v20">
 </head>

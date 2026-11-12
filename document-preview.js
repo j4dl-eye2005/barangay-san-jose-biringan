@@ -11,9 +11,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const feedback = document.getElementById('issue-feedback');
         if (feedback) feedback.textContent = isBusiness ? 'Saving the issue date…' : 'Saving the review record…';
         try {
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            const headers = { 'Content-Type': 'application/json' };
+            if (csrf) headers['X-CSRF-Token'] = csrf;
             const response = await fetch('admin_issue_document.php', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({ request_id: recordButton.dataset.requestId })
             });
             const result = await response.json();
