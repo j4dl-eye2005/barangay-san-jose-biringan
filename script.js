@@ -78,7 +78,7 @@ let residentEmailAvailabilityTimer = null;
 let residentEmailAvailabilitySequence = 0;
 let residentRequestItems = [];
 let residentRequestStatusFilter = 'active';
-let residentRequestPlaceholderResizeTimer = null;
+let residentRequestIsMobileLayout = window.matchMedia('(max-width: 767px)').matches;
 let residentRequestState = { cooldownUntil: null, serverNow: null, pendingRequests: 0, pendingRequestLimit: 3, demoMode: false };
 let residentRequestStateTimer = null;
 let residentRequestServerClockOffset = 0;
@@ -6121,14 +6121,15 @@ async function submitPickupReschedule(request, requestedDate, reason, button, er
 }
 
 window.addEventListener('resize', () => {
-    clearTimeout(residentRequestPlaceholderResizeTimer);
-    residentRequestPlaceholderResizeTimer = setTimeout(() => {
-        // Mobile keyboards resize the viewport. Keep the live form mounted while
-        // a resident is typing so the focused field and keyboard stay open.
-        if (document.activeElement?.closest?.('.resident-payment-form')) return;
-        const list = document.getElementById('request-list');
-        if (list) renderResidentRequestList(residentRequestItems);
-    }, 120);
+    const isMobileLayout = window.matchMedia('(max-width: 767px)').matches;
+    // Mobile browser chrome changes the viewport height while scrolling. Only
+    // rebuild the cards when their responsive layout actually changes, so open
+    // payment instructions and forms remain mounted as the resident scrolls.
+    if (isMobileLayout === residentRequestIsMobileLayout) return;
+    residentRequestIsMobileLayout = isMobileLayout;
+    if (document.activeElement?.closest?.('.resident-payment-form')) return;
+    const list = document.getElementById('request-list');
+    if (list) renderResidentRequestList(residentRequestItems);
 }, { passive: true });
 
 function renderResidentRequestList(requests = residentRequestItems) {
