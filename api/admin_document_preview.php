@@ -70,7 +70,8 @@ $type = strtolower(trim((string) $request['document_type']));
 $isBusiness = str_contains($type, 'business');
 $isIndigency = str_contains($type, 'indigency');
 $isResidency = str_contains($type, 'residency');
-$usesCertificateLayout = $isIndigency || $isResidency;
+$isBarangayClearance = str_contains($type, 'clearance') && !$isBusiness;
+$usesCertificateLayout = $isIndigency || $isResidency || $isBarangayClearance;
 $title = $isBusiness ? 'BUSINESS CLEARANCE' : ($isIndigency ? 'CERTIFICATE OF INDIGENCY' : ($isResidency ? 'CERTIFICATE OF RESIDENCY' : 'BARANGAY CLEARANCE'));
 $personDetails = '<p>This sample is prepared for <strong>' . $escape($fullName) . '</strong>'
     . ($age !== '' ? ', age ' . $escape($age) : '')
@@ -220,11 +221,16 @@ $issuedByRole = in_array($staffRole, ['super_admin', 'document_issuer'], true);
                 <p class="indigency-indent">Based on the records of this office, the above-named resident has been residing at <span class="indigency-field indigency-field-fill"><?= $escape($address) ?></span>.</p>
                 <p>This CERTIFICATION is being issued upon the request of <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span><?php if ($purpose !== ''): ?> for <span class="indigency-field indigency-field-fill"><?= $escape($purpose) ?></span>.<?php else: ?> for whatever legal purpose it may serve.<?php endif; ?></p>
                 <p>Issued this <span class="indigency-field"><?= $escape($ordinalDay) ?></span> day of <span class="indigency-field"><?= $escape($manila->format('F')) ?></span>, <span class="indigency-field"><?= $escape($manila->format('Y')) ?></span> at Barangay San Jose, City of Biringan, Philippines.</p>
-                <?php else: ?>
+                <?php elseif ($isIndigency): ?>
                 <p class="indigency-indent">This is to certify that <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span><?php if ($age !== ''): ?>, <span class="indigency-field"><?= $escape($age) ?></span> years old<?php endif; ?>, a resident of <span class="indigency-field indigency-field-fill"><?= $escape($address) ?></span>.</p>
                 <p class="indigency-indent">This is to certify further that the above-mentioned person is personally known to me, of good moral character, a law-abiding citizen of the Republic of the Philippines, and that his/her family is listed as one of the INDIGENT families in our barangay.</p>
                 <p>This CERTIFICATION is issued upon the request of <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span> for <span class="indigency-field indigency-field-fill"><?= $escape($purpose !== '' ? $purpose : 'Purpose not recorded') ?></span>.</p>
                 <p>Issued this <span class="indigency-field"><?= $escape($ordinalDay) ?></span> day of <span class="indigency-field"><?= $escape($manila->format('F')) ?></span>, <span class="indigency-field"><?= $escape($manila->format('Y')) ?></span> at Barangay San Jose, City of Biringan.</p>
+                <?php else: ?>
+                <p class="indigency-indent">This sample concerns <span class="indigency-field indigency-field-wide"><?= $escape($fullName) ?></span>, who applied for a Barangay Clearance. The address listed in the request is <span class="indigency-field indigency-field-fill"><?= $escape($address) ?></span>.</p>
+                <p class="indigency-indent">The supporting facts and stated purpose must be checked against barangay records by authorized personnel before official issuance.</p>
+                <p>This sample is prepared for the stated purpose of <span class="indigency-field indigency-field-fill"><?= $escape($purpose !== '' ? $purpose : 'Purpose not recorded') ?></span>.</p>
+                <p>Prepared this <span class="indigency-field"><?= $escape($ordinalDay) ?></span> day of <span class="indigency-field"><?= $escape($manila->format('F')) ?></span>, <span class="indigency-field"><?= $escape($manila->format('Y')) ?></span> at Barangay San Jose, City of Biringan.</p>
                 <?php endif; ?>
             </section>
             <div class="indigency-signature">
